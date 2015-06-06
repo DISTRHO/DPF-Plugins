@@ -28,6 +28,7 @@ mkdir modguis
 mkdir plugins
 
 mv repos/DPF dpf
+rm -rf dpf/.git*
 
 for PLUGIN in ${PLUGINS[@]}; do
   if [ -d repos/$PLUGIN/modguis ]; then
