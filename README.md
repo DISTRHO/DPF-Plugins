@@ -21,6 +21,8 @@ This repository is intended for distribution packagers, not end-users.
 Screenshots
 -----------
 
+<b>
+
 3-Band EQ<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
 
@@ -47,3 +49,5 @@ Nekobi<br/>
 
 ProM<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/ProM/Screenshot.png "ProM")
+
+</b>
