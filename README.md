@@ -1,9 +1,10 @@
 DPF-Plugins
 ===========
 
-Collection of DPF-based plugins ready for packaging.
+Collection of DPF-based plugins ready for packaging.<br/>
+They come in LADSPA, DSSI, LV2 and VST2 formats.
 
-This repository does not use submodules,
+This repository does not use submodules,<br/>
 everything you need to build is included in a simple clone.
 
 The list of plugins/packs are:
