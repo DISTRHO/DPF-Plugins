@@ -22,6 +22,7 @@ Screenshots
 -----------
 
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
+![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandSplitter/Screenshot.png "3 Band Splitter")
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/PingPongPan/Screenshot.png "Ping Pong Pan")
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/AmplitudeImposer/Screenshot.png "Amplitude Imposer")
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/CycleShifter/Screenshot.png "Cycle Shifter")
