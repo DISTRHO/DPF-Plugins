@@ -35,7 +35,7 @@ plugins: libs
 	# ProM (needs DGL + ProjectM)
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_PROJM),true)
-# 	$(MAKE) all -C plugins/ProM
+	$(MAKE) all -C plugins/ProM
 endif
 endif
 
