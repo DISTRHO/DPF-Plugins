@@ -1,0 +1,11 @@
+@prefix mod: <http://portalmod.com/ns/modgui#>.
+
+<http://distrho.sf.net/plugins/PingPongPan>
+    mod:gui [
+        a mod:Gui;
+        mod:resourcesDirectory <modgui>;
+        mod:iconTemplate <modgui/icon-ppp.html>;
+        mod:templateData <modgui/data-ppp.json>;
+        mod:screenshot <modgui/screenshot-ppp.png>;
+        mod:thumbnail <modgui/thumb-ppp.png>;
+    ] .

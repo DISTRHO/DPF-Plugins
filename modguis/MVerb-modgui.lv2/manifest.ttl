@@ -1,0 +1,11 @@
+@prefix mod: <http://portalmod.com/ns/modgui#>.
+
+<http://distrho.sf.net/plugins/MVerb>
+    mod:gui [
+        a mod:Gui;
+        mod:resourcesDirectory <modgui>;
+        mod:iconTemplate <modgui/icon-mverb.html>;
+        mod:templateData <modgui/data-mverb.json>;
+        mod:screenshot <modgui/screenshot-mverb.png>;
+        mod:thumbnail <modgui/thumb-mverb.png>;
+    ] .

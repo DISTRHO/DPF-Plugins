@@ -1,0 +1,42 @@
+{
+    "author": "Martin Eastwood", 
+    "controls": [
+        {
+            "name": "MIX", 
+            "symbol": "mix"
+        }, 
+        {
+            "name": "PRE", 
+            "symbol": "predelay"
+        }, 
+        {
+            "name": "EL/MIX", 
+            "symbol": "earlymix"
+        }, 
+        {
+            "name": "SIZE", 
+            "symbol": "size"
+        }, 
+        {
+            "name": "DENSITY", 
+            "symbol": "density"
+        }, 
+        {
+            "name": "BAND", 
+            "symbol": "bandwidth"
+        }, 
+        {
+            "name": "DECAY", 
+            "symbol": "decay"
+        }, 
+        {
+            "name": "DAMP", 
+            "symbol": "damping"
+        }, 
+        {
+            "name": "GAIN", 
+            "symbol": "gain"
+        }
+    ], 
+    "label": "MVerb"
+}

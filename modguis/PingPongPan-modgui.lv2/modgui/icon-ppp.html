@@ -1,0 +1,108 @@
+<div class="pingpongpan mod-pedal mod-pedal-boxy ">
+    <div mod-role="drag-handle" class="mod-drag-handle"></div>
+
+    <div class="mod-light on" mod-role="bypass-light"></div>
+
+    <div class="mod-control-group clearfix">
+        <div class="mod-knob pingpongpan-knob_freq">
+            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="freq"></div>
+        </div>
+        <div class="mod-knob pingpongpan-knob_width">
+            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="with"></div>
+        </div>
+    </div>
+
+    <div class="mod-footswitch" mod-role="bypass"></div>
+
+    <div class="mod-pedal-input">
+        {{#effect.ports.audio.input}}
+        <div class="mod-input mod-input-disconnected" title="{{name}}" mod-role="input-audio-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-input-image"></div>
+        </div>
+        {{/effect.ports.audio.input}}
+        {{#effect.ports.midi.input}}
+        <div class="mod-input mod-input-disconnected" title="{{name}}" mod-role="input-midi-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-input-image"></div>
+        </div>
+        {{/effect.ports.midi.input}}
+    </div>
+    <div class="mod-pedal-output">
+        {{#effect.ports.audio.output}}
+        <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-audio-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-output-image"></div>
+        </div>
+        {{/effect.ports.audio.output}}
+        {{#effect.ports.midi.output}}
+        <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-midi-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-input-image"></div>
+        </div>
+        {{/effect.ports.midi.output}}
+    </div>
+</div>
+<style>
+.pingpongpan * {
+    color:black !important;
+}
+.pingpongpan {
+    background-image:url(/resources/background.png{{{ns}}}) !important;
+    background-size:615px 344px;
+    width:615px;
+    height:344px;
+}
+.pingpongpan .mod-control-group {
+    width:500px;
+    height:220px;
+}
+.pingpongpan .mod-control-group .mod-knob {
+    height:220px !important;
+}
+.pingpongpan .mod-control-group .mod-knob .mod-knob-image {
+    background-image:url(/resources/knob.png{{{ns}}});
+    background-position:left center;
+    background-repeat:no-repeat;
+    background-size:auto 220px;
+    height:220px;
+    width:220px;
+    margin:0 auto;
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+}
+.pingpongpan .mod-control-group .pingpongpan-knob_freq {
+    top:55px;
+    left:58px;
+    position:absolute;
+}
+.pingpongpan .mod-control-group .pingpongpan-knob_width {
+    top:55px;
+    left:302px;
+    position:absolute;
+}
+.pingpongpan .mod-light {
+    top:32px;
+    left:320px;
+}
+.pingpongpan .mod-footswitch {
+    background-image:url(/resources/footswitch.png{{{ns}}});
+    background-position:top center;
+    background-repeat:no-repeat;
+    background-size:auto 132px;
+    top:15px;
+    left:430px !important;
+    cursor:pointer;
+    height:66px;
+    position:absolute;
+}
+.pingpongpan .mod-footswitch.on {
+    background-position:top center;
+}
+.pingpongpan .mod-footswitch.off {
+    background-position:bottom center;
+}
+.pingpongpan .mod-pedal-input , .pingpongpan .mod-pedal-output {
+    top: 60px;
+}
+.pingpongpan .mod-pedal-input .mod-input , .pingpongpan .mod-pedal-output .mod-output {
+    margin-bottom: 40px !important
+}
+</style>

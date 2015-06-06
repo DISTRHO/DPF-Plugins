@@ -1,0 +1,11 @@
+*.a
+*.d
+*.o
+
+*.exe
+*.dll
+*.dylib
+*.so
+*.zip
+
+bin/*
