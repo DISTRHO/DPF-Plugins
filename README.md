@@ -23,10 +23,10 @@ Screenshots
 
 <b>
 
-3-Band EQ<br/>
+3 Band EQ<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
 
-3-Band Splitter<br/>
+3 Band Splitter<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandSplitter/Screenshot.png "3 Band Splitter")
 
 Ping Pong Pan<br/>
@@ -38,7 +38,7 @@ Amplitude Imposer<br/>
 Cycle Shifter<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/CycleShifter/Screenshot.png "Cycle Shifter")
 
-SoulForce<br/>
+Soul Force<br/>
 ![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/SoulForce/Screenshot.png "Soul Force")
 
 MVerb<br/>
