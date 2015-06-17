@@ -8,6 +8,10 @@
 
 include ../../Makefile.mk
 
+ifeq ($(OBJS_UI),)
+HAVE_DGL = false
+endif
+
 # --------------------------------------------------------------
 # Basic setup
 

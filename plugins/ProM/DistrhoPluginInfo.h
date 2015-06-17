@@ -27,4 +27,6 @@
 // required by projectM
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1
 
+#define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:AnalyserPlugin"
+
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED
