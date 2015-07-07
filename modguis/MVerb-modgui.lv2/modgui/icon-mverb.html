@@ -1,6 +1,6 @@
-<div class="mod-pedal mod-combo-model-001 mod-combo-model-001-0930">
+<div class="mod-pedal mod-combo-model-001{{{cns}}} mod-combo-model-001-0930{{{cns}}}">
     <div mod-role="drag-handle" class="mod-drag-handle"></div>
-    <div class="mod-plugin-author"><h1>{{author}}</h1></div>
+    <div class="mod-plugin-brand"><h1>{{brand}}</h1></div>
     <div class="mod-plugin-name"><h1>{{label}}</h1></div>
     <div class="mod-control-group clearfix">
         <div class="mod-switch" mod-role="bypass">
@@ -85,7 +85,7 @@
         {{/effect.ports.audio.output}}
         {{#effect.ports.midi.output}}
         <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-midi-port" mod-port-symbol="{{symbol}}">
-            <div class="mod-pedal-input-image"></div>
+            <div class="mod-pedal-output-image"></div>
         </div>
         {{/effect.ports.midi.output}}
     </div>
