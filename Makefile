@@ -89,7 +89,7 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
 	cp    bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
 	cp -r bin/*-dssi.* bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
-	cp -r bin/*.lv2 modguis/*.lv2 $(DESTDIR)$(PREFIX)/lib/lv2/
+	cp -r bin/*.lv2 modguis/*.modgui $(DESTDIR)$(PREFIX)/lib/lv2/
 	cp    bin/*-vst.* $(DESTDIR)$(PREFIX)/lib/vst/
 
 # --------------------------------------------------------------
