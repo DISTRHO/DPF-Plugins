@@ -21,6 +21,9 @@ ifeq ($(HAVE_DGL),true)
 endif
 
 plugins: libs
+	# Kars
+	$(MAKE) all -C plugins/Kars
+
 	# Mini-Series
 	$(MAKE) all -C plugins/3BandEQ
 	$(MAKE) all -C plugins/3BandSplitter
@@ -60,6 +63,9 @@ ifeq ($(HAVE_DGL),true)
 	$(MAKE) clean -C dpf/dgl
 endif
 	$(MAKE) clean -C dpf/utils/lv2-ttl-generator
+
+	# Kars
+	$(MAKE) clean -C plugins/Kars
 
 	# Mini-Series
 	$(MAKE) clean -C plugins/3BandEQ
