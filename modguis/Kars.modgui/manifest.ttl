@@ -1,0 +1,21 @@
+@prefix modgui: <http://moddevices.com/ns/modgui#> .
+@prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
+
+<http://distrho.sf.net/plugins/Kars>
+    modgui:gui [
+        modgui:resourcesDirectory <modgui> ;
+        modgui:iconTemplate <modgui/icon-kars.html> ;
+        modgui:stylesheet <modgui/stylesheet-kars.css> ;
+        modgui:screenshot <modgui/screenshot-kars.png> ;
+        modgui:thumbnail <modgui/thumbnail-kars.png> ;
+        modgui:brand "DISTRHO" ;
+        modgui:label "Kars" ;
+        modgui:model "boxy-small" ;
+        modgui:panel "1-footswitch" ;
+        modgui:color "yellow" ;
+        modgui:port [
+            lv2:index 0 ;
+            lv2:symbol "sustain" ;
+            lv2:name "Sustain" ;
+        ] ;
+    ] .
