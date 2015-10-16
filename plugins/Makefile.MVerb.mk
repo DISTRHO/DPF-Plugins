@@ -12,11 +12,6 @@ ifeq ($(OBJS_UI),)
 HAVE_DGL = false
 endif
 
-ifeq ($(WIN32),true)
-# FIXME: make OpenGL >= 2 work with mingw
-HAVE_DGL = false
-endif
-
 # --------------------------------------------------------------
 # Basic setup
 

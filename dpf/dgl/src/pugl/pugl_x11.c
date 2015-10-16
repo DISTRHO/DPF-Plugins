@@ -460,9 +460,10 @@ dispatchKey(PuglView* view, XEvent* event, bool press)
 	}
 
 send_event:
-	if (view->parent) {
+	if (view->parent != 0) {
+		event->xkey.time   = 0; // purposefully set an invalid time, used for feedback detection on bad hosts
 		event->xany.window = view->parent;
-		XSendEvent(view->impl->display, view->parent, True, press ? KeyPressMask : KeyReleaseMask, event);
+		XSendEvent(view->impl->display, view->parent, False, NoEventMask, event);
 	}
 }
 
@@ -492,7 +493,11 @@ puglProcessEvents(PuglView* view)
 			break;
 		}
 
-		if (event.xany.window != view->impl->win) {
+		if (event.xany.window != view->impl->win &&
+			(view->parent == 0 || event.xany.window != (Window)view->parent)) {
+			continue;
+		}
+		if ((event.type == KeyPress || event.type == KeyRelease) && event.xkey.time == 0) {
 			continue;
 		}
 
