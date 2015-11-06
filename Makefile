@@ -102,7 +102,15 @@ ifeq ($(HAVE_DGL),true)
 	cp -r bin/*-dssi       $(DESTDIR)$(PREFIX)/lib/dssi/
 endif
 	cp -r bin/*.lv2        $(DESTDIR)$(PREFIX)/lib/lv2/
-	cp -r modguis/*.modgui $(DESTDIR)$(PREFIX)/lib/lv2/
+
+	cp -r modguis/Kars.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/
+	cp    modguis/Kars.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/modgui.ttl
+
+	cp -r modguis/MVerb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/
+	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
+
+	cp -r modguis/PingPongPan.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/
+	cp    modguis/PingPongPan.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/modgui.ttl
 
 # --------------------------------------------------------------
 
