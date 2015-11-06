@@ -45,6 +45,10 @@
 # define DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE 2048
 #endif
 
+#ifndef DISTRHO_PLUGIN_USES_MODGUI
+# define DISTRHO_PLUGIN_USES_MODGUI 0
+#endif
+
 #if DISTRHO_PLUGIN_HAS_UI && ! defined(HAVE_DGL)
 # undef DISTRHO_PLUGIN_HAS_UI
 # define DISTRHO_PLUGIN_HAS_UI 0
@@ -111,7 +115,11 @@ void lv2_generate_ttl(const char* const basename)
         manifestString += "<" DISTRHO_PLUGIN_URI ">\n";
         manifestString += "    a lv2:Plugin ;\n";
         manifestString += "    lv2:binary <" + pluginDLL + "." DISTRHO_DLL_EXTENSION "> ;\n";
+#if DISTRHO_PLUGIN_USES_MODGUI
+        manifestString += "    rdfs:seeAlso <" + pluginTTL + " , modgui.ttl> .\n";
+#else
         manifestString += "    rdfs:seeAlso <" + pluginTTL + "> .\n";
+#endif
         manifestString += "\n";
 
 #if DISTRHO_PLUGIN_HAS_UI
@@ -148,16 +156,21 @@ void lv2_generate_ttl(const char* const basename)
         char strBuf[0xff+1];
         strBuf[0xff] = '\0';
 
+        String presetString;
+
         // Presets
         for (uint32_t i = 0; i < plugin.getProgramCount(); ++i)
         {
             std::snprintf(strBuf, 0xff, "%03i", i+1);
 
-            manifestString += "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-            manifestString += "    a pset:Preset ;\n";
-            manifestString += "    lv2:appliesTo <" DISTRHO_PLUGIN_URI "> ;\n";
-            manifestString += "    rdfs:seeAlso <presets.ttl> .\n";
-            manifestString += "\n";
+            presetString  = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
+            presetString += "    a pset:Preset ;\n";
+            presetString += "    lv2:appliesTo <" DISTRHO_PLUGIN_URI "> ;\n";
+            presetString += "    rdfs:label \"" + plugin.getProgramName(i) + "\" ;\n\n";
+            presetString += "    rdfs:seeAlso <presets.ttl> .\n";
+            presetString += "\n";
+
+            manifestString += presetString;
         }
 #endif
 
@@ -530,10 +543,10 @@ void lv2_generate_ttl(const char* const basename)
             plugin.loadProgram(i);
 
             presetString  = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-            presetString += "    rdfs:label \"" + plugin.getProgramName(i) + "\" ;\n\n";
 
-            // TODO
-# if 0 // DISTRHO_PLUGIN_WANT_STATE
+# if DISTRHO_PLUGIN_WANT_STATE
+# warning "Exporting LV2 Presets with state not supported yet"
+#  if 0
             for (uint32_t j=0; j<numStates; ++j)
             {
                 if (j == 0)
@@ -558,6 +571,7 @@ void lv2_generate_ttl(const char* const basename)
                     presetString += "    ] ,\n";
                 }
             }
+#  endif
 # endif
 
             for (uint32_t j=0; j <numParameters; ++j)
