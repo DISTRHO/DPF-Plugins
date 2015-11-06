@@ -26,13 +26,9 @@
 #define DISTRHO_UI_AMPLITUDE_IMPOSER_HPP_INCLUDED
 
 #include "DistrhoUI.hpp"
-
-#include "ImageSlider.hpp"
+#include "ImageWidgets.hpp"
 
 #include "DistrhoArtworkAmplitudeImposer.hpp"
-
-using DGL::Image;
-using DGL::ImageSlider;
 
 START_NAMESPACE_DISTRHO
 

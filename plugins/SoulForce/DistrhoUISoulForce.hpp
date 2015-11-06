@@ -26,17 +26,9 @@
 #define DISTRHO_UI_SOUL_FORCE_HPP_INCLUDED
 
 #include "DistrhoUI.hpp"
-
-#include "ImageButton.hpp"
-#include "ImageKnob.hpp"
-#include "ImageSwitch.hpp"
+#include "ImageWidgets.hpp"
 
 #include "DistrhoArtworkSoulForce.hpp"
-
-using DGL::Image;
-using DGL::ImageButton;
-using DGL::ImageKnob;
-using DGL::ImageSwitch;
 
 START_NAMESPACE_DISTRHO
 

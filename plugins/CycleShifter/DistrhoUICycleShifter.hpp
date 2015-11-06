@@ -26,13 +26,9 @@
 #define DISTRHO_UI_CYCLE_SHIFTER_HPP_INCLUDED
 
 #include "DistrhoUI.hpp"
-
-#include "ImageSlider.hpp"
+#include "ImageWidgets.hpp"
 
 #include "DistrhoArtworkCycleShifter.hpp"
-
-using DGL::Image;
-using DGL::ImageSlider;
 
 START_NAMESPACE_DISTRHO
 
