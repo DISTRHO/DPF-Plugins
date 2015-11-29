@@ -46,14 +46,30 @@ protected:
     // -------------------------------------------------------------------
     // Information
 
+    const char* getName() const noexcept override
+    {
+        return "Amplitude Imposer";
+    }
+
     const char* getLabel() const noexcept override
     {
         return "AmplitudeImposer";
     }
 
+    const char* getDescription() const override
+    {
+        return "Takes 2 stereo inputs and imposes the amplitude envelope of the first one on the second one.\n\
+Also has a threshold level for the second input, so that when the signal falls below it, it is amplified up to the threshold, to give a greater signal to be amplitude modulated.";
+    }
+
     const char* getMaker() const noexcept override
     {
         return "ndc Plugs";
+    }
+
+    const char* getHomePage() const override
+    {
+        return "https://github.com/DISTRHO/ndc-Plugs";
     }
 
     const char* getLicense() const noexcept override
@@ -63,7 +79,7 @@ protected:
 
     uint32_t getVersion() const noexcept override
     {
-        return 0x1000;
+        return d_version(0, 1, 0);
     }
 
     int64_t getUniqueId() const noexcept override

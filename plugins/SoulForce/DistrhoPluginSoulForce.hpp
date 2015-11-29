@@ -66,9 +66,20 @@ protected:
         return "SoulForce";
     }
 
+    const char* getDescription() const override
+    {
+        return "A fairly standard waveshaping distortion plugin, made more interesting through the use of feedback to control the shaping.\n\
+Can get pretty loud and obnoxious.";
+    }
+
     const char* getMaker() const noexcept override
     {
         return "ndc Plugs";
+    }
+
+    const char* getHomePage() const override
+    {
+        return "https://github.com/DISTRHO/ndc-Plugs";
     }
 
     const char* getLicense() const noexcept override
@@ -78,7 +89,7 @@ protected:
 
     uint32_t getVersion() const noexcept override
     {
-        return 0x1000;
+        return d_version(0, 1, 0);
     }
 
     int64_t getUniqueId() const noexcept override

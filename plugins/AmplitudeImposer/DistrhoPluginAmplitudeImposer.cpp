@@ -62,7 +62,7 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
             break;
         case 1:
             port.name   = "Input Right (Amp Env)";
-            port.symbol = "in_left_amp";
+            port.symbol = "in_right_amp";
             break;
         case 2:
             port.name   = "Input Left (Audio)";
@@ -84,7 +84,7 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
             break;
         case 1:
             port.name   = "Output Right";
-            port.symbol = "out_left";
+            port.symbol = "out_right";
             break;
         }
     }

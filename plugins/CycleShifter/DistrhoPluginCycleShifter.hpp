@@ -53,9 +53,20 @@ protected:
         return "CycleShifter";
     }
 
+    const char* getDescription() const override
+    {
+        return "Reads in a cycle's-worth of the input signal, then (once the whole cycle's been read in) outputs it again, on top of the current output.\n\
+Works best with long/sustained sounds (e.g. strings, pads etc.), sounds like a weird kind of gentle distortion.";
+    }
+
     const char* getMaker() const noexcept override
     {
         return "ndc Plugs";
+    }
+
+    const char* getHomePage() const override
+    {
+        return "https://github.com/DISTRHO/ndc-Plugs";
     }
 
     const char* getLicense() const noexcept override
@@ -65,7 +76,7 @@ protected:
 
     uint32_t getVersion() const noexcept override
     {
-        return 0x1000;
+        return d_version(0, 1, 0);
     }
 
     int64_t getUniqueId() const noexcept override

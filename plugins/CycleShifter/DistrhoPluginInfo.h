@@ -25,8 +25,9 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_NAME "Cycle Shifter"
-#define DISTRHO_PLUGIN_URI  "http://www.niallmoody.com/ndcplugs/cycleshifter.htm"
+#define DISTRHO_PLUGIN_BRAND "DISTRHO"
+#define DISTRHO_PLUGIN_NAME  "Cycle Shifter"
+#define DISTRHO_PLUGIN_URI   "http://www.niallmoody.com/ndcplugs/cycleshifter.htm"
 
 #define DISTRHO_PLUGIN_HAS_UI        1
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1
