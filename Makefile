@@ -47,6 +47,14 @@ ifeq ($(HAVE_PROJM),true)
 endif
 endif
 
+	# Max-Gen stuff
+	$(MAKE) all -C plugins/bitcrush
+	$(MAKE) all -C plugins/freeverb
+	$(MAKE) all -C plugins/gigaverb
+	$(MAKE) all -C plugins/pitchotto
+	$(MAKE) all -C plugins/pitchshift
+	$(MAKE) all -C plugins/shiroverb
+
 gen: plugins dpf/utils/lv2_ttl_generator
 	@$(CURDIR)/dpf/utils/generate-ttl.sh
 ifeq ($(MACOS),true)
@@ -86,6 +94,14 @@ endif
 	# ProM
 	$(MAKE) clean -C plugins/ProM
 
+	# Max-Gen stuff
+	$(MAKE) clean -C plugins/bitcrush
+	$(MAKE) clean -C plugins/freeverb
+	$(MAKE) clean -C plugins/gigaverb
+	$(MAKE) clean -C plugins/pitchotto
+	$(MAKE) clean -C plugins/pitchshift
+	$(MAKE) clean -C plugins/shiroverb
+
 # --------------------------------------------------------------
 
 install:
@@ -103,14 +119,24 @@ ifeq ($(HAVE_DGL),true)
 endif
 	cp -r bin/*.lv2        $(DESTDIR)$(PREFIX)/lib/lv2/
 
+	# Kars
 	cp -r modguis/Kars.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/
 	cp    modguis/Kars.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/modgui.ttl
 
+	# Mini-Series
+	cp -r modguis/PingPongPan.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/
+	cp    modguis/PingPongPan.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/modgui.ttl
+
+	# MVerb
 	cp -r modguis/MVerb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/
 	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
 
-	cp -r modguis/PingPongPan.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/
-	cp    modguis/PingPongPan.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/modgui.ttl
+	# Max-Gen stuff
+	cp -r modguis/Pitchotto.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/
+	cp    modguis/Pitchotto.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/modgui.ttl
+
+	cp -r modguis/Shiroverb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/
+	cp    modguis/Shiroverb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/modgui.ttl
 
 # --------------------------------------------------------------
 

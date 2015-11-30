@@ -24,31 +24,34 @@ Screenshots
 
 <b>
 
+Kars<br/>
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/Kars/Screenshot.png "Kars")
+
 3 Band EQ<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
 
 3 Band Splitter<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/3BandSplitter/Screenshot.png "3 Band Splitter")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/3BandSplitter/Screenshot.png "3 Band Splitter")
 
 Ping Pong Pan<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/PingPongPan/Screenshot.png "Ping Pong Pan")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/PingPongPan/Screenshot.png "Ping Pong Pan")
 
 Amplitude Imposer<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/AmplitudeImposer/Screenshot.png "Amplitude Imposer")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/AmplitudeImposer/Screenshot.png "Amplitude Imposer")
 
 Cycle Shifter<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/CycleShifter/Screenshot.png "Cycle Shifter")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/CycleShifter/Screenshot.png "Cycle Shifter")
 
 Soul Force<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/SoulForce/Screenshot.png "Soul Force")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/SoulForce/Screenshot.png "Soul Force")
 
 MVerb<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/MVerb/Screenshot.png "MVerb")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/MVerb/Screenshot.png "MVerb")
 
 Nekobi<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/Nekobi/Screenshot.png "Nekobi")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/Nekobi/Screenshot.png "Nekobi")
 
 ProM<br/>
-![screenshot](https://raw.githubusercontent.com/falkTX/DPF-Plugins/master/plugins/ProM/Screenshot.png "ProM")
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/ProM/Screenshot.png "ProM")
 
 </b>
