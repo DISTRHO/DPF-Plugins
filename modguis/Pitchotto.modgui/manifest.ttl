@@ -8,10 +8,10 @@
         modgui:stylesheet <modgui/stylesheet-pitchotto.css> ;
         modgui:screenshot <modgui/screenshot-pitchotto.png> ;
         modgui:thumbnail <modgui/thumbnail-pitchotto.png> ;
-        modgui:brand "SHIRO" ;
+        modgui:brand "Shiro" ;
         modgui:label "Pitchotto" ;
         modgui:model "boxy" ;
-        modgui:panel "7-knobs" ;
+        modgui:panel "6-knobs" ;
         modgui:color "red" ;
         modgui:knob "black" ;
         modgui:port [
@@ -24,23 +24,19 @@
             lv2:name "ratio2" ;
         ] , [
             lv2:index 2 ;
-            lv2:symbol "cutoff" ;
-            lv2:name "cutoff" ;
-        ] , [
-            lv2:index 3 ;
             lv2:symbol "mix" ;
             lv2:name "mix" ;
         ] , [
+            lv2:index 3 ;
+            lv2:symbol "delay1" ;
+            lv2:name "delay1" ;
+        ] , [
             lv2:index 4 ;
-            lv2:symbol "window1" ;
-            lv2:name "window1" ;
+            lv2:symbol "delay2" ;
+            lv2:name "delay2" ;
         ] , [
             lv2:index 5 ;
-            lv2:symbol "window2" ;
-            lv2:name "window2" ;
-        ] , [
-            lv2:index 6 ;
-            lv2:symbol "blur" ;
-            lv2:name "blur" ;
+            lv2:symbol "cutoff" ;
+            lv2:name "cutoff" ;
         ] ;
     ] .

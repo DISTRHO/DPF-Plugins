@@ -1,0 +1,46 @@
+@prefix modgui: <http://moddevices.com/ns/modgui#> .
+@prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
+
+<http://distrho.sf.net/plugins/Modulay>
+    modgui:gui [
+        modgui:resourcesDirectory <modgui> ;
+        modgui:iconTemplate <modgui/icon-modulay.html> ;
+        modgui:stylesheet <modgui/stylesheet-modulay.css> ;
+        modgui:screenshot <modgui/screenshot-modulay.png> ;
+        modgui:thumbnail <modgui/thumbnail-modulay.png> ;
+        modgui:brand "Shiro" ;
+        modgui:label "Modulay" ;
+        modgui:model "boxy" ;
+        modgui:panel "7-knobs" ;
+        modgui:color "racing" ;
+        modgui:knob "black" ;
+        modgui:port [
+            lv2:index 0 ;
+            lv2:symbol "time" ;
+            lv2:name "time" ;
+        ] , [
+            lv2:index 1 ;
+            lv2:symbol "repeats" ;
+            lv2:name "repeats" ;
+        ] , [
+            lv2:index 2 ;
+            lv2:symbol "cutoff" ;
+            lv2:name "cutoff" ;
+        ] , [
+            lv2:index 3 ;
+            lv2:symbol "mix" ;
+            lv2:name "mix" ;
+        ] , [
+            lv2:index 4 ;
+            lv2:symbol "depth" ;
+            lv2:name "depth" ;
+        ] , [
+            lv2:index 5 ;
+            lv2:symbol "rate" ;
+            lv2:name "rate" ;
+        ] , [
+            lv2:index 6 ;
+            lv2:symbol "delay" ;
+            lv2:name "delay" ;
+        ] ;
+    ] .

@@ -51,6 +51,7 @@ endif
 	$(MAKE) all -C plugins/bitcrush
 	$(MAKE) all -C plugins/freeverb
 	$(MAKE) all -C plugins/gigaverb
+	$(MAKE) all -C plugins/modulay
 	$(MAKE) all -C plugins/pitchotto
 	$(MAKE) all -C plugins/pitchshift
 	$(MAKE) all -C plugins/shiroverb
@@ -98,6 +99,7 @@ endif
 	$(MAKE) clean -C plugins/bitcrush
 	$(MAKE) clean -C plugins/freeverb
 	$(MAKE) clean -C plugins/gigaverb
+	$(MAKE) clean -C plugins/modulay
 	$(MAKE) clean -C plugins/pitchotto
 	$(MAKE) clean -C plugins/pitchshift
 	$(MAKE) clean -C plugins/shiroverb
@@ -115,9 +117,9 @@ install:
 	cp bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 
 ifeq ($(HAVE_DGL),true)
-	cp -r bin/*-dssi       $(DESTDIR)$(PREFIX)/lib/dssi/
+	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
 endif
-	cp -r bin/*.lv2        $(DESTDIR)$(PREFIX)/lib/lv2/
+	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
 	# Kars
 	cp -r modguis/Kars.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/
@@ -132,6 +134,9 @@ endif
 	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
 
 	# Max-Gen stuff
+	cp -r modguis/Modulay.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/
+	cp    modguis/Modulay.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/modgui.ttl
+
 	cp -r modguis/Pitchotto.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/
 	cp    modguis/Pitchotto.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/modgui.ttl
 

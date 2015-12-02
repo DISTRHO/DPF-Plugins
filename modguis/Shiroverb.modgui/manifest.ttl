@@ -8,7 +8,7 @@
         modgui:stylesheet <modgui/stylesheet-shiroverb.css> ;
         modgui:screenshot <modgui/screenshot-shiroverb.png> ;
         modgui:thumbnail <modgui/thumbnail-shiroverb.png> ;
-        modgui:brand "SHIRO" ;
+        modgui:brand "Shiro" ;
         modgui:label "Shiroverb" ;
         modgui:model "boxy" ;
         modgui:panel "8-knobs" ;
@@ -20,8 +20,8 @@
             lv2:name "decay" ;
         ] , [
             lv2:index 1 ;
-            lv2:symbol "roomsize" ;
-            lv2:name "roomsize" ;
+            lv2:symbol "tail" ;
+            lv2:name "tail" ;
         ] , [
             lv2:index 2 ;
             lv2:symbol "damping" ;
@@ -32,16 +32,16 @@
             lv2:name "mix" ;
         ] , [
             lv2:index 4 ;
+            lv2:symbol "roomsize" ;
+            lv2:name "roomsize" ;
+        ] , [
+            lv2:index 5 ;
             lv2:symbol "ratio" ;
             lv2:name "ratio" ;
         ] , [
-            lv2:index 5 ;
+            lv2:index 6 ;
             lv2:symbol "cutoff" ;
             lv2:name "cutoff" ;
-        ] , [
-            lv2:index 6 ;
-            lv2:symbol "blur" ;
-            lv2:name "blur" ;
         ] , [
             lv2:index 7 ;
             lv2:symbol "shimmer" ;
