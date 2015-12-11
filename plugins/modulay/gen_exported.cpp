@@ -31,22 +31,24 @@ static const int GENLIB_LOOPCOUNT_BAIL = 100000;
 // The State struct contains all the state and procedures for the gendsp kernel
 typedef struct State { 
 	CommonState __commonstate;
-	Delay m_delay_2;
+	DCBlock m_dcblock_15;
 	Delay m_delay_3;
-	SineCycle m_cycle_14;
+	Delay m_delay_4;
+	SineCycle m_cycle_16;
 	SineData __sinedata;
-	double m_bleed_9;
-	double m_rate_11;
-	double m_time_12;
-	double m_cutoff_10;
-	double m_feedback_13;
-	double m_repeats_8;
-	double m_depth_6;
-	double m_mix_5;
-	double m_feedforward_7;
-	double m_y_1;
+	double m_repeats_10;
+	double m_mix_12;
+	double m_rate_13;
+	double m_depth_11;
+	double m_delay_14;
+	double m_cutoff_9;
+	double m_time_7;
+	double m_feedback_6;
 	double samplerate;
-	double m_delay_4;
+	double m_bleed_8;
+	double m_y_1;
+	double m_feedforward_5;
+	double m_history_2;
 	int vectorsize;
 	int __exception;
 	// re-initialize all member variables;
@@ -55,19 +57,21 @@ typedef struct State {
 		vectorsize = __vs;
 		samplerate = __sr;
 		m_y_1 = 0;
-		m_delay_2.reset("m_delay_2", 44100);
-		m_delay_3.reset("m_delay_3", 44100);
-		m_delay_4 = 0;
-		m_mix_5 = 1;
-		m_depth_6 = 0;
-		m_feedforward_7 = 1;
-		m_repeats_8 = 0.75;
-		m_bleed_9 = 0;
-		m_cutoff_10 = 4000;
-		m_rate_11 = 2;
-		m_time_12 = 500;
-		m_feedback_13 = 0;
-		m_cycle_14.reset(samplerate, 0);
+		m_history_2 = 0;
+		m_delay_3.reset("m_delay_3", 48000);
+		m_delay_4.reset("m_delay_4", 48000);
+		m_feedforward_5 = 100;
+		m_feedback_6 = 0;
+		m_time_7 = 500;
+		m_bleed_8 = 0;
+		m_cutoff_9 = 2500;
+		m_repeats_10 = 75;
+		m_depth_11 = 1;
+		m_mix_12 = 100;
+		m_rate_13 = 2;
+		m_delay_14 = 0;
+		m_dcblock_15.reset();
+		m_cycle_16.reset(samplerate, 0);
 		genlib_reset_complete(this);
 		
 	};
@@ -84,39 +88,50 @@ typedef struct State {
 			return __exception;
 			
 		};
-		double mstosamps_4908 = (m_time_12 * (samplerate * 0.001));
-		double expr_4909 = safediv(((m_cutoff_10 * 2) * 3.1415926535898), 44100);
-		double sin_4889 = sin(expr_4909);
-		double clamp_4890 = ((sin_4889 <= 1e-05) ? 1e-05 : ((sin_4889 >= 0.99999) ? 0.99999 : sin_4889));
+		double mul_1174 = (m_mix_12 * 0.01);
+		double mstosamps_1200 = (m_time_7 * (samplerate * 0.001));
+		double expr_1204 = safediv(((m_cutoff_9 * 2) * 3.1415926535898), 48000);
+		double sin_1181 = sin(expr_1204);
+		double clamp_1182 = ((sin_1181 <= 1e-05) ? 1e-05 : ((sin_1181 >= 0.99999) ? 0.99999 : sin_1181));
+		double mul_1176 = (m_bleed_8 * 0.01);
+		double mul_1175 = (m_feedforward_5 * 0.01);
+		double mul_1178 = (m_repeats_10 * 0.01);
+		double mul_1177 = (m_feedback_6 * 0.01);
 		// the main sample loop;
 		while ((__n--)) { 
 			const double in1 = (*(__in1++));
-			double tap_4907 = m_delay_3.read_linear(mstosamps_4908);
-			double mix_4936 = (m_y_1 + (clamp_4890 * (tap_4907 - m_y_1)));
-			double mix_4887 = mix_4936;
-			double mul_4904 = (mix_4887 * m_repeats_8);
-			m_cycle_14.freq(m_rate_11);
-			double cycle_4893 = m_cycle_14(__sinedata);
-			double cycleindex_4894 = m_cycle_14.phase();
-			double add_4892 = (cycle_4893 + 1);
-			double mul_4891 = (add_4892 * 0.5);
-			double mul_4896 = (m_depth_6 * mul_4891);
-			double add_4895 = (m_delay_4 + mul_4896);
-			double mstosamps_4886 = (add_4895 * (samplerate * 0.001));
-			double tap_4901 = m_delay_2.read_linear(mstosamps_4886);
-			double mul_4899 = (tap_4901 * m_feedforward_7);
-			double mul_4897 = (tap_4901 * m_feedback_13);
-			double add_4903 = (mix_4887 + mul_4897);
-			double mul_4898 = (add_4903 * m_bleed_9);
-			double add_4902 = (mul_4898 + mul_4899);
-			double mul_4905 = (add_4902 * m_mix_5);
-			double out1 = (mul_4905 + in1);
-			double y0_next_4910 = mix_4887;
-			m_delay_3.write((mul_4904 + in1));
-			m_delay_2.write(add_4903);
-			m_y_1 = y0_next_4910;
-			m_delay_2.step();
+			double mix_1214 = (m_history_2 + (0.01 * (mstosamps_1200 - m_history_2)));
+			double mix_1201 = mix_1214;
+			double tap_1199 = m_delay_4.read_linear(mix_1201);
+			double mix_1215 = (m_y_1 + (clamp_1182 * (tap_1199 - m_y_1)));
+			double mix_1180 = mix_1215;
+			double mul_1196 = (mix_1180 * mul_1178);
+			double clamp_1205 = ((mul_1196 <= -1) ? -1 : ((mul_1196 >= 1) ? 1 : mul_1196));
+			double dcblock_1203 = m_dcblock_15(mix_1180);
+			m_cycle_16.freq(m_rate_13);
+			double cycle_1185 = m_cycle_16(__sinedata);
+			double cycleindex_1186 = m_cycle_16.phase();
+			double add_1184 = (cycle_1185 + 1);
+			double mul_1183 = (add_1184 * 0.5);
+			double mul_1188 = (m_depth_11 * mul_1183);
+			double add_1187 = (m_delay_14 + mul_1188);
+			double mstosamps_1179 = (add_1187 * (samplerate * 0.001));
+			double tap_1193 = m_delay_3.read_linear(mstosamps_1179);
+			double mul_1191 = (tap_1193 * mul_1175);
+			double mul_1189 = (tap_1193 * mul_1177);
+			double add_1195 = (dcblock_1203 + mul_1189);
+			double mul_1190 = (add_1195 * mul_1176);
+			double add_1194 = (mul_1190 + mul_1191);
+			double mul_1197 = (add_1194 * mul_1174);
+			double out1 = (mul_1197 + in1);
+			double history_1202_next_1206 = mix_1201;
+			double y0_next_1207 = mix_1180;
+			m_delay_4.write((clamp_1205 + in1));
+			m_delay_3.write(add_1195);
+			m_history_2 = history_1202_next_1206;
+			m_y_1 = y0_next_1207;
 			m_delay_3.step();
+			m_delay_4.step();
 			// assign results to output buffer;
 			(*(__out1++)) = out1;
 			
@@ -124,35 +139,35 @@ typedef struct State {
 		return __exception;
 		
 	};
-	inline void set_delay(double _value) {
-		m_delay_4 = (_value < 0 ? 0 : (_value > 30 ? 30 : _value));
-	};
-	inline void set_mix(double _value) {
-		m_mix_5 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
-	};
-	inline void set_depth(double _value) {
-		m_depth_6 = (_value < 0 ? 0 : (_value > 5 ? 5 : _value));
-	};
 	inline void set_feedforward(double _value) {
-		m_feedforward_7 = (_value < 0.7 ? 0.7 : (_value > 1 ? 1 : _value));
-	};
-	inline void set_repeats(double _value) {
-		m_repeats_8 = (_value < 0 ? 0 : (_value > 0.99 ? 0.99 : _value));
-	};
-	inline void set_bleed(double _value) {
-		m_bleed_9 = (_value < 0 ? 0 : (_value > 0.7 ? 0.7 : _value));
-	};
-	inline void set_cutoff(double _value) {
-		m_cutoff_10 = (_value < 0 ? 0 : (_value > 6000 ? 6000 : _value));
-	};
-	inline void set_rate(double _value) {
-		m_rate_11 = (_value < 0.1 ? 0.1 : (_value > 10 ? 10 : _value));
-	};
-	inline void set_time(double _value) {
-		m_time_12 = (_value < 10 ? 10 : (_value > 1000 ? 1000 : _value));
+		m_feedforward_5 = (_value < 70 ? 70 : (_value > 100 ? 100 : _value));
 	};
 	inline void set_feedback(double _value) {
-		m_feedback_13 = (_value < -0.7 ? -0.7 : (_value > 0.7 ? 0.7 : _value));
+		m_feedback_6 = (_value < -70 ? -70 : (_value > 70 ? 70 : _value));
+	};
+	inline void set_time(double _value) {
+		m_time_7 = (_value < 10 ? 10 : (_value > 1000 ? 1000 : _value));
+	};
+	inline void set_bleed(double _value) {
+		m_bleed_8 = (_value < 0 ? 0 : (_value > 70 ? 70 : _value));
+	};
+	inline void set_cutoff(double _value) {
+		m_cutoff_9 = (_value < 0 ? 0 : (_value > 6000 ? 6000 : _value));
+	};
+	inline void set_repeats(double _value) {
+		m_repeats_10 = (_value < 0 ? 0 : (_value > 100 ? 100 : _value));
+	};
+	inline void set_depth(double _value) {
+		m_depth_11 = (_value < 0 ? 0 : (_value > 5 ? 5 : _value));
+	};
+	inline void set_mix(double _value) {
+		m_mix_12 = (_value < 0 ? 0 : (_value > 100 ? 100 : _value));
+	};
+	inline void set_rate(double _value) {
+		m_rate_13 = (_value < 0.1 ? 0.1 : (_value > 10 ? 10 : _value));
+	};
+	inline void set_delay(double _value) {
+		m_delay_14 = (_value < 0 ? 0 : (_value > 30 ? 30 : _value));
 	};
 	
 } State;
@@ -195,16 +210,16 @@ void reset(CommonState *cself) {
 void setparameter(CommonState *cself, long index, double value, void *ref) {
 	State * self = (State *)cself;
 	switch (index) {
-		case 0: self->set_delay(value); break;
-		case 1: self->set_mix(value); break;
-		case 2: self->set_depth(value); break;
-		case 3: self->set_feedforward(value); break;
-		case 4: self->set_repeats(value); break;
-		case 5: self->set_bleed(value); break;
-		case 6: self->set_cutoff(value); break;
-		case 7: self->set_rate(value); break;
-		case 8: self->set_time(value); break;
-		case 9: self->set_feedback(value); break;
+		case 0: self->set_feedforward(value); break;
+		case 1: self->set_feedback(value); break;
+		case 2: self->set_time(value); break;
+		case 3: self->set_bleed(value); break;
+		case 4: self->set_cutoff(value); break;
+		case 5: self->set_repeats(value); break;
+		case 6: self->set_depth(value); break;
+		case 7: self->set_mix(value); break;
+		case 8: self->set_rate(value); break;
+		case 9: self->set_delay(value); break;
 		
 		default: break;
 	}
@@ -215,16 +230,16 @@ void setparameter(CommonState *cself, long index, double value, void *ref) {
 void getparameter(CommonState *cself, long index, double *value) {
 	State *self = (State *)cself;
 	switch (index) {
-		case 0: *value = self->m_delay_4; break;
-		case 1: *value = self->m_mix_5; break;
-		case 2: *value = self->m_depth_6; break;
-		case 3: *value = self->m_feedforward_7; break;
-		case 4: *value = self->m_repeats_8; break;
-		case 5: *value = self->m_bleed_9; break;
-		case 6: *value = self->m_cutoff_10; break;
-		case 7: *value = self->m_rate_11; break;
-		case 8: *value = self->m_time_12; break;
-		case 9: *value = self->m_feedback_13; break;
+		case 0: *value = self->m_feedforward_5; break;
+		case 1: *value = self->m_feedback_6; break;
+		case 2: *value = self->m_time_7; break;
+		case 3: *value = self->m_bleed_8; break;
+		case 4: *value = self->m_cutoff_9; break;
+		case 5: *value = self->m_repeats_10; break;
+		case 6: *value = self->m_depth_11; break;
+		case 7: *value = self->m_mix_12; break;
+		case 8: *value = self->m_rate_13; break;
+		case 9: *value = self->m_delay_14; break;
 		
 		default: break;
 	}
@@ -244,123 +259,39 @@ void * create(double sr, long vs) {
 	self->__commonstate.vs = vs;
 	self->__commonstate.params = (ParamInfo *)genlib_sysmem_newptr(10 * sizeof(ParamInfo));
 	self->__commonstate.numparams = 10;
-	// initialize parameter 0 ("m_delay_4")
+	// initialize parameter 0 ("m_feedforward_5")
 	pi = self->__commonstate.params + 0;
-	pi->name = "delay";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_delay_4;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 30;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 1 ("m_mix_5")
-	pi = self->__commonstate.params + 1;
-	pi->name = "mix";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_mix_5;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 1;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 2 ("m_depth_6")
-	pi = self->__commonstate.params + 2;
-	pi->name = "depth";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_depth_6;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 5;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 3 ("m_feedforward_7")
-	pi = self->__commonstate.params + 3;
 	pi->name = "feedforward";
 	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_feedforward_7;
+	pi->defaultvalue = self->m_feedforward_5;
 	pi->defaultref = 0;
 	pi->hasinputminmax = false;
 	pi->inputmin = 0; 
 	pi->inputmax = 1;
 	pi->hasminmax = true;
-	pi->outputmin = 0.7;
-	pi->outputmax = 1;
+	pi->outputmin = 70;
+	pi->outputmax = 100;
 	pi->exp = 0;
 	pi->units = "";		// no units defined
-	// initialize parameter 4 ("m_repeats_8")
-	pi = self->__commonstate.params + 4;
-	pi->name = "repeats";
+	// initialize parameter 1 ("m_feedback_6")
+	pi = self->__commonstate.params + 1;
+	pi->name = "feedback";
 	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_repeats_8;
+	pi->defaultvalue = self->m_feedback_6;
 	pi->defaultref = 0;
 	pi->hasinputminmax = false;
 	pi->inputmin = 0; 
 	pi->inputmax = 1;
 	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 0.99;
+	pi->outputmin = -70;
+	pi->outputmax = 70;
 	pi->exp = 0;
 	pi->units = "";		// no units defined
-	// initialize parameter 5 ("m_bleed_9")
-	pi = self->__commonstate.params + 5;
-	pi->name = "bleed";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_bleed_9;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 0.7;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 6 ("m_cutoff_10")
-	pi = self->__commonstate.params + 6;
-	pi->name = "cutoff";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_cutoff_10;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0;
-	pi->outputmax = 6000;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 7 ("m_rate_11")
-	pi = self->__commonstate.params + 7;
-	pi->name = "rate";
-	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_rate_11;
-	pi->defaultref = 0;
-	pi->hasinputminmax = false;
-	pi->inputmin = 0; 
-	pi->inputmax = 1;
-	pi->hasminmax = true;
-	pi->outputmin = 0.1;
-	pi->outputmax = 10;
-	pi->exp = 0;
-	pi->units = "";		// no units defined
-	// initialize parameter 8 ("m_time_12")
-	pi = self->__commonstate.params + 8;
+	// initialize parameter 2 ("m_time_7")
+	pi = self->__commonstate.params + 2;
 	pi->name = "time";
 	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_time_12;
+	pi->defaultvalue = self->m_time_7;
 	pi->defaultref = 0;
 	pi->hasinputminmax = false;
 	pi->inputmin = 0; 
@@ -370,18 +301,102 @@ void * create(double sr, long vs) {
 	pi->outputmax = 1000;
 	pi->exp = 0;
 	pi->units = "";		// no units defined
-	// initialize parameter 9 ("m_feedback_13")
-	pi = self->__commonstate.params + 9;
-	pi->name = "feedback";
+	// initialize parameter 3 ("m_bleed_8")
+	pi = self->__commonstate.params + 3;
+	pi->name = "bleed";
 	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
-	pi->defaultvalue = self->m_feedback_13;
+	pi->defaultvalue = self->m_bleed_8;
 	pi->defaultref = 0;
 	pi->hasinputminmax = false;
 	pi->inputmin = 0; 
 	pi->inputmax = 1;
 	pi->hasminmax = true;
-	pi->outputmin = -0.7;
-	pi->outputmax = 0.7;
+	pi->outputmin = 0;
+	pi->outputmax = 70;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 4 ("m_cutoff_9")
+	pi = self->__commonstate.params + 4;
+	pi->name = "cutoff";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_cutoff_9;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0;
+	pi->outputmax = 6000;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 5 ("m_repeats_10")
+	pi = self->__commonstate.params + 5;
+	pi->name = "repeats";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_repeats_10;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0;
+	pi->outputmax = 100;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 6 ("m_depth_11")
+	pi = self->__commonstate.params + 6;
+	pi->name = "depth";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_depth_11;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0;
+	pi->outputmax = 5;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 7 ("m_mix_12")
+	pi = self->__commonstate.params + 7;
+	pi->name = "mix";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_mix_12;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0;
+	pi->outputmax = 100;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 8 ("m_rate_13")
+	pi = self->__commonstate.params + 8;
+	pi->name = "rate";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_rate_13;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0.1;
+	pi->outputmax = 10;
+	pi->exp = 0;
+	pi->units = "";		// no units defined
+	// initialize parameter 9 ("m_delay_14")
+	pi = self->__commonstate.params + 9;
+	pi->name = "delay";
+	pi->paramtype = GENLIB_PARAMTYPE_FLOAT;
+	pi->defaultvalue = self->m_delay_14;
+	pi->defaultref = 0;
+	pi->hasinputminmax = false;
+	pi->inputmin = 0; 
+	pi->inputmax = 1;
+	pi->hasminmax = true;
+	pi->outputmin = 0;
+	pi->outputmax = 30;
 	pi->exp = 0;
 	pi->units = "";		// no units defined
 	

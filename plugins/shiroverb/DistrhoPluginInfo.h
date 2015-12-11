@@ -1,6 +1,5 @@
 /*
- * DPF Max Gen
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015 Nino de Wit <ninodig@hotmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -17,7 +16,7 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_BRAND "Shiro"
+#define DISTRHO_PLUGIN_BRAND "SHIRO"
 #define DISTRHO_PLUGIN_NAME  "Shiroverb"
 #define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/Shiroverb"
 
