@@ -22,7 +22,7 @@ OBJS_UI  = \
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.mk
+include ../Makefile.Kars.mk
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
