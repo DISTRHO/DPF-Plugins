@@ -139,14 +139,14 @@ endif
 # 	cp -r modguis/Larynx.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/
 # 	cp    modguis/Larynx.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/modgui.ttl
 
-	cp -r modguis/Modulay.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/
-	cp    modguis/Modulay.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/modgui.ttl
+#	cp -r modguis/Modulay.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/
+#	cp    modguis/Modulay.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/modgui.ttl
 
-	cp -r modguis/Pitchotto.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/
-	cp    modguis/Pitchotto.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/modgui.ttl
+#	cp -r modguis/Pitchotto.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/
+#	cp    modguis/Pitchotto.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Pitchotto.lv2/modgui.ttl
 
-	cp -r modguis/Shiroverb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/
-	cp    modguis/Shiroverb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/modgui.ttl
+#	cp -r modguis/Shiroverb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/
+#	cp    modguis/Shiroverb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Shiroverb.lv2/modgui.ttl
 
 # --------------------------------------------------------------
 
