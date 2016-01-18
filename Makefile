@@ -136,8 +136,8 @@ endif
 	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
 
 	# Max-Gen stuff
-	cp -r modguis/Larynx.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/
-	cp    modguis/Larynx.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/modgui.ttl
+# 	cp -r modguis/Larynx.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/
+# 	cp    modguis/Larynx.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/modgui.ttl
 
 	cp -r modguis/Modulay.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/
 	cp    modguis/Modulay.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/modgui.ttl
