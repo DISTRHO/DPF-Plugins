@@ -51,6 +51,7 @@ endif
 	$(MAKE) all -C plugins/bitcrush
 	$(MAKE) all -C plugins/freeverb
 	$(MAKE) all -C plugins/gigaverb
+	$(MAKE) all -C plugins/larynx
 	$(MAKE) all -C plugins/modulay
 	$(MAKE) all -C plugins/pitchotto
 	$(MAKE) all -C plugins/pitchshift
@@ -99,6 +100,7 @@ endif
 	$(MAKE) clean -C plugins/bitcrush
 	$(MAKE) clean -C plugins/freeverb
 	$(MAKE) clean -C plugins/gigaverb
+	$(MAKE) clean -C plugins/larynx
 	$(MAKE) clean -C plugins/modulay
 	$(MAKE) clean -C plugins/pitchotto
 	$(MAKE) clean -C plugins/pitchshift
@@ -134,6 +136,9 @@ endif
 	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
 
 	# Max-Gen stuff
+	cp -r modguis/Larynx.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/
+	cp    modguis/Larynx.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Larynx.lv2/modgui.ttl
+
 	cp -r modguis/Modulay.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/
 	cp    modguis/Modulay.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Modulay.lv2/modgui.ttl
 

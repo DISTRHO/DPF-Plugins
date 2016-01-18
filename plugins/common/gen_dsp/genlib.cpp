@@ -24,13 +24,18 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "stdio.h"
 #include "string.h"
 
-#ifdef pow
-#undef pow
-#endif
 #include <cmath>
-#include <malloc.h>
 
-#define malloc_size malloc_usable_size
+#if DISTRHO_OS_MAC
+# include <malloc/malloc.h>
+#else
+# include <malloc.h>
+# if DISTRHO_OS_WINDOWS
+#  define malloc_size _msize
+# else
+#  define malloc_size malloc_usable_size
+# endif
+#endif
 
 // DATA_MAXIMUM_ELEMENTS * 8 bytes = 256 mb limit
 #define DATA_MAXIMUM_ELEMENTS	(33554432)
@@ -63,7 +68,7 @@ t_ptr sysmem_resizeptr(void *ptr, t_ptr_size newsize)
 
 t_ptr sysmem_resizeptrclear(void *ptr, t_ptr_size newsize)
 {
-	long oldsize = malloc_size(ptr);
+	t_ptr_size oldsize = malloc_size(ptr);
 	t_ptr p = (t_ptr)realloc(ptr, newsize);
 	
 	if (p) {
@@ -170,6 +175,7 @@ t_genlib_err genlib_buffer_perform_begin(t_genlib_buffer *b)
 {
 	return 0; // to be implemented
 }
+
 void genlib_buffer_perform_end(t_genlib_buffer *b)
 {
 	// to be implemented
@@ -177,7 +183,7 @@ void genlib_buffer_perform_end(t_genlib_buffer *b)
 
 t_sample gen_msp_pow(t_sample value, t_sample power)
 {
-	return pow(value, power);
+	return powf(value, power);
 }
 
 void genlib_data_setbuffer(t_genlib_data *b, void *ref) {
@@ -186,8 +192,8 @@ void genlib_data_setbuffer(t_genlib_data *b, void *ref) {
 
 typedef struct {
 	t_genlib_data_info	info;
-	t_sample			cursor;	// used by Delay
-	//t_symbol *		name;
+	t_sample				cursor;	// used by Delay
+	//t_symbol *			name;
 } t_dsp_gen_data;	
 
 t_genlib_data * genlib_obtain_data_from_reference(void *ref) 
@@ -352,3 +358,5 @@ void genlib_data_resize(t_genlib_data *b, long s, long c) {
 }
 
 void genlib_reset_complete(void *data) {}
+
+

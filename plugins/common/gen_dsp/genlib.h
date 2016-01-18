@@ -26,26 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //////////// genlib.h ////////////
 // genlib.h -- max (gen~) version
 
-#ifndef GEN_WINDOWS
-#ifndef _SIZE_T
-#define	_SIZE_T
-typedef __typeof__(sizeof(int)) size_t;
-#endif
-#endif
-
-#ifndef __INT32_TYPE__
-#define __INT32_TYPE__ int
-#endif
-
-#ifdef MSP_ON_CLANG
-	// gen~ hosted:
-	typedef unsigned __INT32_TYPE__ uint32_t;
-	typedef unsigned __INT64_TYPE__ uint64_t;
-#else
-	#ifdef __GNUC__
-		 #include <stdint.h>
-	#endif
-#endif 
+#include "DistrhoUtils.hpp"
 
 #define inf (__DBL_MAX__)
 #define GEN_UINT_MAX                (4294967295)
@@ -54,27 +35,21 @@ typedef __typeof__(sizeof(int)) size_t;
 #define C74_CONST const
 
 // max_types.h:
-// #ifdef C74_X64
-// 	typedef unsigned long long t_ptr_uint;
-// 	typedef long long t_ptr_int; 
-// 	typedef double t_atom_float;
-// 	typedef t_ptr_uint t_getbytes_size;
-// #else
-	typedef unsigned long t_ptr_uint;
-	typedef long t_ptr_int;
-	typedef float t_atom_float;
-	typedef short t_getbytes_size;
-// #endif
+typedef uintptr_t t_ptr_uint;
+typedef intptr_t t_ptr_int;
+typedef float t_atom_float;
+typedef t_ptr_uint t_getbytes_size;
 
 typedef uint32_t t_uint32;
 typedef t_ptr_int t_atom_long;		// the type that is an A_LONG in an atom
 
-typedef t_ptr_int t_int;		///< an integer  @ingroup misc
+typedef t_ptr_int t_int;			///< an integer  @ingroup misc
 typedef t_ptr_uint t_ptr_size;		///< unsigned pointer-sized value for counting (like size_t)  @ingroup misc
 typedef t_ptr_int t_atom_long;		///< the type that is an A_LONG in a #t_atom  @ingroup misc
 typedef t_atom_long t_max_err;		///< an integer value suitable to be returned as an error code  @ingroup misc
 
 extern "C" {
+
 	// string reference handling:
 	void * genlib_obtain_reference_from_string(const char * name);
 	char *genlib_reference_getname(void *ref);
@@ -99,12 +74,12 @@ extern "C" {
 	
 	// other notification:
 	void genlib_reset_complete(void *data);
-	
-	// get/set state of parameters
-	size_t genlib_getstatesize(CommonState *cself, getparameter_method getmethod);
-	short genlib_getstate(CommonState *cself, char *state, getparameter_method getmethod);
-	short genlib_setstate(CommonState *cself, const char *state, setparameter_method setmethod);
-	
+
+        // get/set state of parameters
+        size_t genlib_getstatesize(CommonState *cself, getparameter_method getmethod);
+        short genlib_getstate(CommonState *cself, char *state, getparameter_method getmethod);
+        short genlib_setstate(CommonState *cself, const char *state, setparameter_method setmethod);
+
 }; // extern "C"
 	
 #define genlib_sysmem_newptr(s) sysmem_newptr(s)

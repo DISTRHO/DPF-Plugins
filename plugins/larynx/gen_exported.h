@@ -17,27 +17,21 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *******************************************************************************************************************/
 
-#ifndef GENLIB_COMMON_WIN_H
-#define GENLIB_COMMON_WIN_H
 
-#ifdef _MSC_VER
-	#define GEN_WINDOWS
-#endif
+#include "genlib.h"
+#include "genlib_exportfunctions.h"
+#include "genlib_ops.h"
 
-#ifdef GEN_WINDOWS
+namespace gen_exported {
 
-	#include <malloc.h>
-	#include <limits>
+int num_inputs();
+int num_outputs();
+int num_params();
+int perform(CommonState *cself, t_sample **ins, long numins, t_sample **outs, long numouts, long n);
+void reset(CommonState *cself);
+void setparameter(CommonState *cself, long index, double value, void *ref);
+void getparameter(CommonState *cself, long index, double *value);
+void * create(double sr, long vs);
+void destroy(CommonState *cself);
 
-	typedef __int32 int32_t;
-	typedef unsigned __int32 uint32_t;
-	typedef __int64 int64_t;
-	typedef unsigned __int64 uint64_t;
-	#define malloc_size _msize
-	
-	#define __DBL_EPSILON__ (DBL_EPSILON)
-
-#endif
-
-#endif
-
+} // gen_exported::

@@ -35,10 +35,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define GENLIB_PI_OVER_4 (0.785398163397448309615660845819875721f)
 #define GENLIB_1_OVER_LOG_2 (1.442695040888963f)
 
-// denormal numbers cannot occur when hosted in MSP:
-// #ifdef MSP_ON_CLANG
-	#define GENLIB_NO_DENORM_TEST 1
-// #endif
+#define GENLIB_NO_DENORM_TEST 1
 
 // assumes v is a 64-bit double:
 #define GENLIB_IS_NAN_DOUBLE(v)			(((((uint32_t *)&(v))[1])&0x7fe00000)==0x7fe00000) 

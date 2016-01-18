@@ -21,17 +21,15 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef GENLIB_COMMON_H
 #define GENLIB_COMMON_H 1
 
-#include "genlib_common_win.h"
-
 //////////// genlib_common.h ////////////
 // common data structure header file -- this is the stuff required by the
 // common code and accessed by the export and max code
-	
-#define DSP_GEN_MAX_SIGNALS 16	
+
+#define DSP_GEN_MAX_SIGNALS 16
 
 typedef float t_sample;
 typedef float t_param;
-typedef char *t_ptr; 
+typedef char *t_ptr;
 	
 typedef long t_genlib_err;
 typedef enum {

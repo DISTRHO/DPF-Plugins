@@ -18,7 +18,7 @@ endif
 TARGET_DIR = ../../bin
 
 BUILD_C_FLAGS   += -I.
-BUILD_CXX_FLAGS += -I. -I../common -I../common/gen_dsp -I../../dpf/distrho -I../../dpf/dgl
+BUILD_CXX_FLAGS += -I. -I../common -I../common/gen_dsp -I../../dpf/distrho -I../../dpf/dgl -Wno-unused-parameter
 
 ifeq ($(HAVE_DGL),true)
 BASE_FLAGS += -DHAVE_DGL
