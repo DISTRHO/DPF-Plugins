@@ -192,7 +192,7 @@
 							"parameter_shortname" : "flonum[7]",
 							"parameter_type" : 3,
 							"parameter_initial_enable" : 1,
-							"parameter_initial" : [ 100.0 ],
+							"parameter_initial" : [ 75 ],
 							"parameter_invisible" : 1
 						}
 
@@ -754,8 +754,8 @@
 									"numinlets" : 0,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 159.75, 698.5, 196.0, 20.0 ],
-									"text" : "param mix 100 @min 0 @max 100"
+									"patching_rect" : [ 159.75, 698.5, 190.0, 20.0 ],
+									"text" : "param mix 75 @min 0 @max 100"
 								}
 
 							}
@@ -1426,8 +1426,8 @@
 									"numinlets" : 0,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 144.5, 220.0, 181.0, 20.0 ],
-									"text" : "param depth 1 @min 0 @max 3"
+									"patching_rect" : [ 144.5, 220.0, 191.0, 20.0 ],
+									"text" : "param depth 1 @min 0.1 @max 3"
 								}
 
 							}
@@ -2409,19 +2409,19 @@
 			}
  ],
 		"parameters" : 		{
-			"obj-101" : [ "flonum[1]", "flonum[1]", 0 ],
-			"obj-19" : [ "flonum[16]", "flonum[7]", 0 ],
-			"obj-8::obj-21::obj-6" : [ "live.tab[3]", "live.tab[1]", 0 ],
 			"obj-5" : [ "flonum[4]", "flonum", 0 ],
-			"obj-12" : [ "flonum[5]", "flonum", 0 ],
-			"obj-20" : [ "flonum[15]", "flonum[4]", 0 ],
 			"obj-41" : [ "flonum[3]", "flonum", 0 ],
-			"obj-30" : [ "flonum[6]", "flonum[6]", 0 ],
-			"obj-25" : [ "flonum[14]", "flonum[5]", 0 ],
-			"obj-11" : [ "flonum", "flonum", 0 ],
 			"obj-13" : [ "flonum[2]", "flonum[2]", 0 ],
+			"obj-12" : [ "flonum[5]", "flonum", 0 ],
+			"obj-8::obj-21::obj-6" : [ "live.tab[3]", "live.tab[1]", 0 ],
 			"obj-8::obj-35" : [ "[5]", "Level", 0 ],
-			"obj-8::obj-32" : [ "[8]", "[2]", 0 ]
+			"obj-30" : [ "flonum[6]", "flonum[6]", 0 ],
+			"obj-11" : [ "flonum", "flonum", 0 ],
+			"obj-19" : [ "flonum[16]", "flonum[7]", 0 ],
+			"obj-25" : [ "flonum[14]", "flonum[5]", 0 ],
+			"obj-20" : [ "flonum[15]", "flonum[4]", 0 ],
+			"obj-8::obj-32" : [ "[8]", "[2]", 0 ],
+			"obj-101" : [ "flonum[1]", "flonum[1]", 0 ]
 		}
 ,
 		"dependency_cache" : [ 			{

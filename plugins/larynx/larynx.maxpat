@@ -629,8 +629,8 @@
 									"numinlets" : 0,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 51.0, 191.0, 181.0, 20.0 ],
-									"text" : "param depth 1 @min 0 @max 5"
+									"patching_rect" : [ 51.0, 191.0, 191.0, 20.0 ],
+									"text" : "param depth 1 @min 0.1 @max 5"
 								}
 
 							}
@@ -853,6 +853,10 @@
 					}
 ,
 					"patching_rect" : [ 357.0, 174.0, 510.0, 20.0 ],
+					"saved_object_attributes" : 					{
+						"exportfolder" : "Macintosh HD:/Users/Nino/Documents/Git/DPF-Max-Gen/plugins/larynx/"
+					}
+,
 					"text" : "gen~ @exportfolder \"Macintosh HD:/Users/Nino/Documents/Git/DPF-Max-Gen/plugins/larynx\""
 				}
 
@@ -1043,49 +1047,49 @@
 			}
  ],
 		"parameters" : 		{
-			"obj-30" : [ "flonum[6]", "flonum[6]", 0 ],
-			"obj-8::obj-35" : [ "[5]", "Level", 0 ],
-			"obj-8::obj-21::obj-6" : [ "live.tab[3]", "live.tab[1]", 0 ],
-			"obj-8::obj-32" : [ "[8]", "[2]", 0 ],
-			"obj-12" : [ "flonum[5]", "flonum", 0 ],
-			"obj-13" : [ "flonum[2]", "flonum[2]", 0 ],
 			"obj-5" : [ "flonum[4]", "flonum", 0 ],
+			"obj-41" : [ "flonum[3]", "flonum", 0 ],
+			"obj-13" : [ "flonum[2]", "flonum[2]", 0 ],
+			"obj-12" : [ "flonum[5]", "flonum", 0 ],
+			"obj-8::obj-21::obj-6" : [ "live.tab[3]", "live.tab[1]", 0 ],
+			"obj-8::obj-35" : [ "[5]", "Level", 0 ],
+			"obj-30" : [ "flonum[6]", "flonum[6]", 0 ],
 			"obj-11" : [ "flonum", "flonum", 0 ],
-			"obj-41" : [ "flonum[3]", "flonum", 0 ]
+			"obj-8::obj-32" : [ "[8]", "[2]", 0 ]
 		}
 ,
 		"dependency_cache" : [ 			{
 				"name" : "demosound.maxpat",
 				"bootpath" : "/Applications/Max 6.1/Cycling '74/msp-help",
-				"patcherrelativepath" : "../../../Applications/Max 6.1/Cycling '74/msp-help",
+				"patcherrelativepath" : "../../../../../../../Applications/Max 6.1/Cycling '74/msp-help",
 				"type" : "JSON",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "sine.svg",
 				"bootpath" : "/Applications/Max 6.1/patches/picts/m4l-picts",
-				"patcherrelativepath" : "../../../Applications/Max 6.1/patches/picts/m4l-picts",
+				"patcherrelativepath" : "../../../../../../../Applications/Max 6.1/patches/picts/m4l-picts",
 				"type" : "svg ",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "saw.svg",
 				"bootpath" : "/Applications/Max 6.1/patches/picts/m4l-picts",
-				"patcherrelativepath" : "../../../Applications/Max 6.1/patches/picts/m4l-picts",
+				"patcherrelativepath" : "../../../../../../../Applications/Max 6.1/patches/picts/m4l-picts",
 				"type" : "svg ",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "square.svg",
 				"bootpath" : "/Applications/Max 6.1/patches/picts/m4l-picts",
-				"patcherrelativepath" : "../../../Applications/Max 6.1/patches/picts/m4l-picts",
+				"patcherrelativepath" : "../../../../../../../Applications/Max 6.1/patches/picts/m4l-picts",
 				"type" : "svg ",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "random.svg",
 				"bootpath" : "/Applications/Max 6.1/patches/picts/m4l-picts",
-				"patcherrelativepath" : "../../../Applications/Max 6.1/patches/picts/m4l-picts",
+				"patcherrelativepath" : "../../../../../../../Applications/Max 6.1/patches/picts/m4l-picts",
 				"type" : "svg ",
 				"implicit" : 1
 			}

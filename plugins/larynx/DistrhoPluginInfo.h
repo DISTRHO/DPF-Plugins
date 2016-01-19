@@ -28,7 +28,7 @@
 
 #define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:ModulatorPlugin"
 
-#define DISTRHO_PLUGIN_DESCRIPTION "Vibrato with tone control"
+#define DISTRHO_PLUGIN_DESCRIPTION "Larynx is a simple vibrato with a tone control."
 #define DISTRHO_PLUGIN_VERSION d_cconst('D', 'V', 'b', 'r')
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED
