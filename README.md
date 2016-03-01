@@ -8,6 +8,7 @@ This repository does not use submodules,<br/>
 everything you need to build is included in a simple clone.
 
 The list of plugins/packs are:
+ - glBars
  - Kars
  - Mini-Series (3BandEQ. 3BandSplitter, PingPongPan)
  - ndc-Plugs (Amplitude Imposer, Cycle Shifter, Soul Force)
@@ -19,6 +20,9 @@ Screenshots
 -----------
 
 <b>
+
+glBars<br/>
+![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/glBars/Screenshot.png "glBars")
 
 Kars<br/>
 ![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/Kars/Screenshot.png "Kars")
