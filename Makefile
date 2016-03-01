@@ -21,6 +21,11 @@ ifeq ($(HAVE_DGL),true)
 endif
 
 plugins: libs
+	# glBars (needs OpenGL)
+ifeq ($(HAVE_DGL),true)
+	$(MAKE) all -C plugins/glBars
+endif
+
 	# Kars
 	$(MAKE) all -C plugins/Kars
 
@@ -40,7 +45,7 @@ plugins: libs
 	# Nekobi
 	$(MAKE) all -C plugins/Nekobi
 
-	# ProM (needs DGL + ProjectM)
+	# ProM (needs OpenGL + ProjectM)
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_PROJM),true)
 	$(MAKE) all -C plugins/ProM
@@ -69,6 +74,9 @@ ifeq ($(HAVE_DGL),true)
 	$(MAKE) clean -C dpf/dgl
 endif
 	$(MAKE) clean -C dpf/utils/lv2-ttl-generator
+
+	# glBars
+	$(MAKE) clean -C plugins/glBars
 
 	# Kars
 	$(MAKE) clean -C plugins/Kars

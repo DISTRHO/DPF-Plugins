@@ -2,7 +2,7 @@
 
 set -e
 
-PLUGINS=("Kars" "Mini-Series" "MVerb" "Nekobi" "ProM" "ndc-Plugs" "DPF-Max-Gen")
+PLUGINS=("glBars" "Kars" "Mini-Series" "MVerb" "Nekobi" "ProM" "ndc-Plugs" "DPF-Max-Gen")
 
 if [ ! -f Makefile ]; then
   echo "Makefile not found, please run this script from DPF-Plugins root source dir"
