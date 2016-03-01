@@ -1,0 +1,13 @@
+@prefix mod:    <http://moddevices.com/ns/mod#>.
+@prefix modgui: <http://moddevices.com/ns/modgui#>.
+
+<http://distrho.sf.net/plugins/Nekobi>
+    mod:brand "DISTRHO";
+    mod:label "Nekobi";
+    modgui:gui [
+        modgui:resourcesDirectory <modgui>;
+        modgui:iconTemplate <modgui/icon-nekobi.html>;
+        modgui:stylesheet <modgui/stylesheet-nekobi.css>;
+        modgui:screenshot <modgui/screenshot-nekobi.png>;
+        modgui:thumbnail <modgui/thumb-nekobi.png>;
+    ].

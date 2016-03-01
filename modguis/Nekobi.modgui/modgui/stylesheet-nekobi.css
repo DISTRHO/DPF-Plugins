@@ -9,11 +9,11 @@
 .mod-pedal-boxy{{{cns}}} {
     background-position:center center;
     background-repeat:no-repeat;
-    background-size:385px 212px;
-    width:385px;
-    height:212px;
+    background-size:954px 162px;
+    width:954px;
+    height:162px;
     position:absolute;
-    border-radius: 26px;
+    border-radius: 0px;
 }
 
 /* = PLUGIN'S AUTHOR
@@ -159,67 +159,120 @@
 
 /* STYLES FOR THE PLUGIN */
 
-.pingpongpan * {
+.dpf-nekobi * {
     color:black !important;
 }
-.pingpongpan {
+.dpf-nekobi {
     background-image:url(/resources/background.png{{{ns}}}) !important;
-    background-size:385px 212px;
-    width:385px;
-    height:212px;
+    background-size:954px 162px;
+    width:954px;
+    height:162px;
     border-radius: 0;
 }
-.pingpongpan .mod-control-group {
-    width:237px;
-    height:85px;
-    top:71px;
-    left:73px;
+.dpf-nekobi .mod-control-group {
+    width:821px;
+    height:65px;
+    top:68px;
+    left:67px;
     margin:0px;
 }
-.pingpongpan .mod-control-group .mod-knob {
-    height:85px !important;
+.dpf-nekobi .mod-control-group .mod-knob {
+    height:65px !important;
 }
-.pingpongpan .mod-control-group .mod-knob .mod-knob-image {
+.dpf-nekobi .mod-control-group .mod-knob .mod-knob-image {
     background-image:url(/resources/knob.png{{{ns}}});
     background-position:left center;
     background-repeat:no-repeat;
-    background-size:auto 85px;
-    height:85px;
-    width:85px;
+    background-size:auto 65px;
+    height:65px;
+    width:65px;
     margin:0 auto;
     cursor:pointer;
     position:relative;
     overflow:hidden;
 }
-.pingpongpan .mod-control-group .pingpongpan-knob_freq {
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_tuning {
     left:0px;
     position:absolute;
 }
-.pingpongpan .mod-control-group .pingpongpan-knob_width {
-    left:152px;
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_cutoff {
+    left:215px;
     position:absolute;
 }
-.pingpongpan .mod-footswitch {
-    background-image:url(/resources/slider.png{{{ns}}});
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_resonance {
+    left:323px;
+    position:absolute;
+}
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_env_mod {
+    left:432px;
+    position:absolute;
+}
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_decay {
+    left:540px;
+    position:absolute;
+}
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_accent {
+    left:648px;
+    position:absolute;
+}
+.dpf-nekobi .mod-control-group .dpf-nekobi-knob_volume {
+    left:756px;
+    position:absolute;
+}
+.dpf-nekobi .mod-light {
     background-position:top left;
     background-repeat:no-repeat;
-    background-size:120px 37px;
-    top:5px;
-    right:37px;
+    background-size:26px 27px;
+    height:26px;
+    width: 27px;
+    top:12px;
+    left:804px;
+}
+.dpf-nekobi .mod-light.on {
+    background-image:url(/resources/led-on.png{{{ns}}});
+}
+.dpf-nekobi .mod-light.off {
+    background-image:url(/resources/led-off.png{{{ns}}});
+}
+.dpf-nekobi .mod-footswitch {
+    background-image:url(/resources/slider-horizontal.png{{{ns}}});
+    background-position:top left;
+    background-repeat:no-repeat;
+    background-size:156px 48px;
+    top:3px;
+    right:57px;
     cursor:pointer;
-    height:37px;
-    width: 60px;
+    height:48px;
+    width: 78px;
     position:absolute;
 }
-.pingpongpan .mod-footswitch.on {
+.dpf-nekobi .mod-footswitch.on {
     background-position:top left;
 }
-.pingpongpan .mod-footswitch.off {
+.dpf-nekobi .mod-footswitch.off {
     background-position:top right;
 }
-.pingpongpan .mod-pedal-input , .pingpongpan .mod-pedal-output {
-    top: 30px;
+.dpf-nekobi .dpf-nekobi-knob_waveform {
+    background-image:url(/resources/slider-vertical.png{{{ns}}});
+    background-position:top left;
+    background-repeat:no-repeat;
+    background-size:78px 101px;
+    top:-17px;
+    left:136px;
+    height:101px;
+    cursor:pointer;
+    width:39px;
+    position:absolute;
 }
-.pingpongpan .mod-pedal-input .mod-input , .pingpongpan .mod-pedal-output .mod-output {
+.dpf-nekobi .dpf-nekobi-knob_waveform.on {
+    background-position:top left;
+}
+.dpf-nekobi .dpf-nekobi-knob_waveform.off {
+    background-position:top right;
+}
+.dpf-nekobi .mod-pedal-input , .dpf-nekobi .mod-pedal-output {
+    top: 60px;
+}
+.dpf-nekobi .mod-pedal-input .mod-input , .dpf-nekobi .mod-pedal-output .mod-output {
     margin-bottom: 40px !important
 }

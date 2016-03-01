@@ -127,6 +127,10 @@ endif
 	cp -r modguis/MVerb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/
 	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
 
+	# Nekobi
+	cp -r modguis/Nekobi.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/
+	cp    modguis/Nekobi.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/modgui.ttl
+
 	# Max-Gen stuff
 
 # --------------------------------------------------------------
