@@ -8,7 +8,8 @@ This repository does not use submodules,<br/>
 everything you need to build is included in a simple clone.
 
 The list of plugins/packs are:
- - Mini-Series (3BandEQ+Splitter, PingPongPan)
+ - Kars
+ - Mini-Series (3BandEQ. 3BandSplitter, PingPongPan)
  - ndc-Plugs (Amplitude Imposer, Cycle Shifter, Soul Force)
  - MVerb
  - Nekobi
