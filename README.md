@@ -15,11 +15,6 @@ The list of plugins/packs are:
  - Nekobi
  - ProM
 
-Install
--------
-
-This repository is intended for distribution packagers, not end-users.
-
 Screenshots
 -----------
 
