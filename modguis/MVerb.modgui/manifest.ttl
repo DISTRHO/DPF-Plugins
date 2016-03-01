@@ -1,11 +1,7 @@
-@prefix mod:    <http://moddevices.com/ns/mod#> .
 @prefix modgui: <http://moddevices.com/ns/modgui#> .
 @prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
-@prefix ui:     <http://lv2plug.in/ns/extensions/ui#> .
 
 <http://distrho.sf.net/plugins/MVerb>
-    mod:brand "DISTRHO" ;
-    mod:label "MVerb" ;
     modgui:gui [
         modgui:resourcesDirectory <modgui> ;
         modgui:iconTemplate <modgui/icon-mverb.html> ;

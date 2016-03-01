@@ -131,8 +131,6 @@ endif
 	cp -r modguis/Nekobi.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/
 	cp    modguis/Nekobi.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/modgui.ttl
 
-	# Max-Gen stuff
-
 # --------------------------------------------------------------
 
 .PHONY: plugins
