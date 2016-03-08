@@ -59,11 +59,13 @@ endif
 
 BUILD_C_FLAGS   = $(BASE_FLAGS) -std=c99 $(CFLAGS)
 BUILD_CXX_FLAGS = $(BASE_FLAGS) -std=c++11 $(CXXFLAGS) $(CPPFLAGS)
-LINK_FLAGS      = $(LINK_OPTS) -Wl,--no-undefined $(LDFLAGS)
 
 ifeq ($(MACOS),true)
 # 'no-undefined' is always enabled
 LINK_FLAGS      = $(LINK_OPTS) $(LDFLAGS)
+else
+# Specify 'no-undefined'
+LINK_FLAGS      = $(LINK_OPTS) -Wl,--no-undefined $(LDFLAGS)
 endif
 
 ifeq ($(MACOS_OLD),true)
