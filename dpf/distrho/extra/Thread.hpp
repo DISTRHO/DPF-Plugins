@@ -21,7 +21,7 @@
 #include "Sleep.hpp"
 #include "String.hpp"
 
-#ifdef DISTRHO_OS_LINUX
+#ifdef DISTRHO_OS_LINUX_FULL
 # include <sys/prctl.h>
 #endif
 
@@ -37,7 +37,8 @@ protected:
      * Constructor.
      */
     Thread(const char* const threadName = nullptr) noexcept
-        : fLock(false),
+        : fLock(),
+          fSignal(),
           fName(threadName),
 #ifdef PTW32_DLLPORT
           fHandle({nullptr, 0}),
@@ -92,7 +93,7 @@ public:
         // check if already running
         DISTRHO_SAFE_ASSERT_RETURN(! isThreadRunning(), true);
 
-        const MutexLocker cml(fLock);
+        const MutexLocker ml(fLock);
 
         fShouldExit = false;
 
@@ -109,8 +110,7 @@ public:
             _copyFrom(handle);
 
             // wait for thread to start
-            fLock.lock();
-
+            fSignal.wait();
             return true;
         }
 
@@ -126,7 +126,7 @@ public:
      */
     bool stopThread(const int timeOutMilliseconds) noexcept
     {
-        const MutexLocker cml(fLock);
+        const MutexLocker ml(fLock);
 
         if (isThreadRunning())
         {
@@ -198,7 +198,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(name != nullptr && name[0] != '\0',);
 
-#ifdef DISTRHO_OS_LINUX
+#ifdef DISTRHO_OS_LINUX_FULL
         prctl(PR_SET_NAME, name, 0, 0, 0);
 #endif
 #if defined(__GLIBC__) && (__GLIBC__ * 1000 + __GLIBC_MINOR__) >= 2012
@@ -210,6 +210,7 @@ public:
 
 private:
     Mutex              fLock;       // Thread lock
+    Signal             fSignal;     // Thread start wait signal
     const String       fName;       // Thread name
     volatile pthread_t fHandle;     // Handle for this thread
     volatile bool      fShouldExit; // true if thread should exit
@@ -258,10 +259,10 @@ private:
      */
     void _runEntryPoint() noexcept
     {
-        // report ready
-        fLock.unlock();
-
         setCurrentThreadName(fName);
+
+        // report ready
+        fSignal.signal();
 
         try {
             run();

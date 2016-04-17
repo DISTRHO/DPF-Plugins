@@ -28,6 +28,8 @@
 
 START_NAMESPACE_DISTRHO
 
+class Signal;
+
 // -----------------------------------------------------------------------
 // Mutex class
 
@@ -40,12 +42,12 @@ public:
     Mutex(bool inheritPriority = true) noexcept
         : fMutex()
     {
-        pthread_mutexattr_t atts;
-        pthread_mutexattr_init(&atts);
-        pthread_mutexattr_setprotocol(&atts, inheritPriority ? PTHREAD_PRIO_INHERIT : PTHREAD_PRIO_NONE);
-        pthread_mutexattr_settype(&atts, PTHREAD_MUTEX_NORMAL);
-        pthread_mutex_init(&fMutex, &atts);
-        pthread_mutexattr_destroy(&atts);
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_setprotocol(&attr, inheritPriority ? PTHREAD_PRIO_INHERIT : PTHREAD_PRIO_NONE);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+        pthread_mutex_init(&fMutex, &attr);
+        pthread_mutexattr_destroy(&attr);
     }
 
     /*
@@ -107,12 +109,12 @@ public:
 #ifdef DISTRHO_OS_WINDOWS
         InitializeCriticalSection(&fSection);
 #else
-        pthread_mutexattr_t atts;
-        pthread_mutexattr_init(&atts);
-        pthread_mutexattr_setprotocol(&atts, PTHREAD_PRIO_INHERIT);
-        pthread_mutexattr_settype(&atts, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&fMutex, &atts);
-        pthread_mutexattr_destroy(&atts);
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&fMutex, &attr);
+        pthread_mutexattr_destroy(&attr);
 #endif
     }
 
@@ -174,6 +176,87 @@ private:
 
     DISTRHO_PREVENT_HEAP_ALLOCATION
     DISTRHO_DECLARE_NON_COPY_CLASS(RecursiveMutex)
+};
+
+// -----------------------------------------------------------------------
+// Signal class
+
+class Signal
+{
+public:
+    /*
+     * Constructor.
+     */
+    Signal() noexcept
+        : fCondition(),
+          fMutex(),
+          fTriggered(false)
+    {
+        pthread_condattr_t cattr;
+        pthread_condattr_init(&cattr);
+        pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_PRIVATE);
+        pthread_cond_init(&fCondition, &cattr);
+        pthread_condattr_destroy(&cattr);
+
+        pthread_mutexattr_t mattr;
+        pthread_mutexattr_init(&mattr);
+        pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT);
+        pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_NORMAL);
+        pthread_mutex_init(&fMutex, &mattr);
+        pthread_mutexattr_destroy(&mattr);
+    }
+
+    /*
+     * Destructor.
+     */
+    ~Signal() noexcept
+    {
+        pthread_cond_destroy(&fCondition);
+        pthread_mutex_destroy(&fMutex);
+    }
+
+    /*
+     * Wait for a signal.
+     */
+    void wait() noexcept
+    {
+        pthread_mutex_lock(&fMutex);
+
+        while (! fTriggered)
+        {
+            try {
+                pthread_cond_wait(&fCondition, &fMutex);
+            } DISTRHO_SAFE_EXCEPTION("pthread_cond_wait");
+        }
+
+        fTriggered = false;
+
+        pthread_mutex_unlock(&fMutex);
+    }
+
+    /*
+     * Wake up all waiting threads.
+     */
+    void signal() noexcept
+    {
+        pthread_mutex_lock(&fMutex);
+
+        if (! fTriggered)
+        {
+            fTriggered = true;
+            pthread_cond_broadcast(&fCondition);
+        }
+
+        pthread_mutex_unlock(&fMutex);
+    }
+
+private:
+    pthread_cond_t  fCondition;
+    pthread_mutex_t fMutex;
+    volatile bool   fTriggered;
+
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+    DISTRHO_DECLARE_NON_COPY_CLASS(Signal)
 };
 
 // -----------------------------------------------------------------------
