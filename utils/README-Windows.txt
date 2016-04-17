@@ -3,7 +3,7 @@
 
 This folder contains audio plugins downloaded from https://github.com/DISTRHO/DPF-Plugins/releases
 
-The included *.lv2 folders are a LV2 bundles and the *.dll files are VSTs.
+The included *.lv2 folders are LV2 bundles and the *.dll files are VSTs.
 Check your host documentation to know where to place these files.
 Note that most hosts support VST but not LV2.
 
