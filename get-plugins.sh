@@ -36,7 +36,7 @@ for PLUGIN in ${PLUGINS[@]}; do
   fi
   mv repos/$PLUGIN/plugins/* plugins/
   mv plugins/Makefile.mk plugins/Makefile.$PLUGIN.mk
-  sed -i "s/Makefile.mk/Makefile.$PLUGIN.mk/" plugins/*/Makefile
+  sed -i -e "s/Makefile.mk/Makefile.$PLUGIN.mk/" plugins/*/Makefile
 done
 
 rm -rf repos
