@@ -2,11 +2,13 @@
 *.d
 *.o
 
+*-e
 *.exe
 *.dll
 *.dylib
 *.so
 *.zip
 
+.DS_Store
 bin/*
 dpf/utils/lv2_ttl_generator

@@ -20,7 +20,7 @@ echo Missing argument
 exit
 fi
 
-sed -i "s|-MD -MP|-D_MD_MP_WORKAROUND|" */*.mk dpf/dgl/*.mk
+sed -i -e "s|-MD -MP|-D_MD_MP_WORKAROUND|" */*.mk dpf/dgl/*.mk
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ rm -rf tmp/*
 
 NAME="$1"
 
-export CFLAGS="-mmacosx-version-min=10.5 -DMAC_OS_X_VERSION_MAX_ALLOWED=1050 -arch i386 -arch x86_64"
+export CFLAGS="-mmacosx-version-min=10.5 -DMAC_OS_X_VERSION_MAX_ALLOWED=1060 -arch i386 -arch x86_64"
 export CXXFLAGS=$CFLAGS
 export LDFLAGS=$CFLAGS
 export MACOS="true"
