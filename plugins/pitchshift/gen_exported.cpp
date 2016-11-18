@@ -45,20 +45,20 @@ typedef struct State {
 	Sah m_sah_19;
 	Sah m_sah_18;
 	Sah m_sah_22;
-	double samples_to_seconds;
-	double m_ratio_8;
-	double m_xfade_9;
-	double m_history_1;
-	double samplerate;
-	double m_history_3;
-	double m_history_2;
-	double m_blur_6;
-	double m_window_7;
-	double m_history_4;
+	t_sample samples_to_seconds;
+	t_sample m_ratio_8;
+	t_sample m_xfade_9;
+	t_sample m_history_1;
+	t_sample samplerate;
+	t_sample m_history_3;
+	t_sample m_history_2;
+	t_sample m_blur_6;
+	t_sample m_window_7;
+	t_sample m_history_4;
 	int vectorsize;
 	int __exception;
 	// re-initialize all member variables;
-	inline void reset(double __sr, int __vs) { 
+	inline void reset(t_sample __sr, int __vs) {
 		__exception = 0;
 		vectorsize = __vs;
 		samplerate = __sr;
@@ -102,85 +102,85 @@ typedef struct State {
 			return __exception;
 			
 		};
-		double mstosamps_1223 = (m_window_7 * (samplerate * 0.001));
-		double rsub_1209 = (1 - m_ratio_8);
-		double mul_1208 = (rsub_1209 * 1000);
-		double div_1207 = safediv(mul_1208, m_window_7);
+		t_sample mstosamps_1223 = (m_window_7 * (samplerate * 0.001));
+		t_sample rsub_1209 = (1 - m_ratio_8);
+		t_sample mul_1208 = (rsub_1209 * 1000);
+		t_sample div_1207 = safediv(mul_1208, m_window_7);
 		samples_to_seconds = (1 / samplerate);
 		// the main sample loop;
 		while ((__n--)) { 
-			const double in1 = (*(__in1++));
-			double noise_1159 = noise();
-			double abs_1177 = fabs(noise_1159);
-			double mul_1183 = (abs_1177 * m_blur_6);
-			double noise_1161 = noise();
-			double abs_1179 = fabs(noise_1161);
-			double mul_1189 = (abs_1179 * m_blur_6);
-			double noise_1160 = noise();
-			double abs_1178 = fabs(noise_1160);
-			double mul_1186 = (abs_1178 * m_blur_6);
-			double noise_1158 = noise();
-			double abs_1176 = fabs(noise_1158);
-			double mul_1180 = (abs_1176 * m_blur_6);
-			double phasor_1229 = m_phasor_10(div_1207, samples_to_seconds);
-			double add_1206 = ((m_history_4 + phasor_1229) + 0.5);
-			double mod_1205 = safemod(add_1206, 1);
-			double delta_1185 = m_delta_11(mod_1205);
-			double sah_1164 = m_sah_12(mul_1183, delta_1185, 0);
-			double sah_1184 = m_sah_13(mstosamps_1223, delta_1185, 0);
-			double mul_1173 = (sah_1184 * mod_1205);
-			double sub_1204 = (mod_1205 - 0.5);
-			double mul_1203 = (sub_1204 * 3.1415926535898);
-			double cos_1202 = cos(mul_1203);
-			double mul_1192 = (cos_1202 * cos_1202);
-			double add_1228 = ((m_history_3 + phasor_1229) + 0);
-			double mod_1227 = safemod(add_1228, 1);
-			double delta_1169 = m_delta_14(mod_1227);
-			double sah_1168 = m_sah_15(mul_1189, delta_1169, 0);
-			double sah_1190 = m_sah_16(mstosamps_1223, delta_1169, 0);
-			double mul_1175 = (sah_1190 * mod_1227);
-			double sub_1226 = (mod_1227 - 0.5);
-			double mul_1225 = (sub_1226 * 3.1415926535898);
-			double cos_1224 = cos(mul_1225);
-			double mul_1194 = (cos_1224 * cos_1224);
-			double add_1222 = ((m_history_2 + phasor_1229) + 0.25);
-			double mod_1221 = safemod(add_1222, 1);
-			double delta_1188 = m_delta_17(mod_1221);
-			double sah_1166 = m_sah_18(mul_1186, delta_1188, 0);
-			double sah_1187 = m_sah_19(mstosamps_1223, delta_1188, 0);
-			double mul_1174 = (sah_1187 * mod_1221);
-			double sub_1220 = (mod_1221 - 0.5);
-			double mul_1219 = (sub_1220 * 3.1415926535898);
-			double cos_1218 = cos(mul_1219);
-			double mul_1193 = (cos_1218 * cos_1218);
-			double add_1200 = ((m_history_1 + phasor_1229) + 0.75);
-			double mod_1199 = safemod(add_1200, 1);
-			double delta_1182 = m_delta_20(mod_1199);
-			double sah_1162 = m_sah_21(mul_1180, delta_1182, 0);
-			double sah_1181 = m_sah_22(mstosamps_1223, delta_1182, 0);
-			double mul_1172 = (sah_1181 * mod_1199);
-			double tap_1214 = m_delay_5.read_linear(mul_1175);
-			double tap_1215 = m_delay_5.read_linear(mul_1174);
-			double tap_1216 = m_delay_5.read_linear(mul_1173);
-			double tap_1217 = m_delay_5.read_linear(mul_1172);
-			double mul_1212 = (tap_1214 * mul_1194);
-			double mul_1201 = (tap_1216 * mul_1192);
-			double add_1245 = (mul_1201 + mul_1212);
-			double mix_1244 = (in1 + (m_xfade_9 * (add_1245 - in1)));
-			double out1 = mix_1244;
-			double mul_1211 = (tap_1215 * mul_1193);
-			double sub_1198 = (mod_1199 - 0.5);
-			double mul_1197 = (sub_1198 * 3.1415926535898);
-			double cos_1196 = cos(mul_1197);
-			double mul_1191 = (cos_1196 * cos_1196);
-			double mul_1195 = (tap_1217 * mul_1191);
-			double add_1247 = (mul_1195 + mul_1211);
-			double mix_1246 = (in1 + (m_xfade_9 * (add_1247 - in1)));
-			double out2 = mix_1246;
-			double history_1165_next_1240 = sah_1164;
-			double history_1170_next_1241 = sah_1168;
-			double history_1167_next_1242 = sah_1166;
-			double history_1163_next_1243 = sah_1162;
+			const t_sample in1 = (*(__in1++));
+			t_sample noise_1159 = noise();
+			t_sample abs_1177 = fabs(noise_1159);
+			t_sample mul_1183 = (abs_1177 * m_blur_6);
+			t_sample noise_1161 = noise();
+			t_sample abs_1179 = fabs(noise_1161);
+			t_sample mul_1189 = (abs_1179 * m_blur_6);
+			t_sample noise_1160 = noise();
+			t_sample abs_1178 = fabs(noise_1160);
+			t_sample mul_1186 = (abs_1178 * m_blur_6);
+			t_sample noise_1158 = noise();
+			t_sample abs_1176 = fabs(noise_1158);
+			t_sample mul_1180 = (abs_1176 * m_blur_6);
+			t_sample phasor_1229 = m_phasor_10(div_1207, samples_to_seconds);
+			t_sample add_1206 = ((m_history_4 + phasor_1229) + 0.5);
+			t_sample mod_1205 = safemod(add_1206, 1);
+			t_sample delta_1185 = m_delta_11(mod_1205);
+			t_sample sah_1164 = m_sah_12(mul_1183, delta_1185, 0);
+			t_sample sah_1184 = m_sah_13(mstosamps_1223, delta_1185, 0);
+			t_sample mul_1173 = (sah_1184 * mod_1205);
+			t_sample sub_1204 = (mod_1205 - 0.5);
+			t_sample mul_1203 = (sub_1204 * 3.1415926535898);
+			t_sample cos_1202 = cos(mul_1203);
+			t_sample mul_1192 = (cos_1202 * cos_1202);
+			t_sample add_1228 = ((m_history_3 + phasor_1229) + 0);
+			t_sample mod_1227 = safemod(add_1228, 1);
+			t_sample delta_1169 = m_delta_14(mod_1227);
+			t_sample sah_1168 = m_sah_15(mul_1189, delta_1169, 0);
+			t_sample sah_1190 = m_sah_16(mstosamps_1223, delta_1169, 0);
+			t_sample mul_1175 = (sah_1190 * mod_1227);
+			t_sample sub_1226 = (mod_1227 - 0.5);
+			t_sample mul_1225 = (sub_1226 * 3.1415926535898);
+			t_sample cos_1224 = cos(mul_1225);
+			t_sample mul_1194 = (cos_1224 * cos_1224);
+			t_sample add_1222 = ((m_history_2 + phasor_1229) + 0.25);
+			t_sample mod_1221 = safemod(add_1222, 1);
+			t_sample delta_1188 = m_delta_17(mod_1221);
+			t_sample sah_1166 = m_sah_18(mul_1186, delta_1188, 0);
+			t_sample sah_1187 = m_sah_19(mstosamps_1223, delta_1188, 0);
+			t_sample mul_1174 = (sah_1187 * mod_1221);
+			t_sample sub_1220 = (mod_1221 - 0.5);
+			t_sample mul_1219 = (sub_1220 * 3.1415926535898);
+			t_sample cos_1218 = cos(mul_1219);
+			t_sample mul_1193 = (cos_1218 * cos_1218);
+			t_sample add_1200 = ((m_history_1 + phasor_1229) + 0.75);
+			t_sample mod_1199 = safemod(add_1200, 1);
+			t_sample delta_1182 = m_delta_20(mod_1199);
+			t_sample sah_1162 = m_sah_21(mul_1180, delta_1182, 0);
+			t_sample sah_1181 = m_sah_22(mstosamps_1223, delta_1182, 0);
+			t_sample mul_1172 = (sah_1181 * mod_1199);
+			t_sample tap_1214 = m_delay_5.read_linear(mul_1175);
+			t_sample tap_1215 = m_delay_5.read_linear(mul_1174);
+			t_sample tap_1216 = m_delay_5.read_linear(mul_1173);
+			t_sample tap_1217 = m_delay_5.read_linear(mul_1172);
+			t_sample mul_1212 = (tap_1214 * mul_1194);
+			t_sample mul_1201 = (tap_1216 * mul_1192);
+			t_sample add_1245 = (mul_1201 + mul_1212);
+			t_sample mix_1244 = (in1 + (m_xfade_9 * (add_1245 - in1)));
+			t_sample out1 = mix_1244;
+			t_sample mul_1211 = (tap_1215 * mul_1193);
+			t_sample sub_1198 = (mod_1199 - 0.5);
+			t_sample mul_1197 = (sub_1198 * 3.1415926535898);
+			t_sample cos_1196 = cos(mul_1197);
+			t_sample mul_1191 = (cos_1196 * cos_1196);
+			t_sample mul_1195 = (tap_1217 * mul_1191);
+			t_sample add_1247 = (mul_1195 + mul_1211);
+			t_sample mix_1246 = (in1 + (m_xfade_9 * (add_1247 - in1)));
+			t_sample out2 = mix_1246;
+			t_sample history_1165_next_1240 = sah_1164;
+			t_sample history_1170_next_1241 = sah_1168;
+			t_sample history_1167_next_1242 = sah_1166;
+			t_sample history_1163_next_1243 = sah_1162;
 			m_delay_5.write(in1);
 			m_history_4 = history_1165_next_1240;
 			m_history_3 = history_1170_next_1241;
@@ -195,16 +195,16 @@ typedef struct State {
 		return __exception;
 		
 	};
-	inline void set_blur(double _value) {
+	inline void set_blur(t_sample _value) {
 		m_blur_6 = (_value < 0 ? 0 : (_value > 0.25 ? 0.25 : _value));
 	};
-	inline void set_window(double _value) {
+	inline void set_window(t_sample _value) {
 		m_window_7 = (_value < 0.1 ? 0.1 : (_value > 1000 ? 1000 : _value));
 	};
-	inline void set_ratio(double _value) {
+	inline void set_ratio(t_sample _value) {
 		m_ratio_8 = (_value < 0.25 ? 0.25 : (_value > 4 ? 4 : _value));
 	};
-	inline void set_xfade(double _value) {
+	inline void set_xfade(t_sample _value) {
 		m_xfade_9 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
 	
@@ -217,8 +217,8 @@ typedef struct State {
 
 /// Number of signal inputs and outputs 
 
-int gen_kernel_numins = 1;
-int gen_kernel_numouts = 2;
+const int gen_kernel_numins = 1;
+const int gen_kernel_numouts = 2;
 
 int num_inputs() { return gen_kernel_numins; }
 int num_outputs() { return gen_kernel_numouts; }
@@ -245,7 +245,7 @@ void reset(CommonState *cself) {
 
 /// Set a parameter of a State object 
 
-void setparameter(CommonState *cself, long index, double value, void *ref) {
+void setparameter(CommonState *cself, long index, t_param value, void *ref) {
 	State * self = (State *)cself;
 	switch (index) {
 		case 0: self->set_blur(value); break;
@@ -259,7 +259,7 @@ void setparameter(CommonState *cself, long index, double value, void *ref) {
 
 /// Get the value of a parameter of a State object 
 
-void getparameter(CommonState *cself, long index, double *value) {
+void getparameter(CommonState *cself, long index, t_param *value) {
 	State *self = (State *)cself;
 	switch (index) {
 		case 0: *value = self->m_blur_6; break;
@@ -273,7 +273,7 @@ void getparameter(CommonState *cself, long index, double *value) {
 
 /// Allocate and configure a new State object and it's internal CommonState:
 
-void * create(double sr, long vs) {
+void * create(t_param sr, long vs) {
 	State *self = new State;
 	self->reset(sr, vs);
 	ParamInfo *pi;

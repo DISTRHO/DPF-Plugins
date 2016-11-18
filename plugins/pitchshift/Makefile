@@ -13,8 +13,7 @@ NAME = MaPitchshift
 # Files to build
 
 OBJS_DSP = \
-	DistrhoPluginMaxGen.cpp.o \
-	gen_exported.cpp.o
+	DistrhoPluginMaxGen.cpp.o
 
 # --------------------------------------------------------------
 # Do some magic

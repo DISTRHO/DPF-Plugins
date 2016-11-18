@@ -43,24 +43,24 @@ typedef struct State {
 	Delay m_delay_6;
 	Delay m_delay_15;
 	Delay m_delay_17;
-	double m_bandwidth_22;
-	double m_tail_23;
-	double m_spread_21;
-	double m_revtime_19;
-	double m_roomsize_20;
-	double m_damping_18;
-	double m_early_25;
-	double m_history_5;
-	double m_dry_24;
-	double samplerate;
-	double m_history_2;
-	double m_history_1;
-	double m_history_4;
-	double m_history_3;
+	t_sample m_bandwidth_22;
+	t_sample m_tail_23;
+	t_sample m_spread_21;
+	t_sample m_revtime_19;
+	t_sample m_roomsize_20;
+	t_sample m_damping_18;
+	t_sample m_early_25;
+	t_sample m_history_5;
+	t_sample m_dry_24;
+	t_sample samplerate;
+	t_sample m_history_2;
+	t_sample m_history_1;
+	t_sample m_history_4;
+	t_sample m_history_3;
 	int vectorsize;
 	int __exception;
 	// re-initialize all member variables;
-	inline void reset(double __sr, int __vs) { 
+	inline void reset(t_sample __sr, int __vs) {
 		__exception = 0;
 		vectorsize = __vs;
 		samplerate = __sr;
@@ -107,160 +107,160 @@ typedef struct State {
 			return __exception;
 			
 		};
-		double rsub_999 = (1 - m_bandwidth_22);
-		double expr_1051 = safepow(0.001, safediv(1, (m_revtime_19 * 44100)));
-		double expr_1052 = safediv((m_roomsize_20 * 44100), 340);
-		double mul_988 = (expr_1052 * 0.63245);
-		double expr_1043 = (-safepow(expr_1051, mul_988));
-		double mul_990 = (expr_1052 * 0.81649);
-		double expr_1045 = (-safepow(expr_1051, mul_990));
-		double mul_989 = (expr_1052 * 0.7071);
-		double expr_1044 = (-safepow(expr_1051, mul_989));
-		double mul_991 = (expr_1052 * 1);
-		double expr_1050 = (-safepow(expr_1051, mul_991));
-		double mul_985 = (expr_1052 * 0.000527);
+		t_sample rsub_999 = (1 - m_bandwidth_22);
+		t_sample expr_1051 = safepow(0.001, safediv(1, (m_revtime_19 * 44100)));
+		t_sample expr_1052 = safediv((m_roomsize_20 * 44100), 340);
+		t_sample mul_988 = (expr_1052 * 0.63245);
+		t_sample expr_1043 = (-safepow(expr_1051, mul_988));
+		t_sample mul_990 = (expr_1052 * 0.81649);
+		t_sample expr_1045 = (-safepow(expr_1051, mul_990));
+		t_sample mul_989 = (expr_1052 * 0.7071);
+		t_sample expr_1044 = (-safepow(expr_1051, mul_989));
+		t_sample mul_991 = (expr_1052 * 1);
+		t_sample expr_1050 = (-safepow(expr_1051, mul_991));
+		t_sample mul_985 = (expr_1052 * 0.000527);
 		int int_984 = int(mul_985);
-		double mul_925 = (m_spread_21 * -0.380445);
-		double add_924 = (mul_925 + 931);
-		double rsub_921 = (1341 - add_924);
-		double mul_934 = (int_984 * rsub_921);
-		double mul_953 = (m_spread_21 * 0.376623);
-		double add_952 = (mul_953 + 931);
-		double rsub_949 = (1341 - add_952);
-		double mul_960 = (int_984 * rsub_949);
-		double add_914 = (expr_1052 + 5);
-		double expr_1046 = safepow(expr_1051, add_914);
-		double mul_920 = (expr_1052 * 0.41);
-		double add_917 = (mul_920 + 5);
-		double expr_1049 = safepow(expr_1051, add_917);
-		double mul_919 = (expr_1052 * 0.3);
-		double add_916 = (mul_919 + 5);
-		double expr_1048 = safepow(expr_1051, add_916);
-		double mul_918 = (expr_1052 * 0.155);
-		double add_915 = (mul_918 + 5);
-		double expr_1047 = safepow(expr_1051, add_915);
-		double mul_927 = (m_spread_21 * -0.568366);
-		double add_923 = (mul_927 + 369);
-		double rsub_922 = (add_924 - add_923);
-		double mul_941 = (int_984 * rsub_922);
-		double mul_983 = (expr_1052 * 0.110732);
-		double mul_969 = (m_spread_21 * 0.125541);
-		double add_951 = (mul_969 + 369);
-		double rsub_950 = (add_952 - add_951);
-		double mul_967 = (int_984 * rsub_950);
-		double add_926 = (mul_927 + 159);
-		double mul_948 = (int_984 * add_926);
-		double add_968 = (mul_969 + 159);
-		double mul_976 = (int_984 * add_968);
+		t_sample mul_925 = (m_spread_21 * -0.380445);
+		t_sample add_924 = (mul_925 + 931);
+		t_sample rsub_921 = (1341 - add_924);
+		t_sample mul_934 = (int_984 * rsub_921);
+		t_sample mul_953 = (m_spread_21 * 0.376623);
+		t_sample add_952 = (mul_953 + 931);
+		t_sample rsub_949 = (1341 - add_952);
+		t_sample mul_960 = (int_984 * rsub_949);
+		t_sample add_914 = (expr_1052 + 5);
+		t_sample expr_1046 = safepow(expr_1051, add_914);
+		t_sample mul_920 = (expr_1052 * 0.41);
+		t_sample add_917 = (mul_920 + 5);
+		t_sample expr_1049 = safepow(expr_1051, add_917);
+		t_sample mul_919 = (expr_1052 * 0.3);
+		t_sample add_916 = (mul_919 + 5);
+		t_sample expr_1048 = safepow(expr_1051, add_916);
+		t_sample mul_918 = (expr_1052 * 0.155);
+		t_sample add_915 = (mul_918 + 5);
+		t_sample expr_1047 = safepow(expr_1051, add_915);
+		t_sample mul_927 = (m_spread_21 * -0.568366);
+		t_sample add_923 = (mul_927 + 369);
+		t_sample rsub_922 = (add_924 - add_923);
+		t_sample mul_941 = (int_984 * rsub_922);
+		t_sample mul_983 = (expr_1052 * 0.110732);
+		t_sample mul_969 = (m_spread_21 * 0.125541);
+		t_sample add_951 = (mul_969 + 369);
+		t_sample rsub_950 = (add_952 - add_951);
+		t_sample mul_967 = (int_984 * rsub_950);
+		t_sample add_926 = (mul_927 + 159);
+		t_sample mul_948 = (int_984 * add_926);
+		t_sample add_968 = (mul_969 + 159);
+		t_sample mul_976 = (int_984 * add_968);
 		// the main sample loop;
 		while ((__n--)) { 
-			const double in1 = (*(__in1++));
-			const double in2 = (*(__in2++));
-			double mul_846 = (in2 * m_dry_24);
-			double mul_858 = (in1 * m_dry_24);
-			double mul_848 = ((in1 + in2) * 0.707);
-			double mix_1070 = (mul_848 + (rsub_999 * (m_history_5 - mul_848)));
-			double mix_998 = mix_1070;
-			double tap_888 = m_delay_17.read_linear(mul_988);
-			double mul_884 = (tap_888 * expr_1043);
-			double mix_1071 = (mul_884 + (m_damping_18 * (m_history_4 - mul_884)));
-			double mix_886 = mix_1071;
-			double tap_900 = m_delay_16.read_linear(mul_990);
-			double mul_896 = (tap_900 * expr_1045);
-			double mix_1072 = (mul_896 + (m_damping_18 * (m_history_3 - mul_896)));
-			double mix_898 = mix_1072;
-			double tap_894 = m_delay_15.read_linear(mul_989);
-			double mul_890 = (tap_894 * expr_1044);
-			double mix_1073 = (mul_890 + (m_damping_18 * (m_history_2 - mul_890)));
-			double mix_892 = mix_1073;
-			double tap_996 = m_delay_14.read_linear(mul_991);
-			double mul_987 = (tap_996 * expr_1050);
-			double mix_1074 = (mul_987 + (m_damping_18 * (m_history_1 - mul_987)));
-			double mix_994 = mix_1074;
-			double tap_933 = m_delay_13.read_linear(mul_934);
-			double mul_931 = (tap_933 * 0.625);
-			double tap_959 = m_delay_12.read_linear(mul_960);
-			double mul_957 = (tap_959 * 0.625);
-			double add_878 = (mix_994 + mix_898);
-			double add_876 = (mix_892 + mix_886);
-			double add_871 = (add_878 + add_876);
-			double mul_854 = (add_871 * 0.5);
-			double sub_875 = (add_878 - add_876);
-			double mul_857 = (sub_875 * 0.5);
-			double sub_877 = (mix_994 - mix_898);
-			double sub_874 = (mix_892 - mix_886);
-			double sub_873 = (sub_877 - sub_874);
-			double mul_856 = (sub_873 * 0.5);
-			double add_872 = (sub_877 + sub_874);
-			double rsub_870 = (0 - add_872);
-			double mul_855 = (rsub_870 * 0.5);
-			double tap_902 = m_delay_11.read_linear(add_917);
-			double tap_903 = m_delay_11.read_linear(add_916);
-			double tap_904 = m_delay_11.read_linear(add_915);
-			double tap_905 = m_delay_11.read_linear(add_914);
-			double mul_906 = (tap_905 * expr_1046);
-			double add_879 = (mul_854 + mul_906);
-			double mul_910 = (tap_903 * expr_1048);
-			double add_881 = (mul_856 + mul_910);
-			double mul_912 = (tap_902 * expr_1049);
-			double add_882 = (mul_857 + mul_912);
-			double mul_908 = (tap_904 * expr_1047);
-			double add_880 = (mul_855 + mul_908);
-			double tap_940 = m_delay_10.read_linear(mul_941);
-			double mul_938 = (tap_940 * 0.625);
-			double tap_982 = m_delay_9.read_linear(mul_983);
-			double tap_966 = m_delay_8.read_linear(mul_967);
-			double mul_964 = (tap_966 * 0.625);
-			double tap_947 = m_delay_7.read_linear(mul_948);
-			double mul_945 = (tap_947 * 0.75);
-			double mul_980 = (tap_982 * 0.75);
-			double sub_979 = (mix_998 - mul_980);
-			double mul_978 = (sub_979 * 0.75);
-			double add_977 = (mul_978 + tap_982);
-			double tap_975 = m_delay_6.read_linear(mul_976);
-			double mul_973 = (tap_975 * 0.75);
-			double mul_869 = (mul_857 * m_tail_23);
-			double mul_867 = (mul_855 * m_tail_23);
-			double add_853 = (mul_869 + mul_867);
-			double mul_868 = (mul_856 * m_tail_23);
-			double mul_866 = (mul_854 * m_tail_23);
-			double add_852 = (mul_868 + mul_866);
-			double sub_861 = (add_853 - add_852);
-			double mul_865 = (mul_912 * m_early_25);
-			double mul_863 = (mul_908 * m_early_25);
-			double add_851 = (mul_865 + mul_863);
-			double mul_864 = (mul_910 * m_early_25);
-			double mul_862 = (mul_906 * m_early_25);
-			double add_850 = (mul_864 + mul_862);
-			double sub_860 = (add_851 - add_850);
-			double add_847 = (sub_861 + sub_860);
-			double add_849 = (add_847 + in2);
-			double sub_944 = (add_849 - mul_945);
-			double mul_943 = (sub_944 * 0.75);
-			double add_942 = (mul_943 + tap_947);
-			double sub_937 = (add_942 - mul_938);
-			double mul_936 = (sub_937 * 0.625);
-			double add_935 = (mul_936 + tap_940);
-			double sub_930 = (add_935 - mul_931);
-			double mul_929 = (sub_930 * 0.625);
-			double add_928 = (mul_929 + tap_933);
-			double out2 = (mul_846 + add_928);
-			double add_859 = (add_847 + in1);
-			double sub_972 = (add_859 - mul_973);
-			double mul_971 = (sub_972 * 0.75);
-			double add_970 = (mul_971 + tap_975);
-			double sub_963 = (add_970 - mul_964);
-			double mul_962 = (sub_963 * 0.625);
-			double add_961 = (mul_962 + tap_966);
-			double sub_956 = (add_961 - mul_957);
-			double mul_955 = (sub_956 * 0.625);
-			double add_954 = (mul_955 + tap_959);
-			double out1 = (mul_858 + add_954);
-			double history_997_next_1065 = mix_998;
-			double history_885_next_1066 = mix_886;
-			double history_897_next_1067 = mix_898;
-			double history_891_next_1068 = mix_892;
-			double history_993_next_1069 = mix_994;
+			const t_sample in1 = (*(__in1++));
+			const t_sample in2 = (*(__in2++));
+			t_sample mul_846 = (in2 * m_dry_24);
+			t_sample mul_858 = (in1 * m_dry_24);
+			t_sample mul_848 = ((in1 + in2) * 0.707);
+			t_sample mix_1070 = (mul_848 + (rsub_999 * (m_history_5 - mul_848)));
+			t_sample mix_998 = mix_1070;
+			t_sample tap_888 = m_delay_17.read_linear(mul_988);
+			t_sample mul_884 = (tap_888 * expr_1043);
+			t_sample mix_1071 = (mul_884 + (m_damping_18 * (m_history_4 - mul_884)));
+			t_sample mix_886 = mix_1071;
+			t_sample tap_900 = m_delay_16.read_linear(mul_990);
+			t_sample mul_896 = (tap_900 * expr_1045);
+			t_sample mix_1072 = (mul_896 + (m_damping_18 * (m_history_3 - mul_896)));
+			t_sample mix_898 = mix_1072;
+			t_sample tap_894 = m_delay_15.read_linear(mul_989);
+			t_sample mul_890 = (tap_894 * expr_1044);
+			t_sample mix_1073 = (mul_890 + (m_damping_18 * (m_history_2 - mul_890)));
+			t_sample mix_892 = mix_1073;
+			t_sample tap_996 = m_delay_14.read_linear(mul_991);
+			t_sample mul_987 = (tap_996 * expr_1050);
+			t_sample mix_1074 = (mul_987 + (m_damping_18 * (m_history_1 - mul_987)));
+			t_sample mix_994 = mix_1074;
+			t_sample tap_933 = m_delay_13.read_linear(mul_934);
+			t_sample mul_931 = (tap_933 * 0.625);
+			t_sample tap_959 = m_delay_12.read_linear(mul_960);
+			t_sample mul_957 = (tap_959 * 0.625);
+			t_sample add_878 = (mix_994 + mix_898);
+			t_sample add_876 = (mix_892 + mix_886);
+			t_sample add_871 = (add_878 + add_876);
+			t_sample mul_854 = (add_871 * 0.5);
+			t_sample sub_875 = (add_878 - add_876);
+			t_sample mul_857 = (sub_875 * 0.5);
+			t_sample sub_877 = (mix_994 - mix_898);
+			t_sample sub_874 = (mix_892 - mix_886);
+			t_sample sub_873 = (sub_877 - sub_874);
+			t_sample mul_856 = (sub_873 * 0.5);
+			t_sample add_872 = (sub_877 + sub_874);
+			t_sample rsub_870 = (0 - add_872);
+			t_sample mul_855 = (rsub_870 * 0.5);
+			t_sample tap_902 = m_delay_11.read_linear(add_917);
+			t_sample tap_903 = m_delay_11.read_linear(add_916);
+			t_sample tap_904 = m_delay_11.read_linear(add_915);
+			t_sample tap_905 = m_delay_11.read_linear(add_914);
+			t_sample mul_906 = (tap_905 * expr_1046);
+			t_sample add_879 = (mul_854 + mul_906);
+			t_sample mul_910 = (tap_903 * expr_1048);
+			t_sample add_881 = (mul_856 + mul_910);
+			t_sample mul_912 = (tap_902 * expr_1049);
+			t_sample add_882 = (mul_857 + mul_912);
+			t_sample mul_908 = (tap_904 * expr_1047);
+			t_sample add_880 = (mul_855 + mul_908);
+			t_sample tap_940 = m_delay_10.read_linear(mul_941);
+			t_sample mul_938 = (tap_940 * 0.625);
+			t_sample tap_982 = m_delay_9.read_linear(mul_983);
+			t_sample tap_966 = m_delay_8.read_linear(mul_967);
+			t_sample mul_964 = (tap_966 * 0.625);
+			t_sample tap_947 = m_delay_7.read_linear(mul_948);
+			t_sample mul_945 = (tap_947 * 0.75);
+			t_sample mul_980 = (tap_982 * 0.75);
+			t_sample sub_979 = (mix_998 - mul_980);
+			t_sample mul_978 = (sub_979 * 0.75);
+			t_sample add_977 = (mul_978 + tap_982);
+			t_sample tap_975 = m_delay_6.read_linear(mul_976);
+			t_sample mul_973 = (tap_975 * 0.75);
+			t_sample mul_869 = (mul_857 * m_tail_23);
+			t_sample mul_867 = (mul_855 * m_tail_23);
+			t_sample add_853 = (mul_869 + mul_867);
+			t_sample mul_868 = (mul_856 * m_tail_23);
+			t_sample mul_866 = (mul_854 * m_tail_23);
+			t_sample add_852 = (mul_868 + mul_866);
+			t_sample sub_861 = (add_853 - add_852);
+			t_sample mul_865 = (mul_912 * m_early_25);
+			t_sample mul_863 = (mul_908 * m_early_25);
+			t_sample add_851 = (mul_865 + mul_863);
+			t_sample mul_864 = (mul_910 * m_early_25);
+			t_sample mul_862 = (mul_906 * m_early_25);
+			t_sample add_850 = (mul_864 + mul_862);
+			t_sample sub_860 = (add_851 - add_850);
+			t_sample add_847 = (sub_861 + sub_860);
+			t_sample add_849 = (add_847 + in2);
+			t_sample sub_944 = (add_849 - mul_945);
+			t_sample mul_943 = (sub_944 * 0.75);
+			t_sample add_942 = (mul_943 + tap_947);
+			t_sample sub_937 = (add_942 - mul_938);
+			t_sample mul_936 = (sub_937 * 0.625);
+			t_sample add_935 = (mul_936 + tap_940);
+			t_sample sub_930 = (add_935 - mul_931);
+			t_sample mul_929 = (sub_930 * 0.625);
+			t_sample add_928 = (mul_929 + tap_933);
+			t_sample out2 = (mul_846 + add_928);
+			t_sample add_859 = (add_847 + in1);
+			t_sample sub_972 = (add_859 - mul_973);
+			t_sample mul_971 = (sub_972 * 0.75);
+			t_sample add_970 = (mul_971 + tap_975);
+			t_sample sub_963 = (add_970 - mul_964);
+			t_sample mul_962 = (sub_963 * 0.625);
+			t_sample add_961 = (mul_962 + tap_966);
+			t_sample sub_956 = (add_961 - mul_957);
+			t_sample mul_955 = (sub_956 * 0.625);
+			t_sample add_954 = (mul_955 + tap_959);
+			t_sample out1 = (mul_858 + add_954);
+			t_sample history_997_next_1065 = mix_998;
+			t_sample history_885_next_1066 = mix_886;
+			t_sample history_897_next_1067 = mix_898;
+			t_sample history_891_next_1068 = mix_892;
+			t_sample history_993_next_1069 = mix_994;
 			m_delay_17.write(add_879);
 			m_delay_16.write(add_881);
 			m_delay_15.write(add_880);
@@ -298,28 +298,28 @@ typedef struct State {
 		return __exception;
 		
 	};
-	inline void set_damping(double _value) {
+	inline void set_damping(t_sample _value) {
 		m_damping_18 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_revtime(double _value) {
+	inline void set_revtime(t_sample _value) {
 		m_revtime_19 = (_value < 0.1 ? 0.1 : (_value > 360 ? 360 : _value));
 	};
-	inline void set_roomsize(double _value) {
+	inline void set_roomsize(t_sample _value) {
 		m_roomsize_20 = (_value < 0.1 ? 0.1 : (_value > 300 ? 300 : _value));
 	};
-	inline void set_spread(double _value) {
+	inline void set_spread(t_sample _value) {
 		m_spread_21 = (_value < 0 ? 0 : (_value > 100 ? 100 : _value));
 	};
-	inline void set_bandwidth(double _value) {
+	inline void set_bandwidth(t_sample _value) {
 		m_bandwidth_22 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_tail(double _value) {
+	inline void set_tail(t_sample _value) {
 		m_tail_23 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_dry(double _value) {
+	inline void set_dry(t_sample _value) {
 		m_dry_24 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_early(double _value) {
+	inline void set_early(t_sample _value) {
 		m_early_25 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
 	
@@ -332,8 +332,8 @@ typedef struct State {
 
 /// Number of signal inputs and outputs 
 
-int gen_kernel_numins = 2;
-int gen_kernel_numouts = 2;
+const int gen_kernel_numins = 2;
+const int gen_kernel_numouts = 2;
 
 int num_inputs() { return gen_kernel_numins; }
 int num_outputs() { return gen_kernel_numouts; }
@@ -360,7 +360,7 @@ void reset(CommonState *cself) {
 
 /// Set a parameter of a State object 
 
-void setparameter(CommonState *cself, long index, double value, void *ref) {
+void setparameter(CommonState *cself, long index, t_param value, void *ref) {
 	State * self = (State *)cself;
 	switch (index) {
 		case 0: self->set_damping(value); break;
@@ -378,7 +378,7 @@ void setparameter(CommonState *cself, long index, double value, void *ref) {
 
 /// Get the value of a parameter of a State object 
 
-void getparameter(CommonState *cself, long index, double *value) {
+void getparameter(CommonState *cself, long index, t_param *value) {
 	State *self = (State *)cself;
 	switch (index) {
 		case 0: *value = self->m_damping_18; break;
@@ -396,7 +396,7 @@ void getparameter(CommonState *cself, long index, double *value) {
 
 /// Allocate and configure a new State object and it's internal CommonState:
 
-void * create(double sr, long vs) {
+void * create(t_param sr, long vs) {
 	State *self = new State;
 	self->reset(sr, vs);
 	ParamInfo *pi;

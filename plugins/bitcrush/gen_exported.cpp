@@ -31,12 +31,12 @@ static const int GENLIB_LOOPCOUNT_BAIL = 100000;
 // The State struct contains all the state and procedures for the gendsp kernel
 typedef struct State { 
 	CommonState __commonstate;
-	double m_resolution_1;
-	double samplerate;
+	t_sample m_resolution_1;
+	t_sample samplerate;
 	int vectorsize;
 	int __exception;
 	// re-initialize all member variables;
-	inline void reset(double __sr, int __vs) { 
+	inline void reset(t_sample __sr, int __vs) {
 		__exception = 0;
 		vectorsize = __vs;
 		samplerate = __sr;
@@ -60,16 +60,16 @@ typedef struct State {
 		};
 		// the main sample loop;
 		while ((__n--)) { 
-			const double in1 = (*(__in1++));
-			double mul_50 = (in1 * m_resolution_1);
-			double ceil_49 = ceil(mul_50);
-			double div_48 = safediv(ceil_49, m_resolution_1);
-			double out1 = div_48;
-			double add_45 = (mul_50 + 0.5);
-			double floor_46 = floor(add_45);
-			double sub_44 = (floor_46 - 0.5);
-			double div_47 = safediv(sub_44, m_resolution_1);
-			double out2 = div_47;
+			const t_sample in1 = (*(__in1++));
+			t_sample mul_50 = (in1 * m_resolution_1);
+			t_sample ceil_49 = ceil(mul_50);
+			t_sample div_48 = safediv(ceil_49, m_resolution_1);
+			t_sample out1 = div_48;
+			t_sample add_45 = (mul_50 + 0.5);
+			t_sample floor_46 = floor(add_45);
+			t_sample sub_44 = (floor_46 - 0.5);
+			t_sample div_47 = safediv(sub_44, m_resolution_1);
+			t_sample out2 = div_47;
 			// assign results to output buffer;
 			(*(__out1++)) = out1;
 			(*(__out2++)) = out2;
@@ -78,7 +78,7 @@ typedef struct State {
 		return __exception;
 		
 	};
-	inline void set_resolution(double _value) {
+	inline void set_resolution(t_sample _value) {
 		m_resolution_1 = (_value < 1 ? 1 : (_value > 16 ? 16 : _value));
 	};
 	
@@ -91,8 +91,8 @@ typedef struct State {
 
 /// Number of signal inputs and outputs 
 
-int gen_kernel_numins = 1;
-int gen_kernel_numouts = 2;
+const int gen_kernel_numins = 1;
+const int gen_kernel_numouts = 2;
 
 int num_inputs() { return gen_kernel_numins; }
 int num_outputs() { return gen_kernel_numouts; }
@@ -119,7 +119,7 @@ void reset(CommonState *cself) {
 
 /// Set a parameter of a State object 
 
-void setparameter(CommonState *cself, long index, double value, void *ref) {
+void setparameter(CommonState *cself, long index, t_param value, void *ref) {
 	State * self = (State *)cself;
 	switch (index) {
 		case 0: self->set_resolution(value); break;
@@ -130,7 +130,7 @@ void setparameter(CommonState *cself, long index, double value, void *ref) {
 
 /// Get the value of a parameter of a State object 
 
-void getparameter(CommonState *cself, long index, double *value) {
+void getparameter(CommonState *cself, long index, t_param *value) {
 	State *self = (State *)cself;
 	switch (index) {
 		case 0: *value = self->m_resolution_1; break;
@@ -141,7 +141,7 @@ void getparameter(CommonState *cself, long index, double *value) {
 
 /// Allocate and configure a new State object and it's internal CommonState:
 
-void * create(double sr, long vs) {
+void * create(t_param sr, long vs) {
 	State *self = new State;
 	self->reset(sr, vs);
 	ParamInfo *pi;

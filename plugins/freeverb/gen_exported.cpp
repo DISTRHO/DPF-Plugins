@@ -43,23 +43,23 @@ typedef struct State {
 	Delay m_delay_7;
 	Delay m_delay_11;
 	Delay m_delay_5;
-	double m_history_6;
-	double m_history_18;
-	double m_fb_1;
-	double m_history_20;
-	double samplerate;
-	double m_damp_2;
-	double m_history_8;
-	double m_history_16;
-	double m_history_14;
-	double m_fb_3;
-	double m_history_12;
-	double m_history_10;
-	double m_spread_4;
+	t_sample m_history_6;
+	t_sample m_history_18;
+	t_sample m_fb_1;
+	t_sample m_history_20;
+	t_sample samplerate;
+	t_sample m_damp_2;
+	t_sample m_history_8;
+	t_sample m_history_16;
+	t_sample m_history_14;
+	t_sample m_fb_3;
+	t_sample m_history_12;
+	t_sample m_history_10;
+	t_sample m_spread_4;
 	int vectorsize;
 	int __exception;
 	// re-initialize all member variables;
-	inline void reset(double __sr, int __vs) { 
+	inline void reset(t_sample __sr, int __vs) {
 		__exception = 0;
 		vectorsize = __vs;
 		samplerate = __sr;
@@ -103,121 +103,121 @@ typedef struct State {
 			return __exception;
 			
 		};
-		double mul_448 = (m_fb_1 * 0.5);
-		double add_424 = (225 + m_spread_4);
-		double add_431 = (341 + m_spread_4);
-		double add_446 = (441 + m_spread_4);
-		double add_417 = (556 + m_spread_4);
-		double damp_327 = m_damp_2;
-		double damp_326 = damp_327;
-		double damp_328 = damp_327;
-		double damp_329 = damp_327;
-		double damp_330 = damp_327;
-		double damp_331 = damp_327;
-		double damp_332 = damp_327;
-		double damp_333 = damp_327;
-		double add_439 = (1557 + m_spread_4);
-		double rsub_295 = (1 - damp_327);
-		double add_438 = (1617 + m_spread_4);
-		double rsub_466 = (1 - damp_326);
-		double add_440 = (1491 + m_spread_4);
-		double rsub_479 = (1 - damp_328);
-		double add_441 = (1422 + m_spread_4);
-		double rsub_484 = (1 - damp_329);
-		double add_442 = (1356 + m_spread_4);
-		double rsub_496 = (1 - damp_330);
-		double add_443 = (1277 + m_spread_4);
-		double rsub_508 = (1 - damp_331);
-		double add_444 = (1188 + m_spread_4);
-		double rsub_520 = (1 - damp_332);
-		double add_445 = (1116 + m_spread_4);
-		double rsub_532 = (1 - damp_333);
+		t_sample mul_448 = (m_fb_1 * 0.5);
+		t_sample add_424 = (225 + m_spread_4);
+		t_sample add_431 = (341 + m_spread_4);
+		t_sample add_446 = (441 + m_spread_4);
+		t_sample add_417 = (556 + m_spread_4);
+		t_sample damp_327 = m_damp_2;
+		t_sample damp_326 = damp_327;
+		t_sample damp_328 = damp_327;
+		t_sample damp_329 = damp_327;
+		t_sample damp_330 = damp_327;
+		t_sample damp_331 = damp_327;
+		t_sample damp_332 = damp_327;
+		t_sample damp_333 = damp_327;
+		t_sample add_439 = (1557 + m_spread_4);
+		t_sample rsub_295 = (1 - damp_327);
+		t_sample add_438 = (1617 + m_spread_4);
+		t_sample rsub_466 = (1 - damp_326);
+		t_sample add_440 = (1491 + m_spread_4);
+		t_sample rsub_479 = (1 - damp_328);
+		t_sample add_441 = (1422 + m_spread_4);
+		t_sample rsub_484 = (1 - damp_329);
+		t_sample add_442 = (1356 + m_spread_4);
+		t_sample rsub_496 = (1 - damp_330);
+		t_sample add_443 = (1277 + m_spread_4);
+		t_sample rsub_508 = (1 - damp_331);
+		t_sample add_444 = (1188 + m_spread_4);
+		t_sample rsub_520 = (1 - damp_332);
+		t_sample add_445 = (1116 + m_spread_4);
+		t_sample rsub_532 = (1 - damp_333);
 		// the main sample loop;
 		while ((__n--)) { 
-			const double in1 = (*(__in1++));
-			double mul_459 = (in1 * 0.015);
-			double tap_302 = m_delay_5.read_linear(add_439);
-			double gen_410 = tap_302;
-			double mul_300 = (tap_302 * damp_327);
-			double mul_298 = (m_history_6 * rsub_295);
-			double add_299 = (mul_300 + mul_298);
-			double mul_296 = (add_299 * m_fb_3);
-			double add_303 = (mul_459 + mul_296);
-			double history_297_next_304 = add_299;
-			double tap_469 = m_delay_7.read_linear(add_438);
-			double gen_458 = tap_469;
-			double mul_468 = (tap_469 * damp_326);
-			double mul_465 = (m_history_8 * rsub_466);
-			double add_464 = (mul_468 + mul_465);
-			double mul_462 = (add_464 * m_fb_3);
-			double add_463 = (mul_459 + mul_462);
-			double history_297_next_461 = add_464;
-			double tap_474 = m_delay_9.read_linear(add_440);
-			double gen_399 = tap_474;
-			double mul_480 = (tap_474 * damp_328);
-			double mul_478 = (m_history_10 * rsub_479);
-			double add_476 = (mul_480 + mul_478);
-			double mul_473 = (add_476 * m_fb_3);
-			double add_477 = (mul_459 + mul_473);
-			double history_297_next_475 = add_476;
-			double tap_489 = m_delay_11.read_linear(add_441);
-			double gen_388 = tap_489;
-			double mul_493 = (tap_489 * damp_329);
-			double mul_487 = (m_history_12 * rsub_484);
-			double add_492 = (mul_493 + mul_487);
-			double mul_491 = (add_492 * m_fb_3);
-			double add_490 = (mul_459 + mul_491);
-			double history_297_next_485 = add_492;
-			double tap_500 = m_delay_13.read_linear(add_442);
-			double gen_377 = tap_500;
-			double mul_501 = (tap_500 * damp_330);
-			double mul_499 = (m_history_14 * rsub_496);
-			double add_505 = (mul_501 + mul_499);
-			double mul_504 = (add_505 * m_fb_3);
-			double add_503 = (mul_459 + mul_504);
-			double history_297_next_497 = add_505;
-			double tap_512 = m_delay_15.read_linear(add_443);
-			double gen_366 = tap_512;
-			double mul_517 = (tap_512 * damp_331);
-			double mul_511 = (m_history_16 * rsub_508);
-			double add_516 = (mul_517 + mul_511);
-			double mul_513 = (add_516 * m_fb_3);
-			double add_514 = (mul_459 + mul_513);
-			double history_297_next_509 = add_516;
-			double tap_525 = m_delay_17.read_linear(add_444);
-			double gen_355 = tap_525;
-			double mul_521 = (tap_525 * damp_332);
-			double mul_524 = (m_history_18 * rsub_520);
-			double add_529 = (mul_521 + mul_524);
-			double mul_526 = (add_529 * m_fb_3);
-			double add_527 = (mul_459 + mul_526);
-			double history_297_next_522 = add_529;
-			double tap_537 = m_delay_19.read_linear(add_445);
-			double gen_344 = tap_537;
-			double mul_541 = (tap_537 * damp_333);
-			double mul_536 = (m_history_20 * rsub_532);
-			double add_538 = (mul_541 + mul_536);
-			double mul_540 = (add_538 * m_fb_3);
-			double add_534 = (mul_459 + mul_540);
-			double history_297_next_533 = add_538;
-			double add_447 = ((((((((gen_344 + gen_355) + gen_366) + gen_377) + gen_388) + gen_399) + gen_458) + gen_410) + 0);
-			double tap_283 = m_delay_21.read_linear(add_417);
-			double sub_279 = (add_447 - tap_283);
-			double mul_281 = (tap_283 * mul_448);
-			double add_280 = (add_447 + mul_281);
-			double tap_548 = m_delay_22.read_linear(add_446);
-			double sub_546 = (sub_279 - tap_548);
-			double mul_547 = (tap_548 * mul_448);
-			double add_544 = (sub_279 + mul_547);
-			double tap_554 = m_delay_23.read_linear(add_431);
-			double sub_552 = (sub_546 - tap_554);
-			double mul_553 = (tap_554 * mul_448);
-			double add_550 = (sub_546 + mul_553);
-			double tap_560 = m_delay_24.read_linear(add_424);
-			double sub_558 = (sub_552 - tap_560);
-			double mul_559 = (tap_560 * mul_448);
-			double add_556 = (sub_552 + mul_559);
-			double out1 = sub_558;
+			const t_sample in1 = (*(__in1++));
+			t_sample mul_459 = (in1 * 0.015);
+			t_sample tap_302 = m_delay_5.read_linear(add_439);
+			t_sample gen_410 = tap_302;
+			t_sample mul_300 = (tap_302 * damp_327);
+			t_sample mul_298 = (m_history_6 * rsub_295);
+			t_sample add_299 = (mul_300 + mul_298);
+			t_sample mul_296 = (add_299 * m_fb_3);
+			t_sample add_303 = (mul_459 + mul_296);
+			t_sample history_297_next_304 = add_299;
+			t_sample tap_469 = m_delay_7.read_linear(add_438);
+			t_sample gen_458 = tap_469;
+			t_sample mul_468 = (tap_469 * damp_326);
+			t_sample mul_465 = (m_history_8 * rsub_466);
+			t_sample add_464 = (mul_468 + mul_465);
+			t_sample mul_462 = (add_464 * m_fb_3);
+			t_sample add_463 = (mul_459 + mul_462);
+			t_sample history_297_next_461 = add_464;
+			t_sample tap_474 = m_delay_9.read_linear(add_440);
+			t_sample gen_399 = tap_474;
+			t_sample mul_480 = (tap_474 * damp_328);
+			t_sample mul_478 = (m_history_10 * rsub_479);
+			t_sample add_476 = (mul_480 + mul_478);
+			t_sample mul_473 = (add_476 * m_fb_3);
+			t_sample add_477 = (mul_459 + mul_473);
+			t_sample history_297_next_475 = add_476;
+			t_sample tap_489 = m_delay_11.read_linear(add_441);
+			t_sample gen_388 = tap_489;
+			t_sample mul_493 = (tap_489 * damp_329);
+			t_sample mul_487 = (m_history_12 * rsub_484);
+			t_sample add_492 = (mul_493 + mul_487);
+			t_sample mul_491 = (add_492 * m_fb_3);
+			t_sample add_490 = (mul_459 + mul_491);
+			t_sample history_297_next_485 = add_492;
+			t_sample tap_500 = m_delay_13.read_linear(add_442);
+			t_sample gen_377 = tap_500;
+			t_sample mul_501 = (tap_500 * damp_330);
+			t_sample mul_499 = (m_history_14 * rsub_496);
+			t_sample add_505 = (mul_501 + mul_499);
+			t_sample mul_504 = (add_505 * m_fb_3);
+			t_sample add_503 = (mul_459 + mul_504);
+			t_sample history_297_next_497 = add_505;
+			t_sample tap_512 = m_delay_15.read_linear(add_443);
+			t_sample gen_366 = tap_512;
+			t_sample mul_517 = (tap_512 * damp_331);
+			t_sample mul_511 = (m_history_16 * rsub_508);
+			t_sample add_516 = (mul_517 + mul_511);
+			t_sample mul_513 = (add_516 * m_fb_3);
+			t_sample add_514 = (mul_459 + mul_513);
+			t_sample history_297_next_509 = add_516;
+			t_sample tap_525 = m_delay_17.read_linear(add_444);
+			t_sample gen_355 = tap_525;
+			t_sample mul_521 = (tap_525 * damp_332);
+			t_sample mul_524 = (m_history_18 * rsub_520);
+			t_sample add_529 = (mul_521 + mul_524);
+			t_sample mul_526 = (add_529 * m_fb_3);
+			t_sample add_527 = (mul_459 + mul_526);
+			t_sample history_297_next_522 = add_529;
+			t_sample tap_537 = m_delay_19.read_linear(add_445);
+			t_sample gen_344 = tap_537;
+			t_sample mul_541 = (tap_537 * damp_333);
+			t_sample mul_536 = (m_history_20 * rsub_532);
+			t_sample add_538 = (mul_541 + mul_536);
+			t_sample mul_540 = (add_538 * m_fb_3);
+			t_sample add_534 = (mul_459 + mul_540);
+			t_sample history_297_next_533 = add_538;
+			t_sample add_447 = ((((((((gen_344 + gen_355) + gen_366) + gen_377) + gen_388) + gen_399) + gen_458) + gen_410) + 0);
+			t_sample tap_283 = m_delay_21.read_linear(add_417);
+			t_sample sub_279 = (add_447 - tap_283);
+			t_sample mul_281 = (tap_283 * mul_448);
+			t_sample add_280 = (add_447 + mul_281);
+			t_sample tap_548 = m_delay_22.read_linear(add_446);
+			t_sample sub_546 = (sub_279 - tap_548);
+			t_sample mul_547 = (tap_548 * mul_448);
+			t_sample add_544 = (sub_279 + mul_547);
+			t_sample tap_554 = m_delay_23.read_linear(add_431);
+			t_sample sub_552 = (sub_546 - tap_554);
+			t_sample mul_553 = (tap_554 * mul_448);
+			t_sample add_550 = (sub_546 + mul_553);
+			t_sample tap_560 = m_delay_24.read_linear(add_424);
+			t_sample sub_558 = (sub_552 - tap_560);
+			t_sample mul_559 = (tap_560 * mul_448);
+			t_sample add_556 = (sub_552 + mul_559);
+			t_sample out1 = sub_558;
 			m_delay_5.write(add_303);
 			m_delay_24.write(add_556);
 			m_delay_23.write(add_550);
@@ -257,16 +257,16 @@ typedef struct State {
 		return __exception;
 		
 	};
-	inline void set_fb2(double _value) {
+	inline void set_fb2(t_sample _value) {
 		m_fb_1 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_damp(double _value) {
+	inline void set_damp(t_sample _value) {
 		m_damp_2 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_fb1(double _value) {
+	inline void set_fb1(t_sample _value) {
 		m_fb_3 = (_value < 0 ? 0 : (_value > 1 ? 1 : _value));
 	};
-	inline void set_spread(double _value) {
+	inline void set_spread(t_sample _value) {
 		m_spread_4 = (_value < 0 ? 0 : (_value > 400 ? 400 : _value));
 	};
 	
@@ -279,8 +279,8 @@ typedef struct State {
 
 /// Number of signal inputs and outputs 
 
-int gen_kernel_numins = 1;
-int gen_kernel_numouts = 1;
+const int gen_kernel_numins = 1;
+const int gen_kernel_numouts = 1;
 
 int num_inputs() { return gen_kernel_numins; }
 int num_outputs() { return gen_kernel_numouts; }
@@ -307,7 +307,7 @@ void reset(CommonState *cself) {
 
 /// Set a parameter of a State object 
 
-void setparameter(CommonState *cself, long index, double value, void *ref) {
+void setparameter(CommonState *cself, long index, t_param value, void *ref) {
 	State * self = (State *)cself;
 	switch (index) {
 		case 0: self->set_fb2(value); break;
@@ -321,7 +321,7 @@ void setparameter(CommonState *cself, long index, double value, void *ref) {
 
 /// Get the value of a parameter of a State object 
 
-void getparameter(CommonState *cself, long index, double *value) {
+void getparameter(CommonState *cself, long index, t_param *value) {
 	State *self = (State *)cself;
 	switch (index) {
 		case 0: *value = self->m_fb_1; break;
@@ -335,7 +335,7 @@ void getparameter(CommonState *cself, long index, double *value) {
 
 /// Allocate and configure a new State object and it's internal CommonState:
 
-void * create(double sr, long vs) {
+void * create(t_param sr, long vs) {
 	State *self = new State;
 	self->reset(sr, vs);
 	ParamInfo *pi;

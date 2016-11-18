@@ -29,9 +29,9 @@ int num_outputs();
 int num_params();
 int perform(CommonState *cself, t_sample **ins, long numins, t_sample **outs, long numouts, long n);
 void reset(CommonState *cself);
-void setparameter(CommonState *cself, long index, double value, void *ref);
-void getparameter(CommonState *cself, long index, double *value);
-void * create(double sr, long vs);
+void setparameter(CommonState *cself, long index, t_param value, void *ref);
+void getparameter(CommonState *cself, long index, t_param *value);
+void * create(t_param sr, long vs);
 void destroy(CommonState *cself);
 
 } // gen_exported::

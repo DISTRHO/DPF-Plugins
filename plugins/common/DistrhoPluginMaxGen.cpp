@@ -16,7 +16,7 @@
 
 #include "DistrhoPluginMaxGen.hpp"
 
-#include "gen_exported.h"
+#include "gen_exported.cpp"
 
 namespace gen = gen_exported;
 
@@ -57,7 +57,7 @@ void DistrhoPluginMaxGen::initParameter(uint32_t index, Parameter& parameter)
 
 float DistrhoPluginMaxGen::getParameterValue(uint32_t index) const
 {
-    double value = 0.0;
+    t_param value = 0.0f;
     gen::getparameter(fGenState, index, &value);
     return value;
 }
@@ -72,7 +72,7 @@ void DistrhoPluginMaxGen::setParameterValue(uint32_t index, float value)
 
 void DistrhoPluginMaxGen::run(const float** inputs, float** outputs, uint32_t frames)
 {
-    gen::perform(fGenState, (float**)inputs, DISTRHO_PLUGIN_NUM_INPUTS, outputs, DISTRHO_PLUGIN_NUM_OUTPUTS, frames);
+    gen::perform(fGenState, (float**)inputs, gen::gen_kernel_numins, outputs, gen::gen_kernel_numouts, frames);
 }
 
 // -----------------------------------------------------------------------
