@@ -42,6 +42,7 @@ public:
         paramDecay,
         paramAccent,
         paramVolume,
+        paramBypass,
         paramCount
     };
 
@@ -79,7 +80,7 @@ protected:
 
     uint32_t getVersion() const noexcept override
     {
-        return d_version(1, 0, 0);
+        return d_version(1, 1, 0);
     }
 
     int64_t getUniqueId() const noexcept override
@@ -117,6 +118,7 @@ private:
         float decay;
         float accent;
         float volume;
+        bool bypass;
     } fParams;
 
     nekobee_synth_t fSynth;

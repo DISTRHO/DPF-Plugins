@@ -134,6 +134,29 @@ struct AudioPort {
 };
 
 /**
+   Parameter designation.@n
+   Allows a parameter to be specially designated for a task, like bypass.
+
+   Each designation is unique, there must be only one parameter that uses it.@n
+   The use of designated parameters is completely optional.
+
+   @note Designated parameters have strict ranges.
+   @see ParameterRanges::adjustForDesignation()
+ */
+enum ParameterDesignation {
+   /**
+     Null or unset designation.
+    */
+    kParameterDesignationNull = 0,
+
+   /**
+     Bypass designation.@n
+     When on (> 0.5f), it means the plugin must run in a bypassed state.
+    */
+    kParameterDesignationBypass = 1
+};
+
+/**
    Parameter ranges.@n
    This is used to set the default, minimum and maximum values of a parameter.
 
@@ -290,6 +313,11 @@ struct Parameter {
     ParameterRanges ranges;
 
    /**
+      Designation for this parameter.
+    */
+    ParameterDesignation designation;
+
+   /**
       MIDI CC to use by default on this parameter.@n
       A value of 0 or 32 (bank change) is considered invalid.@n
       Must also be less or equal to 120.
@@ -306,6 +334,7 @@ struct Parameter {
           symbol(),
           unit(),
           ranges(),
+          designation(kParameterDesignationNull),
           midiCC(0) {}
 
    /**
@@ -317,7 +346,32 @@ struct Parameter {
           symbol(s),
           unit(u),
           ranges(def, min, max),
+          designation(kParameterDesignationNull),
           midiCC(0) {}
+
+   /**
+      Initialize a parameter for a specific designation.
+    */
+    void initDesignation(ParameterDesignation d) noexcept
+    {
+        designation = d;
+
+        switch (d)
+        {
+        case kParameterDesignationNull:
+            break;
+        case kParameterDesignationBypass:
+            hints  = kParameterIsAutomable|kParameterIsBoolean|kParameterIsInteger;
+            name   = "Bypass";
+            symbol = "dpf_bypass";
+            unit   = "";
+            midiCC = 0;
+            ranges.def = 0.0f;
+            ranges.min = 0.0f;
+            ranges.max = 1.0f;
+            break;
+        }
+    }
 };
 
 /**
@@ -541,7 +595,7 @@ public:
       Returns false when the host buffer is full, in which case do not call this again until the next run().
       @note This function is not implemented yet!@n
             It's here so that developers can prepare MIDI plugins in advance.@n
-            If you plan to use this, please report to DPF authos so it can be implemented.
+            If you plan to use this, please report to DPF authors so it can be implemented.
     */
     bool writeMidiEvent(const MidiEvent& midiEvent) noexcept;
 #endif
@@ -661,7 +715,7 @@ protected:
    /**
       Get the value of an internal state.@n
       The host may call this function from any non-realtime context.@n
-      Must be implemented by your plugin class if DISTRHO_PLUGIN_WANT_PROGRAMS or DISTRHO_PLUGIN_WANT_FULL_STATE is enabled.
+      Must be implemented by your plugin class if DISTRHO_PLUGIN_WANT_FULL_STATE is enabled.
       @note The use of this function breaks compatibility with the DSSI format.
     */
     virtual String getState(const char* key) const = 0;
