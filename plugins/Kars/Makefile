@@ -27,13 +27,13 @@ include ../Makefile.Kars.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(HAVE_DGL),true)
+ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
 endif
 
-ifeq ($(LINUX),true)
+ifeq ($(BUILD_DSSI),true)
 TARGETS += dssi_dsp
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_LIBLO),true)
@@ -42,13 +42,17 @@ endif
 endif
 endif
 
+ifeq ($(BUILD_LV2),true)
 ifeq ($(HAVE_DGL),true)
 TARGETS += lv2_sep
 else
 TARGETS += lv2_dsp
 endif
+endif
 
+ifeq ($(BUILD_VST),true)
 TARGETS += vst
+endif
 
 all: $(TARGETS)
 

@@ -13,6 +13,17 @@ HAVE_DGL = false
 endif
 
 # --------------------------------------------------------------
+# Set which plugin formats to build
+
+BUILD_JACK   = true
+ifeq ($(LINUX),true)
+BUILD_LADSPA = true
+BUILD_DSSI   = true
+endif
+BUILD_LV2    = true
+BUILD_VST2   = true
+
+# --------------------------------------------------------------
 # Basic setup
 
 TARGET_DIR = ../../bin

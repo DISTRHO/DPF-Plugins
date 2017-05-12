@@ -23,16 +23,23 @@ include ../Makefile.DPF-Max-Gen.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
+ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
+endif
 
-ifeq ($(LINUX),true)
+ifeq ($(BUILD_LADSPA),true)
 TARGETS += ladspa
 endif
 
+ifeq ($(BUILD_LV2),true)
 TARGETS += lv2_dsp
+endif
+
+ifeq ($(BUILD_VST),true)
 TARGETS += vst
+endif
 
 all: $(TARGETS)
 

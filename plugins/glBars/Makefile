@@ -26,11 +26,19 @@ include ../Makefile.glBars.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
+ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
+endif
+
+ifeq ($(BUILD_LV2),true)
 TARGETS += lv2
+endif
+
+ifeq ($(BUILD_VST),true)
 TARGETS += vst
+endif
 
 all: $(TARGETS)
 

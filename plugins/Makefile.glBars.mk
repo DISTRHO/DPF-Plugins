@@ -9,6 +9,13 @@
 include ../../Makefile.mk
 
 # --------------------------------------------------------------
+# Set which plugin formats to build
+
+BUILD_JACK   = true
+BUILD_LV2    = true
+BUILD_VST2   = true
+
+# --------------------------------------------------------------
 # Basic setup
 
 TARGET_DIR = ../../bin
