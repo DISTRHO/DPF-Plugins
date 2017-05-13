@@ -1,0 +1,50 @@
+License / Copyright Information
+
+The DPF-Plugins package consists of several plugins based on the DISTHRO Plugin
+Framework (DPF). Different copyrights and licenses apply to different plugins.
+For example, the Kars plugin code uses an ISC License and it is copyrighted by
+its authors. See below for the list of the package components and the license
+for each.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+DPF-Plugins licenses
+
+Component           Location                        License
+------------------------------------------------------------------
+DPF                     src/dpf                         ISC
+
+glBars                  src/plugins/glBars              GPL-3.0
+
+Kars                    src/plugins/Kars                ISC
+
+Mini-Series:
+
+    3BandEQ             src/plugins/3BandEQ             LGPL-3.0
+
+    3BandSplitter       src/plugins/3BandSplitter       LGPL-3.0
+
+    PingPongPan         src/plugins/PingPongPan         LGPL-3.0
+
+ndc Plugs:
+
+    AmplitudeImposer    src/plugins/AmplitudeImposer    MIT
+
+    CycleShifter        src/plugins/CycleShifter        MIT
+
+    SoulForce           src/plugins/SoulForce           MIT
+
+MVerb                   src/plugins/MVerb               GPL-3.0
+
+Nekobi                  src/plugins/Nekobi              GPL-2.0
+
+ProM                    src/plugins/ProM                LGPL-3.0
+------------------------------------------------------------------
+
+The LICENSE file for each component can be retrieved at the specified Location.
