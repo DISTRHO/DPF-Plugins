@@ -24,6 +24,16 @@ glBars                  src/plugins/glBars              GPL-3.0
 
 Kars                    src/plugins/Kars                ISC
 
+Max-Gen:
+
+    bitcrush            src/plugins/bitcrush            LGPL-3.0
+
+    freeverb            src/plugins/freeverb            LGPL-3.0
+
+    gigaverb            src/plugins/gigaverb            LGPL-3.0
+
+    pitchshift          src/plugins/pitchshift          LGPL-3.0
+
 Mini-Series:
 
     3BandEQ             src/plugins/3BandEQ             LGPL-3.0

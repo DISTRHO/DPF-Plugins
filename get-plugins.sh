@@ -34,9 +34,15 @@ for PLUGIN in ${PLUGINS[@]}; do
   if [ -d repos/$PLUGIN/modguis ]; then
     mv repos/$PLUGIN/modguis/* modguis/
   fi
-  mv repos/$PLUGIN/plugins/* plugins/
+  for f in $(ls repos/$PLUGIN/plugins/); do
+    mv repos/$PLUGIN/plugins/$f plugins/$f
+    if [ -d plugins/$f ]; then
+      cp repos/$PLUGIN/LICENSE plugins/$f/LICENSE
+    fi
+  done
   mv plugins/Makefile.mk plugins/Makefile.$PLUGIN.mk
   sed -i -e "s/Makefile.mk/Makefile.$PLUGIN.mk/" plugins/*/Makefile
 done
 
 rm -rf repos
+rm plugins/common/LICENSE
