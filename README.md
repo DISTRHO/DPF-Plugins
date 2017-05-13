@@ -10,6 +10,7 @@ everything you need to build is included in a simple clone.
 The list of plugins/packs are:
  - glBars
  - Kars
+ - Max-Gen examples (MaBitcrush, MaFreeverb, MaGigaverb, MaPitchshift)
  - Mini-Series (3BandEQ. 3BandSplitter, PingPongPan)
  - ndc-Plugs (Amplitude Imposer, Cycle Shifter, Soul Force)
  - MVerb
