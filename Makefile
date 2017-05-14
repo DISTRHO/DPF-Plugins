@@ -113,6 +113,7 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib/dssi/
 	install -d $(DESTDIR)$(PREFIX)/lib/lv2/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
+	install -d $(DESTDIR)$(PREFIX)/bin/
 
 	cp bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
 	cp bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
@@ -122,6 +123,24 @@ ifeq ($(HAVE_DGL),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
 endif
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
+
+ifeq ($(HAVE_JACK),true)
+	cp -r bin/3BandEQ  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/3BandSplitter  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/AmplitudeImposer  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/CycleShifter  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/Kars  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/MVerb  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/MaBitcrush  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/MaFreeverb  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/MaGigaverb  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/MaPitchshift  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/Nekobi  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/PingPongPan  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/ProM  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/SoulForce  $(DESTDIR)$(PREFIX)/bin/
+	cp -r bin/glBars  $(DESTDIR)$(PREFIX)/bin/
+endif
 
 	# Kars
 	cp -r modguis/Kars.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/
