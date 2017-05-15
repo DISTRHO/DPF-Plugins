@@ -16,6 +16,7 @@ The list of plugins/packs are:
  - MVerb
  - Nekobi
  - ProM
+ - MaBitcrush, MaFreeverb, MaGigaverb, MaPitchshift (no beautiful graphical interfaces)
 
 Screenshots
 -----------
