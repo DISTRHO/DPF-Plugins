@@ -36,7 +36,7 @@ ifeq ($(BUILD_LV2),true)
 TARGETS += lv2
 endif
 
-ifeq ($(BUILD_VST),true)
+ifeq ($(BUILD_VST2),true)
 TARGETS += vst
 endif
 
