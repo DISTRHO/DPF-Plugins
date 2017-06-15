@@ -30,7 +30,7 @@ rm -rf tmp/*
 NAME="$1"
 
 make -C .. clean
-CFLAGS="-m32" CXXFLAGS="-m32" LDFLAGS="-m32" make HAVE_JACK=false HAVE_PROJM=false -C .. -j 4
+CFLAGS="-m32" CXXFLAGS="-m32" LDFLAGS="-m32" make HAVE_JACK=false HAVE_PROJM=false -C .. -j 8
 mkdir -p "$NAME-linux32bit/ladspa"
 mkdir -p "$NAME-linux32bit/dssi"
 mkdir -p "$NAME-linux32bit/lv2"
@@ -48,7 +48,7 @@ compressFolderAsTarGz "$NAME-linux32bit"
 rm -rf tmp/*
 
 make -C .. clean
-CFLAGS="-m64" CXXFLAGS="-m64" LDFLAGS="-m64" make -C .. -j 4 HAVE_JACK=false HAVE_PROJM=false
+CFLAGS="-m64" CXXFLAGS="-m64" LDFLAGS="-m64" make HAVE_JACK=false HAVE_PROJM=false -C .. -j 8
 mkdir -p "$NAME-linux64bit/ladspa"
 mkdir -p "$NAME-linux64bit/dssi"
 mkdir -p "$NAME-linux64bit/lv2"
