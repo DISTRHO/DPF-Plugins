@@ -30,7 +30,7 @@ rm -rf tmp/*
 NAME="$1"
 
 _mingw32-build make -C .. clean
-_mingw32-build make -C ..
+_mingw32-build make -C .. -j8
 for i in `ls *-vst.dll`; do mv $i `echo $i | awk 'sub("-vst","")'`; done
 rm -rf *ladspa* *dssi* *vst*
 mkdir -p "$NAME-win32bit"
@@ -44,7 +44,7 @@ compressFolderAsZip "$NAME-win32bit"
 rm -rf tmp/*
 
 _mingw64-build make -C .. clean
-_mingw64-build make -C .. -j4
+_mingw64-build make -C .. -j8
 for i in `ls *-vst.dll`; do mv $i `echo $i | awk 'sub("-vst","")'`; done
 rm -rf *ladspa* *dssi* *vst*
 mkdir -p "$NAME-win64bit"
