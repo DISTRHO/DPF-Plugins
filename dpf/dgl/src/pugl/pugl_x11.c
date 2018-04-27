@@ -41,9 +41,11 @@
 
 #include "pugl/pugl_internal.h"
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 #define SOFD_HAVE_X11
 #include "../sofd/libsofd.h"
 #include "../sofd/libsofd.c"
+#endif
 
 struct PuglInternalsImpl {
 	Display*   display;
@@ -339,7 +341,9 @@ puglDestroy(PuglView* view)
 		return;
 	}
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 	x_fib_close(view->impl->display);
+#endif
 
 	destroyContext(view);
 	XDestroyWindow(view->impl->display, view->impl->win);
@@ -441,7 +445,7 @@ dispatchKey(PuglView* view, XEvent* event, bool press)
 		view->redisplay = false;
 		return;
 	}
-	if (n == 0) {
+	if (n == 0 && sym == 0) {
 		goto send_event;
 		return;
 	}
@@ -477,6 +481,7 @@ puglProcessEvents(PuglView* view)
 	while (XPending(view->impl->display) > 0) {
 		XNextEvent(view->impl->display, &event);
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 		if (x_fib_handle_events(view->impl->display, &event)) {
 			const int status = x_fib_status();
 
@@ -495,6 +500,7 @@ puglProcessEvents(PuglView* view)
 			}
 			break;
 		}
+#endif
 
 		if (event.xany.window != view->impl->win &&
 			(view->parent == 0 || event.xany.window != (Window)view->parent)) {

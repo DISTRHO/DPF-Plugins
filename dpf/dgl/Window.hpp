@@ -19,6 +19,10 @@
 
 #include "Geometry.hpp"
 
+START_NAMESPACE_DISTRHO
+class UIExporter;
+END_NAMESPACE_DISTRHO
+
 START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
@@ -30,6 +34,7 @@ class StandaloneWindow;
 class Window
 {
 public:
+#ifndef DGL_FILE_BROWSER_DISABLED
    /**
       File browser options.
     */
@@ -66,6 +71,7 @@ public:
               height(0),
               buttons() {}
     };
+#endif // DGL_FILE_BROWSER_DISABLED
 
     explicit Window(Application& app);
     explicit Window(Application& app, Window& parent);
@@ -80,7 +86,9 @@ public:
     void focus();
     void repaint() noexcept;
 
+#ifndef DGL_FILE_BROWSER_DISABLED
     bool openFileBrowser(const FileBrowserOptions& options);
+#endif
 
     bool isVisible() const noexcept;
     void setVisible(bool yesNo);
@@ -111,7 +119,9 @@ protected:
     virtual void onReshape(uint width, uint height);
     virtual void onClose();
 
+#ifndef DGL_FILE_BROWSER_DISABLED
     virtual void fileBrowserSelected(const char* filename);
+#endif
 
 private:
     struct PrivateData;
@@ -119,10 +129,14 @@ private:
     friend class Application;
     friend class Widget;
     friend class StandaloneWindow;
+    friend class DISTRHO_NAMESPACE::UIExporter;
 
     virtual void _addWidget(Widget* const widget);
     virtual void _removeWidget(Widget* const widget);
     void _idle();
+
+    bool handlePluginKeyboard(const bool press, const uint key);
+    bool handlePluginSpecial(const bool press, const Key key);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window)
 };

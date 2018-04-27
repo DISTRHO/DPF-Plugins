@@ -34,6 +34,10 @@
 #include "lv2/lv2_kxstudio_properties.h"
 #include "lv2/lv2_programs.h"
 
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+# include "mod-license.h"
+#endif
+
 #include <fstream>
 #include <iostream>
 
@@ -197,6 +201,7 @@ void lv2_generate_ttl(const char* const basename)
 #ifdef DISTRHO_PLUGIN_BRAND
         pluginString += "@prefix mod:  <http://moddevices.com/ns/mod#> .\n";
 #endif
+        pluginString += "@prefix opts: <" LV2_OPTIONS_PREFIX "> .\n";
         pluginString += "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n";
         pluginString += "@prefix rsz:  <" LV2_RESIZE_PORT_PREFIX "> .\n";
 #if DISTRHO_PLUGIN_HAS_UI
@@ -225,6 +230,9 @@ void lv2_generate_ttl(const char* const basename)
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
         pluginString += ",\n                      <" LV2_PROGRAMS__Interface "> ";
 #endif
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+        pluginString += ",\n                      <" MOD_LICENSE__interface "> ";
+#endif
         pluginString += ";\n\n";
 
         // optionalFeatures
@@ -242,7 +250,16 @@ void lv2_generate_ttl(const char* const basename)
 #if DISTRHO_PLUGIN_WANT_STATE
         pluginString += ",\n                        <" LV2_WORKER__schedule "> ";
 #endif
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+        pluginString += ",\n                        <" MOD_LICENSE__feature "> ";
+#endif
         pluginString += ";\n\n";
+
+        // supportedOptions
+        pluginString += "    opts:supportedOption <" LV2_BUF_SIZE__nominalBlockLength "> ,\n";
+        pluginString += "                         <" LV2_BUF_SIZE__maxBlockLength "> ,\n";
+        pluginString += "                         <" LV2_PARAMETERS__sampleRate "> ;\n";
+        pluginString += "\n";
 
         // UI
 #if DISTRHO_PLUGIN_HAS_UI
@@ -573,8 +590,9 @@ void lv2_generate_ttl(const char* const basename)
         std::fstream uiFile(uiTTL, std::ios::out);
 
         String uiString;
-        uiString += "@prefix lv2: <" LV2_CORE_PREFIX "> .\n";
-        uiString += "@prefix ui:  <" LV2_UI_PREFIX "> .\n";
+        uiString += "@prefix lv2:  <" LV2_CORE_PREFIX "> .\n";
+        uiString += "@prefix ui:   <" LV2_UI_PREFIX "> .\n";
+        uiString += "@prefix opts: <" LV2_OPTIONS_PREFIX "> .\n";
         uiString += "\n";
 
         uiString += "<" DISTRHO_UI_URI ">\n";
@@ -593,7 +611,9 @@ void lv2_generate_ttl(const char* const basename)
         uiString += "\n";
 #  endif
         uiString += "    lv2:requiredFeature <" LV2_OPTIONS__options "> ,\n";
-        uiString += "                        <" LV2_URID__map "> .\n";
+        uiString += "                        <" LV2_URID__map "> ;\n";
+
+        uiString += "    opts:supportedOption <" LV2_PARAMETERS__sampleRate "> .\n";
 
         uiFile << uiString << std::endl;
         uiFile.close();
@@ -693,7 +713,7 @@ void lv2_generate_ttl(const char* const basename)
                 else
                     presetString += "        pset:value " + String(plugin.getParameterValue(j)) + " ;\n";
 
-                if (j+1 == numParameters || (j+2 == numParameters && plugin.isParameterOutput(j+1)))
+                if (j+1 == numParameters || plugin.isParameterOutput(j+1))
                     presetString += "    ] .\n\n";
                 else
                     presetString += "    ] ,\n";

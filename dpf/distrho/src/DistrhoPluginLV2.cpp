@@ -23,12 +23,17 @@
 #include "lv2/instance-access.h"
 #include "lv2/midi.h"
 #include "lv2/options.h"
+#include "lv2/parameters.h"
 #include "lv2/state.h"
 #include "lv2/time.h"
 #include "lv2/urid.h"
 #include "lv2/worker.h"
 #include "lv2/lv2_kxstudio_properties.h"
 #include "lv2/lv2_programs.h"
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+# include "libmodauth.h"
+#endif
 
 #ifdef noexcept
 # undef noexcept
@@ -58,6 +63,9 @@ class PluginLv2
 public:
     PluginLv2(const double sampleRate, const LV2_URID_Map* const uridMap, const LV2_Worker_Schedule* const worker, const bool usingNominal)
         : fUsingNominal(usingNominal),
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+          fRunCount(0),
+#endif
           fPortControls(nullptr),
           fLastControlValues(nullptr),
           fSampleRate(sampleRate),
@@ -379,7 +387,7 @@ public:
                     if (fLastPositionData.barBeat >= 0.0f)
                     {
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = fLastPositionData.barBeat-rest+1.0;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
                         fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
                     }
                 }
@@ -525,10 +533,19 @@ public:
         // Run plugin
         if (sampleCount != 0)
         {
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+            fRunCount = mod_license_run_begin(fRunCount, sampleCount);
+#endif
+
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             fPlugin.run(fPortAudioIns, fPortAudioOuts, sampleCount, fMidiEvents, midiEventCount);
 #else
             fPlugin.run(fPortAudioIns, fPortAudioOuts, sampleCount);
+#endif
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+                mod_license_run_noise(fRunCount, fPortAudioOuts[i], sampleCount, i);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
@@ -563,7 +580,7 @@ public:
                                                               (double)fLastPositionData.beatsPerBar);
 
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = fLastPositionData.barBeat-rest+1.0;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
                         fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
 
                         if (fLastPositionData.bar >= 0)
@@ -669,7 +686,7 @@ public:
             {
                 if (options[i].type == fURIDs.atomInt)
                 {
-                    const int bufferSize(*(const int*)options[i].value);
+                    const int32_t bufferSize(*(const int32_t*)options[i].value);
                     fPlugin.setBufferSize(bufferSize);
                 }
                 else
@@ -681,7 +698,7 @@ public:
             {
                 if (options[i].type == fURIDs.atomInt)
                 {
-                    const int bufferSize(*(const int*)options[i].value);
+                    const int32_t bufferSize(*(const int32_t*)options[i].value);
                     fPlugin.setBufferSize(bufferSize);
                 }
                 else
@@ -689,11 +706,11 @@ public:
                     d_stderr("Host changed maxBlockLength but with wrong value type");
                 }
             }
-            else if (options[i].key == fUridMap->map(fUridMap->handle, LV2_CORE__sampleRate))
+            else if (options[i].key == fUridMap->map(fUridMap->handle, LV2_PARAMETERS__sampleRate))
             {
-                if (options[i].type == fURIDs.atomDouble)
+                if (options[i].type == fURIDs.atomFloat)
                 {
-                    const double sampleRate(*(const double*)options[i].value);
+                    const float sampleRate(*(const float*)options[i].value);
                     fSampleRate = sampleRate;
                     fPlugin.setSampleRate(sampleRate);
                 }
@@ -846,6 +863,10 @@ public:
 private:
     PluginExporter fPlugin;
     const bool fUsingNominal; // if false use maxBlockLength
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    uint32_t fRunCount;
+#endif
 
     // LV2 ports
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
@@ -1035,6 +1056,10 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
     }
 #endif
 
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    mod_check_license(features, DISTRHO_PLUGIN_URI);
+#endif
+
     d_lastBufferSize = 0;
     bool usingNominal = false;
 
@@ -1194,7 +1219,11 @@ static const void* lv2_extension_data(const char* uri)
         return &directaccess;
 #endif
 
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    return mod_license_interface(uri);
+#else
     return nullptr;
+#endif
 }
 
 #undef instancePtr

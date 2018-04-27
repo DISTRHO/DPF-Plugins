@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -25,6 +25,11 @@
 
 #include "pugl/pugl.h"
 
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
 #if defined(DISTRHO_OS_WINDOWS)
 # include "pugl/pugl_win.cpp"
 #elif defined(DISTRHO_OS_MAC)
@@ -35,6 +40,10 @@
 extern "C" {
 # include "pugl/pugl_x11.c"
 }
+#endif
+
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+# pragma GCC diagnostic pop
 #endif
 
 #include "ApplicationPrivateData.hpp"
@@ -78,11 +87,13 @@ struct Window::PrivateData {
           fWidgets(),
           fModal(),
 #if defined(DISTRHO_OS_WINDOWS)
-          hwnd(0)
+          hwnd(nullptr),
+          hwndParent(nullptr)
 #elif defined(DISTRHO_OS_MAC)
           fNeedsIdle(true),
           mView(nullptr),
-          mWindow(nullptr)
+          mWindow(nullptr),
+          mParentWindow(nullptr)
 #else
           xDisplay(nullptr),
           xWindow(0)
@@ -106,11 +117,13 @@ struct Window::PrivateData {
           fWidgets(),
           fModal(parent.pData),
 #if defined(DISTRHO_OS_WINDOWS)
-          hwnd(0)
+          hwnd(nullptr),
+          hwndParent(nullptr)
 #elif defined(DISTRHO_OS_MAC)
           fNeedsIdle(false),
           mView(nullptr),
-          mWindow(nullptr)
+          mWindow(nullptr),
+          mParentWindow(nullptr)
 #else
           xDisplay(nullptr),
           xWindow(0)
@@ -120,11 +133,13 @@ struct Window::PrivateData {
         init();
 
         const PuglInternals* const parentImpl(parent.pData->fView->impl);
+
+        // NOTE: almost a 1:1 copy of setTransientWinId()
 #if defined(DISTRHO_OS_WINDOWS)
-        // TODO
+        hwndParent = parentImpl->hwnd;
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)hwndParent);
 #elif defined(DISTRHO_OS_MAC)
-        // TODO
-        //[parentImpl->window orderWindow:NSWindowBelow relativeTo:[[mView window] windowNumber]];
+        mParentWindow = parentImpl->window;
 #else
         XSetTransientForHint(xDisplay, xWindow, parentImpl->win);
 #endif
@@ -144,11 +159,13 @@ struct Window::PrivateData {
           fWidgets(),
           fModal(),
 #if defined(DISTRHO_OS_WINDOWS)
-          hwnd(0)
+          hwnd(nullptr),
+          hwndParent(nullptr)
 #elif defined(DISTRHO_OS_MAC)
           fNeedsIdle(parentId == 0),
           mView(nullptr),
-          mWindow(nullptr)
+          mWindow(nullptr),
+          mParentWindow(nullptr)
 #else
           xDisplay(nullptr),
           xWindow(0)
@@ -196,7 +213,9 @@ struct Window::PrivateData {
         puglSetSpecialFunc(fView, onSpecialCallback);
         puglSetReshapeFunc(fView, onReshapeCallback);
         puglSetCloseFunc(fView, onCloseCallback);
+#ifndef DGL_FILE_BROWSER_DISABLED
         puglSetFileSelectedFunc(fView, fileBrowserSelectedCallback);
+#endif
 
         puglCreateWindow(fView, nullptr);
 
@@ -330,22 +349,6 @@ struct Window::PrivateData {
         fModal.enabled = true;
         fModal.parent->fModal.childFocus = this;
 
-#ifdef DISTRHO_OS_WINDOWS
-        // Center this window
-        PuglInternals* const parentImpl = fModal.parent->fView->impl;
-
-        RECT curRect;
-        RECT parentRect;
-        GetWindowRect(hwnd, &curRect);
-        GetWindowRect(parentImpl->hwnd, &parentRect);
-
-        int x = parentRect.left+(parentRect.right-curRect.right)/2;
-        int y = parentRect.top +(parentRect.bottom-curRect.bottom)/2;
-
-        SetWindowPos(hwnd, 0, x, y, 0, 0, SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE|SWP_NOZORDER);
-        UpdateWindow(hwnd);
-#endif
-
         fModal.parent->setVisible(true);
         setVisible(true);
 
@@ -390,11 +393,7 @@ struct Window::PrivateData {
         SetFocus(hwnd);
 #elif defined(DISTRHO_OS_MAC)
         if (mWindow != nullptr)
-        {
-            // TODO
-            //[NSApp activateIgnoringOtherApps:YES];
-            //[mWindow makeKeyAndOrderFront:mWindow];
-        }
+            [mWindow makeKeyWindow];
 #else
         XRaiseWindow(xDisplay, xWindow);
         XSetInputFocus(xDisplay, xWindow, RevertToPointerRoot, CurrentTime);
@@ -426,25 +425,65 @@ struct Window::PrivateData {
 
 #if defined(DISTRHO_OS_WINDOWS)
         if (yesNo)
-            ShowWindow(hwnd, fFirstInit ? SW_SHOWNORMAL : SW_RESTORE);
+        {
+            if (fFirstInit)
+            {
+                RECT rectChild, rectParent;
+
+                if (hwndParent != nullptr &&
+                    GetWindowRect(hwnd, &rectChild) &&
+                    GetWindowRect(hwndParent, &rectParent))
+                {
+                    SetWindowPos(hwnd, hwndParent,
+                                 rectParent.left + (rectChild.right-rectChild.left)/2,
+                                 rectParent.top + (rectChild.bottom-rectChild.top)/2,
+                                 0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
+                }
+                else
+                {
+                    ShowWindow(hwnd, SW_SHOWNORMAL);
+                }
+            }
+            else
+            {
+                ShowWindow(hwnd, SW_RESTORE);
+            }
+        }
         else
+        {
             ShowWindow(hwnd, SW_HIDE);
+        }
 
         UpdateWindow(hwnd);
 #elif defined(DISTRHO_OS_MAC)
         if (yesNo)
         {
             if (mWindow != nullptr)
+            {
+                if (mParentWindow != nullptr)
+                    [mParentWindow addChildWindow:mWindow
+                                          ordered:NSWindowAbove];
+
                 [mWindow setIsVisible:YES];
+            }
             else
+            {
                 [mView setHidden:NO];
+            }
         }
         else
         {
             if (mWindow != nullptr)
+            {
+                if (mParentWindow != nullptr)
+                    [mParentWindow removeChildWindow:mWindow];
+
                 [mWindow setIsVisible:NO];
+            }
             else
+            {
                 [mView setHidden:YES];
+            }
         }
 #else
         if (yesNo)
@@ -613,10 +652,17 @@ struct Window::PrivateData {
 
     void setTransientWinId(const uintptr_t winId)
     {
+        DISTRHO_SAFE_ASSERT_RETURN(winId != 0,);
+
 #if defined(DISTRHO_OS_WINDOWS)
-        // TODO
+        hwndParent = (HWND)winId;
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)winId);
 #elif defined(DISTRHO_OS_MAC)
-        // TODO
+        NSWindow* const parentWindow = [NSApp windowWithWindowNumber:winId];
+        DISTRHO_SAFE_ASSERT_RETURN(parentWindow != nullptr,);
+
+        [parentWindow addChildWindow:mWindow
+                             ordered:NSWindowAbove];
 #else
         XSetTransientForHint(xDisplay, xWindow, static_cast< ::Window>(winId));
 #endif
@@ -845,6 +891,90 @@ struct Window::PrivateData {
 
     // -------------------------------------------------------------------
 
+    bool handlePluginKeyboard(const bool press, const uint key)
+    {
+        DBGp("PUGL: handlePluginKeyboard : %i %i\n", press, key);
+
+        if (fModal.childFocus != nullptr)
+        {
+            fModal.childFocus->focus();
+            return true;
+        }
+
+        Widget::KeyboardEvent ev;
+        ev.press = press;
+        ev.key   = key;
+        ev.mod   = static_cast<Modifier>(fView->mods);
+        ev.time  = 0;
+
+        if ((ev.mod & kModifierShift) != 0 && ev.key >= 'a' && ev.key <= 'z')
+            ev.key -= 'a' - 'A'; // a-z -> A-Z
+
+        FOR_EACH_WIDGET_INV(rit)
+        {
+            Widget* const widget(*rit);
+
+            if (widget->isVisible() && widget->onKeyboard(ev))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool handlePluginSpecial(const bool press, const Key key)
+    {
+        DBGp("PUGL: handlePluginSpecial : %i %i\n", press, key);
+
+        if (fModal.childFocus != nullptr)
+        {
+            fModal.childFocus->focus();
+            return true;
+        }
+
+        int mods = 0x0;
+
+        switch (key)
+        {
+        case kKeyShift:
+            mods |= kModifierShift;
+            break;
+        case kKeyControl:
+            mods |= kModifierControl;
+            break;
+        case kKeyAlt:
+            mods |= kModifierAlt;
+            break;
+        default:
+            break;
+        }
+
+        if (mods != 0x0)
+        {
+            if (press)
+                fView->mods |= mods;
+            else
+                fView->mods &= ~(mods);
+        }
+
+        Widget::SpecialEvent ev;
+        ev.press = press;
+        ev.key   = key;
+        ev.mod   = static_cast<Modifier>(fView->mods);
+        ev.time  = 0;
+
+        FOR_EACH_WIDGET_INV(rit)
+        {
+            Widget* const widget(*rit);
+
+            if (widget->isVisible() && widget->onSpecial(ev))
+                return true;
+        }
+
+        return false;
+    }
+
+    // -------------------------------------------------------------------
+
     Application& fApp;
     Window*      fSelf;
     PuglView*    fView;
@@ -883,11 +1013,13 @@ struct Window::PrivateData {
     } fModal;
 
 #if defined(DISTRHO_OS_WINDOWS)
-    HWND     hwnd;
+    HWND hwnd;
+    HWND hwndParent;
 #elif defined(DISTRHO_OS_MAC)
     bool            fNeedsIdle;
     PuglOpenGLView* mView;
     id              mWindow;
+    id              mParentWindow;
 #else
     Display* xDisplay;
     ::Window xWindow;
@@ -938,10 +1070,12 @@ struct Window::PrivateData {
         handlePtr->onPuglClose();
     }
 
+#ifndef DGL_FILE_BROWSER_DISABLED
     static void fileBrowserSelectedCallback(PuglView* view, const char* filename)
     {
         handlePtr->fSelf->fileBrowserSelected(filename);
     }
+#endif
 
     #undef handlePtr
 
@@ -1001,9 +1135,10 @@ void Window::repaint() noexcept
 //     (void)name;
 // }
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 bool Window::openFileBrowser(const FileBrowserOptions& options)
 {
-#ifdef SOFD_HAVE_X11
+# ifdef SOFD_HAVE_X11
     using DISTRHO_NAMESPACE::String;
 
     // --------------------------------------------------------------------------
@@ -1061,11 +1196,12 @@ bool Window::openFileBrowser(const FileBrowserOptions& options)
     // show
 
     return (x_fib_show(pData->xDisplay, pData->xWindow, /*options.width*/0, /*options.height*/0) == 0);
-#else
+# else
     // not implemented
     return false;
-#endif
+# endif
 }
+#endif
 
 bool Window::isVisible() const noexcept
 {
@@ -1196,8 +1332,20 @@ void Window::onClose()
 {
 }
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 void Window::fileBrowserSelected(const char*)
 {
+}
+#endif
+
+bool Window::handlePluginKeyboard(const bool press, const uint key)
+{
+    return pData->handlePluginKeyboard(press, key);
+}
+
+bool Window::handlePluginSpecial(const bool press, const Key key)
+{
+    return pData->handlePluginSpecial(press, key);
 }
 
 // -----------------------------------------------------------------------
