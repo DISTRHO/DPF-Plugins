@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -22,9 +22,12 @@
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 # include "dssi/dssi.h"
+# if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#  error DSSI does not support MIDI output
+# endif
 #else
 # include "ladspa/ladspa.h"
-# if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+# if DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 #  error Cannot use MIDI with LADSPA
 # endif
 # if DISTRHO_PLUGIN_WANT_STATE
@@ -44,7 +47,8 @@ class PluginLadspaDssi
 {
 public:
     PluginLadspaDssi()
-        : fPortControls(nullptr),
+        : fPlugin(nullptr, nullptr),
+          fPortControls(nullptr),
           fLastControlValues(nullptr)
     {
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
@@ -171,7 +175,7 @@ public:
     {
         // pre-roll
         if (sampleCount == 0)
-            return updateParameterOutputs();
+            return updateParameterOutputsAndTriggers();
 
         // Check for updated parameters
         float curValue;
@@ -183,7 +187,7 @@ public:
 
             curValue = *fPortControls[i];
 
-            if (fLastControlValues[i] != curValue && ! fPlugin.isParameterOutput(i))
+            if (fPlugin.isParameterInput(i) && d_isNotEqual(fLastControlValues[i], curValue))
             {
                 fLastControlValues[i] = curValue;
                 fPlugin.setParameterValue(i, curValue);
@@ -268,7 +272,7 @@ public:
         fPlugin.run(fPortAudioIns, fPortAudioOuts, sampleCount);
 #endif
 
-        updateParameterOutputs();
+        updateParameterOutputsAndTriggers();
 
 #if defined(DISTRHO_PLUGIN_TARGET_DSSI) && ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
         return; // unused
@@ -371,17 +375,33 @@ private:
 
     // -------------------------------------------------------------------
 
-    void updateParameterOutputs()
+    void updateParameterOutputsAndTriggers()
     {
+        float value;
+
         for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
         {
-            if (! fPlugin.isParameterOutput(i))
-                continue;
+            if (fPlugin.isParameterOutput(i))
+            {
+                value = fLastControlValues[i] = fPlugin.getParameterValue(i);
 
-            fLastControlValues[i] = fPlugin.getParameterValue(i);
+                if (fPortControls[i] != nullptr)
+                    *fPortControls[i] = value;
+            }
+            else if ((fPlugin.getParameterHints(i) & kParameterIsTrigger) == kParameterIsTrigger)
+            {
+                // NOTE: no trigger support in LADSPA control ports, simulate it here
+                value = fPlugin.getParameterRanges(i).def;
 
-            if (fPortControls[i] != nullptr)
-                *fPortControls[i] = fLastControlValues[i];
+                if (d_isEqual(value, fPlugin.getParameterValue(i)))
+                    continue;
+
+                fLastControlValues[i] = value;
+                fPlugin.setParameterValue(i, value);
+
+                if (fPortControls[i] != nullptr)
+                    *fPortControls[i] = value;
+            }
         }
 
 #if DISTRHO_PLUGIN_WANT_LATENCY
@@ -531,7 +551,7 @@ public:
         // Create dummy plugin to get data from
         d_lastBufferSize = 512;
         d_lastSampleRate = 44100.0;
-        PluginExporter plugin;
+        PluginExporter plugin(nullptr, nullptr);
         d_lastBufferSize = 0;
         d_lastSampleRate = 0.0;
 

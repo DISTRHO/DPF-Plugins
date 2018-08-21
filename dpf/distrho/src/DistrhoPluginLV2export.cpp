@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2017 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -80,7 +80,7 @@ void lv2_generate_ttl(const char* const basename)
     // Dummy plugin to get data from
     d_lastBufferSize = 512;
     d_lastSampleRate = 44100.0;
-    PluginExporter plugin;
+    PluginExporter plugin(nullptr, nullptr);
     d_lastBufferSize = 0;
     d_lastSampleRate = 0.0;
 
@@ -202,6 +202,7 @@ void lv2_generate_ttl(const char* const basename)
         pluginString += "@prefix mod:  <http://moddevices.com/ns/mod#> .\n";
 #endif
         pluginString += "@prefix opts: <" LV2_OPTIONS_PREFIX "> .\n";
+        pluginString += "@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n";
         pluginString += "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n";
         pluginString += "@prefix rsz:  <" LV2_RESIZE_PORT_PREFIX "> .\n";
 #if DISTRHO_PLUGIN_HAS_UI
@@ -398,7 +399,7 @@ void lv2_generate_ttl(const char* const basename)
                 bool designated = false;
 
                 // designation
-                if (! plugin.isParameterOutput(i))
+                if (plugin.isParameterInput(i))
                 {
                     switch (plugin.getParameterDesignation(i))
                     {
@@ -417,10 +418,10 @@ void lv2_generate_ttl(const char* const basename)
                     }
                 }
 
-                // name and symbol
                 if (! designated)
                 {
-                    pluginString += "        lv2:name \"" + plugin.getParameterName(i) + "\" ;\n";
+                    // name and symbol
+                    pluginString += "        lv2:name \"\"\"" + plugin.getParameterName(i) + "\"\"\" ;\n";
 
                     String symbol(plugin.getParameterSymbol(i));
 
@@ -428,32 +429,53 @@ void lv2_generate_ttl(const char* const basename)
                         symbol = "lv2_port_" + String(portIndex-1);
 
                     pluginString += "        lv2:symbol \"" + symbol + "\" ;\n";
-                }
 
-                // ranges
-                if (! designated)
-                {
+                    // ranges
                     const ParameterRanges& ranges(plugin.getParameterRanges(i));
 
                     if (plugin.getParameterHints(i) & kParameterIsInteger)
                     {
-                        if (! plugin.isParameterOutput(i))
+                        if (plugin.isParameterInput(i))
                             pluginString += "        lv2:default " + String(int(plugin.getParameterValue(i))) + " ;\n";
                         pluginString += "        lv2:minimum " + String(int(ranges.min)) + " ;\n";
                         pluginString += "        lv2:maximum " + String(int(ranges.max)) + " ;\n";
                     }
                     else
                     {
-                        if (! plugin.isParameterOutput(i))
+                        if (plugin.isParameterInput(i))
                             pluginString += "        lv2:default " + String(plugin.getParameterValue(i)) + " ;\n";
                         pluginString += "        lv2:minimum " + String(ranges.min) + " ;\n";
                         pluginString += "        lv2:maximum " + String(ranges.max) + " ;\n";
                     }
-                }
 
-                // unit
-                if (! designated)
-                {
+                    // enumeration
+                    const ParameterEnumerationValues& enumValues(plugin.getParameterEnumValues(i));
+
+                    if (enumValues.count > 0)
+                    {
+                        if (enumValues.count >= 2 && enumValues.restrictedMode)
+                            pluginString += "        lv2:portProperty lv2:enumeration ;\n";
+
+                        for (uint8_t j=0; j < enumValues.count; ++j)
+                        {
+                            const ParameterEnumerationValue& enumValue(enumValues.values[j]);
+
+                            if (j == 0)
+                                pluginString += "        lv2:scalePoint [\n";
+                            else
+                                pluginString += "        [\n";
+
+                            pluginString += "            rdfs:label  \"\"\"" + enumValue.label + "\"\"\" ;\n";
+                            pluginString += "            rdf:value " + String(enumValue.value) + " ;\n";
+
+                            if (j+1 == enumValues.count)
+                                pluginString += "        ] ;\n\n";
+                            else
+                                pluginString += "        ] ,\n";
+                        }
+                    }
+
+                    // unit
                     const String& unit(plugin.getParameterUnit(i));
 
                     if (! unit.isEmpty())
@@ -495,25 +517,26 @@ void lv2_generate_ttl(const char* const basename)
                             pluginString += "        ] ;\n";
                         }
                     }
-                }
 
-                // hints
-                if (! designated)
-                {
+                    // hints
                     const uint32_t hints(plugin.getParameterHints(i));
 
                     if (hints & kParameterIsBoolean)
+                    {
+                        if ((hints & kParameterIsTrigger) == kParameterIsTrigger)
+                            pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__trigger "> ;\n";
                         pluginString += "        lv2:portProperty lv2:toggled ;\n";
+                    }
                     if (hints & kParameterIsInteger)
                         pluginString += "        lv2:portProperty lv2:integer ;\n";
                     if (hints & kParameterIsLogarithmic)
                         pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__logarithmic "> ;\n";
-                    if ((hints & kParameterIsAutomable) == 0 && ! plugin.isParameterOutput(i))
+                    if ((hints & kParameterIsAutomable) == 0 && plugin.isParameterInput(i))
                     {
                         pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__expensive "> ,\n";
                         pluginString += "                         <" LV2_KXSTUDIO_PROPERTIES__NonAutomable "> ;\n";
                     }
-                }
+                } // ! designated
 
                 if (i+1 == count)
                     pluginString += "    ] ;\n\n";
@@ -537,7 +560,7 @@ void lv2_generate_ttl(const char* const basename)
 #endif
 
         // name
-        pluginString += "    doap:name \"" + String(plugin.getName()) + "\" ;\n";
+        pluginString += "    doap:name \"\"\"" + String(plugin.getName()) + "\"\"\" ;\n";
 
         // license
         {
@@ -546,7 +569,7 @@ void lv2_generate_ttl(const char* const basename)
             if (license.contains("://"))
                 pluginString += "    doap:license <" +  license + "> ;\n\n";
             else
-                pluginString += "    doap:license \"" +  license + "\" ;\n\n";
+                pluginString += "    doap:license \"\"\"" +  license + "\"\"\" ;\n\n";
         }
 
         // developer
@@ -554,7 +577,7 @@ void lv2_generate_ttl(const char* const basename)
             const String homepage(plugin.getHomePage());
 
             pluginString += "    doap:maintainer [\n";
-            pluginString += "        foaf:name \"" + String(plugin.getMaker()) + "\" ;\n";
+            pluginString += "        foaf:name \"\"\"" + String(plugin.getMaker()) + "\"\"\" ;\n";
 
             if (homepage.isNotEmpty())
                 pluginString += "        foaf:homepage <" + homepage + "> ;\n";

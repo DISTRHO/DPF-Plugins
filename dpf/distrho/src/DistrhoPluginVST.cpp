@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -37,11 +37,12 @@
 #define VESTIGE_HEADER
 #define VST_FORCE_DEPRECATED 0
 
+#include <clocale>
 #include <map>
 #include <string>
 
 #ifdef VESTIGE_HEADER
-# include "vestige/aeffectx.h"
+# include "vestige/vestige.h"
 #define effFlagsProgramChunks (1 << 5)
 #define effSetProgramName 4
 #define effGetParamLabel 6
@@ -51,11 +52,8 @@
 #define effCanBeAutomated 26
 #define effGetProgramNameIndexed 29
 #define effGetPlugCategory 35
-#define effIdle 53
 #define effEditKeyDown 59
 #define effEditKeyUp 60
-#define kPlugCategEffect 1
-#define kPlugCategSynth 2
 #define kVstVersion 2400
 struct ERect {
     int16_t top, left, bottom, right;
@@ -67,6 +65,12 @@ struct ERect {
 START_NAMESPACE_DISTRHO
 
 typedef std::map<const String, String> StringMap;
+
+static const int kVstMidiEventSize = static_cast<int>(sizeof(VstMidiEvent));
+
+#if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+static const writeMidiFunc writeMidiCallback = nullptr;
+#endif
 
 // -----------------------------------------------------------------------
 
@@ -88,17 +92,42 @@ void snprintf_iparam(char* const dst, const int32_t value, const size_t size)
     dst[size-1] = '\0';
 }
 
-#if DISTRHO_PLUGIN_HAS_UI
 // -----------------------------------------------------------------------
 
-class UiHelper
+class ScopedSafeLocale {
+public:
+    ScopedSafeLocale() noexcept
+        : locale(::strdup(::setlocale(LC_NUMERIC, nullptr)))
+    {
+        ::setlocale(LC_NUMERIC, "C");
+    }
+
+    ~ScopedSafeLocale() noexcept
+    {
+        if (locale != nullptr)
+        {
+            ::setlocale(LC_NUMERIC, locale);
+            std::free(locale);
+        }
+    }
+
+private:
+    char* const locale;
+
+    DISTRHO_DECLARE_NON_COPY_CLASS(ScopedSafeLocale)
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+
+// -----------------------------------------------------------------------
+
+class ParameterCheckHelper
 {
 public:
-    UiHelper()
+    ParameterCheckHelper()
         : parameterChecks(nullptr),
           parameterValues(nullptr) {}
 
-    virtual ~UiHelper()
+    virtual ~ParameterCheckHelper()
     {
         if (parameterChecks != nullptr)
         {
@@ -112,20 +141,21 @@ public:
         }
     }
 
-    bool*   parameterChecks;
-    float*  parameterValues;
+    bool*  parameterChecks;
+    float* parameterValues;
 
-# if DISTRHO_PLUGIN_WANT_STATE
+#if DISTRHO_PLUGIN_WANT_STATE
     virtual void setStateFromUI(const char* const newKey, const char* const newValue) = 0;
-# endif
+#endif
 };
 
+#if DISTRHO_PLUGIN_HAS_UI
 // -----------------------------------------------------------------------
 
 class UIVst
 {
 public:
-    UIVst(const audioMasterCallback audioMaster, AEffect* const effect, UiHelper* const uiHelper, PluginExporter* const plugin, const intptr_t winId)
+    UIVst(const audioMasterCallback audioMaster, AEffect* const effect, ParameterCheckHelper* const uiHelper, PluginExporter* const plugin, const intptr_t winId)
         : fAudioMaster(audioMaster),
           fEffect(effect),
           fUiHelper(uiHelper),
@@ -300,7 +330,7 @@ private:
     // Vst stuff
     const audioMasterCallback fAudioMaster;
     AEffect* const fEffect;
-    UiHelper* const fUiHelper;
+    ParameterCheckHelper* const fUiHelper;
     PluginExporter* const fPlugin;
 
     // Plugin UI
@@ -343,15 +373,12 @@ private:
 
 // -----------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_HAS_UI
-class PluginVst : public UiHelper
-#else
-class PluginVst
-#endif
+class PluginVst : public ParameterCheckHelper
 {
 public:
     PluginVst(const audioMasterCallback audioMaster, AEffect* const effect)
-        : fAudioMaster(audioMaster),
+        : fPlugin(this, writeMidiCallback),
+          fAudioMaster(audioMaster),
           fEffect(effect)
     {
         std::memset(fProgramName, 0, sizeof(char)*(32+1));
@@ -376,14 +403,14 @@ public:
             for (uint32_t i=0; i < paramCount; ++i)
             {
                 parameterChecks[i] = false;
-                parameterValues[i] = 0.0f;
+                parameterValues[i] = NAN;
             }
         }
 # if DISTRHO_OS_MAC
 #  ifdef __LP64__
         fUsingNsView = true;
 #  else
-#  warning 32bit VST UIs on OSX only work if the host supports "hasCockosViewAsConfig"
+#   warning 32bit VST UIs on OSX only work if the host supports "hasCockosViewAsConfig"
         fUsingNsView = false;
 #  endif
 # endif // DISTRHO_OS_MAC
@@ -453,23 +480,34 @@ public:
             {
                 const uint32_t hints = fPlugin.getParameterHints(index);
                 float value = fPlugin.getParameterValue(index);
-                
+
                 if (hints & kParameterIsBoolean)
                 {
                     const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
                     const float midRange = ranges.min + (ranges.max - ranges.min) / 2.0f;
-                    
+
                     value = value > midRange ? ranges.max : ranges.min;
                 }
-                
+                else if (hints & kParameterIsInteger)
+                {
+                    value = std::round(value);
+                }
+
+                const ParameterEnumerationValues& enumValues(fPlugin.getParameterEnumValues(index));
+
+                for (uint8_t i = 0; i < enumValues.count; ++i)
+                {
+                    if (d_isNotEqual(value, enumValues.values[i].value))
+                        continue;
+
+                    DISTRHO_NAMESPACE::strncpy((char*)ptr, enumValues.values[i].label.buffer(), 24);
+                    return 1;
+                }
+
                 if (hints & kParameterIsInteger)
-                {
-                    DISTRHO_NAMESPACE::snprintf_iparam((char*)ptr, (int32_t)std::round(value), 24);
-                }
+                    DISTRHO_NAMESPACE::snprintf_iparam((char*)ptr, (int32_t)value, 24);
                 else
-                {
                     DISTRHO_NAMESPACE::snprintf_param((char*)ptr, value, 24);
-                }
 
                 return 1;
             }
@@ -607,6 +645,7 @@ public:
 
 #if DISTRHO_PLUGIN_WANT_STATE
         case effGetChunk:
+        {
             if (ptr == nullptr)
                 return 0;
 
@@ -616,7 +655,9 @@ public:
                 fStateChunk = nullptr;
             }
 
-            if (fPlugin.getStateCount() == 0)
+            const uint32_t paramCount = fPlugin.getParameterCount();
+
+            if (fPlugin.getStateCount() == 0 && paramCount == 0)
             {
                 fStateChunk    = new char[1];
                 fStateChunk[0] = '\0';
@@ -650,6 +691,30 @@ public:
                     chunkStr += tmpStr;
                 }
 
+                if (paramCount != 0)
+                {
+                    // add another separator
+                    chunkStr += "\xff";
+
+                    // temporarily set locale to "C" while converting floats
+                    const ScopedSafeLocale ssl;
+
+                    for (uint32_t i=0; i<paramCount; ++i)
+                    {
+                        if (fPlugin.isParameterOutputOrTrigger(i))
+                            continue;
+
+                        // join key and value
+                        String tmpStr;
+                        tmpStr  = fPlugin.getParameterSymbol(i);
+                        tmpStr += "\xff";
+                        tmpStr += String(fPlugin.getParameterValue(i));
+                        tmpStr += "\xff";
+
+                        chunkStr += tmpStr;
+                    }
+                }
+
                 const std::size_t chunkSize(chunkStr.length()+1);
 
                 fStateChunk = new char[chunkSize];
@@ -667,21 +732,27 @@ public:
 
             *(void**)ptr = fStateChunk;
             return ret;
+        }
 
         case effSetChunk:
         {
             if (value <= 1 || ptr == nullptr)
                 return 0;
 
+            const size_t chunkSize = static_cast<size_t>(value);
+
             const char* key   = (const char*)ptr;
             const char* value = nullptr;
+            size_t size, bytesRead = 0;
 
-            for (;;)
+            while (bytesRead < chunkSize)
             {
                 if (key[0] == '\0')
                     break;
 
-                value = key+(std::strlen(key)+1);
+                size  = std::strlen(key)+1;
+                value = key + size;
+                bytesRead += size;
 
                 setStateFromUI(key, value);
 
@@ -691,7 +762,52 @@ public:
 # endif
 
                 // get next key
-                key = value+(std::strlen(value)+1);
+                size = std::strlen(value)+1;
+                key  = value + size;
+                bytesRead += size;
+            }
+
+            const uint32_t paramCount = fPlugin.getParameterCount();
+
+            if (bytesRead+4 < chunkSize && paramCount != 0)
+            {
+                ++key;
+                float fvalue;
+
+                // temporarily set locale to "C" while converting floats
+                const ScopedSafeLocale ssl;
+
+                while (bytesRead < chunkSize)
+                {
+                    if (key[0] == '\0')
+                        break;
+
+                    size  = std::strlen(key)+1;
+                    value = key + size;
+                    bytesRead += size;
+
+                    // find parameter with this symbol, and set its value
+                    for (uint32_t i=0; i<paramCount; ++i)
+                    {
+                        if (fPlugin.isParameterOutputOrTrigger(i))
+                            continue;
+                        if (fPlugin.getParameterSymbol(i) != key)
+                            continue;
+
+                        fvalue = std::atof(value);
+                        fPlugin.setParameterValue(i, fvalue);
+# if DISTRHO_PLUGIN_HAS_UI
+                        if (fVstUI != nullptr)
+                            setParameterValueFromPlugin(i, fvalue);
+# endif
+                        break;
+                    }
+
+                    // get next key
+                    size = std::strlen(value)+1;
+                    key  = value + size;
+                    bytesRead += size;
+                }
             }
 
             return 1;
@@ -805,7 +921,10 @@ public:
     void vst_processReplacing(const float** const inputs, float** const outputs, const int32_t sampleFrames)
     {
         if (sampleFrames <= 0)
+        {
+            updateParameterOutputsAndTriggers();
             return;
+        }
 
         if (! fPlugin.isActive())
         {
@@ -864,16 +983,7 @@ public:
         fPlugin.run(inputs, outputs, sampleFrames);
 #endif
 
-#if DISTRHO_PLUGIN_HAS_UI
-        if (fVstUI == nullptr)
-            return;
-
-        for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
-        {
-            if (fPlugin.isParameterOutput(i))
-                setParameterValueFromPlugin(i, fPlugin.getParameterValue(i));
-        }
-#endif
+        updateParameterOutputsAndTriggers();
     }
 
     // -------------------------------------------------------------------
@@ -881,12 +991,12 @@ public:
     friend class UIVst;
 
 private:
+    // Plugin
+    PluginExporter fPlugin;
+
     // VST stuff
     const audioMasterCallback fAudioMaster;
     AEffect* const fEffect;
-
-    // Plugin
-    PluginExporter fPlugin;
 
     // Temporary data
     char fProgramName[32+1];
@@ -929,11 +1039,92 @@ private:
     // -------------------------------------------------------------------
     // functions called from the plugin side, RT no block
 
+    void updateParameterOutputsAndTriggers()
+    {
+        float curValue;
+
+        for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
+        {
+            if (fPlugin.isParameterOutput(i))
+            {
+                // NOTE: no output parameter support in VST, simulate it here
+                curValue = fPlugin.getParameterValue(i);
+
+                if (d_isEqual(curValue, parameterValues[i]))
+                    continue;
+
+#if DISTRHO_PLUGIN_HAS_UI
+                if (fVstUI != nullptr)
+                    setParameterValueFromPlugin(i, curValue);
+                else
+#endif
+                parameterValues[i] = curValue;
+
+#ifndef DPF_VST_SHOW_PARAMETER_OUTPUTS
+                // skip automating parameter outputs from plugin if we disable them on VST
+                continue;
+#endif
+            }
+            else if ((fPlugin.getParameterHints(i) & kParameterIsTrigger) == kParameterIsTrigger)
+            {
+                // NOTE: no trigger support in VST parameters, simulate it here
+                curValue = fPlugin.getParameterValue(i);
+
+                if (d_isEqual(curValue, fPlugin.getParameterRanges(i).def))
+                    continue;
+
+#if DISTRHO_PLUGIN_HAS_UI
+                if (fVstUI != nullptr)
+                    setParameterValueFromPlugin(i, curValue);
+#endif
+                fPlugin.setParameterValue(i, curValue);
+            }
+            else
+            {
+                continue;
+            }
+
+            const ParameterRanges& ranges(fPlugin.getParameterRanges(i));
+            hostCallback(audioMasterAutomate, i, 0, nullptr, ranges.getNormalizedValue(curValue));
+        }
+    }
+
 #if DISTRHO_PLUGIN_HAS_UI
     void setParameterValueFromPlugin(const uint32_t index, const float realValue)
     {
         parameterValues[index] = realValue;
         parameterChecks[index] = true;
+    }
+#endif
+
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+    bool writeMidi(const MidiEvent& midiEvent)
+    {
+        if (midiEvent.size > 4)
+            return true;
+
+        VstEvents vstEvents;
+        std::memset(&vstEvents, 0, sizeof(VstEvents));
+
+        VstMidiEvent vstMidiEvent;
+        std::memset(&vstMidiEvent, 0, sizeof(VstMidiEvent));
+
+        vstEvents.numEvents = 1;
+        vstEvents.events[0] = (VstEvent*)&vstMidiEvent;
+
+        vstMidiEvent.type = kVstMidiType;
+        vstMidiEvent.byteSize    = kVstMidiEventSize;
+        vstMidiEvent.deltaFrames = midiEvent.frame;
+
+        for (uint8_t i=0; i<midiEvent.size; ++i)
+            vstMidiEvent.midiData[i] = midiEvent.data[i];
+
+        return hostCallback(audioMasterProcessEvents, 0, 0, &vstEvents) == 1;
+    }
+
+    static bool writeMidiCallback(void* ptr, const MidiEvent& midiEvent)
+    {
+        return ((PluginVst*)ptr)->writeMidi(midiEvent);
     }
 #endif
 
@@ -977,17 +1168,10 @@ struct VstObject {
     PluginVst* plugin;
 };
 
-#ifdef VESTIGE_HEADER
-# define validObject  effect != nullptr && effect->ptr3 != nullptr
-# define validPlugin  effect != nullptr && effect->ptr3 != nullptr && ((VstObject*)effect->ptr3)->plugin != nullptr
-# define vstObjectPtr (VstObject*)effect->ptr3
-#else
-# define validObject  effect != nullptr && effect->object != nullptr
-# define validPlugin  effect != nullptr && effect->object != nullptr && ((VstObject*)effect->object)->plugin != nullptr
-# define vstObjectPtr (VstObject*)effect->object
-#endif
-
-#define pluginPtr     (vstObjectPtr)->plugin
+#define validObject  effect != nullptr && effect->object != nullptr
+#define validPlugin  effect != nullptr && effect->object != nullptr && ((VstObject*)effect->object)->plugin != nullptr
+#define vstObjectPtr (VstObject*)effect->object
+#define pluginPtr    (vstObjectPtr)->plugin
 
 static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t index, intptr_t value, void* ptr, float opt)
 {
@@ -1002,7 +1186,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
     }
 
     // Create dummy plugin to get data from
-    static PluginExporter plugin;
+    static PluginExporter plugin(nullptr, nullptr);
 
     if (doInternalInit)
     {
@@ -1055,11 +1239,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
             /* This code invalidates the object created in VSTPluginMain
              * Probably not safe against all hosts */
             obj->audioMaster = nullptr;
-# ifdef VESTIGE_HEADER
-            effect->ptr3 = nullptr;
-# else
-            vstObjectPtr = nullptr;
-# endif
+            effect->object = nullptr;
             delete obj;
 #endif
 
@@ -1083,14 +1263,14 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
             return 1;
         }
         return 0;
-        
+
     case effGetParameterProperties:
         if (ptr != nullptr && index < static_cast<int32_t>(plugin.getParameterCount()))
         {
             if (VstParameterProperties* const properties = (VstParameterProperties*)ptr) 
             {
                 memset(properties, 0, sizeof(VstParameterProperties));
-                
+
                 const uint32_t hints = plugin.getParameterHints(index);
 
                 if (hints & kParameterIsOutput)
@@ -1100,7 +1280,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
                 {
                     properties->flags |= kVstParameterIsSwitch;
                 }
-                
+
                 if (hints & kParameterIsInteger)
                 {
                     properties->flags |= kVstParameterUsesIntegerMinMax;
@@ -1119,7 +1299,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
             }
         }
         return 0;
-        
+
     case effGetPlugCategory:
 #if DISTRHO_PLUGIN_IS_SYNTH
         return kPlugCategSynth;
@@ -1226,20 +1406,18 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
     // vst fields
     effect->magic    = kEffectMagic;
     effect->uniqueID = plugin->getUniqueId();
-#ifdef VESTIGE_HEADER
-    int32_t* const version = (int32_t*)&effect->unknown1;
-    *version = plugin->getVersion();
-#else
-    effect->version = plugin->getVersion();
-#endif
+    effect->version  = plugin->getVersion();
 
-    // VST doesn't support parameter outputs, hide them
+    // VST doesn't support parameter outputs. we can fake them, but it is a hack. Disabled by default.
+#ifdef DPF_VST_SHOW_PARAMETER_OUTPUTS
+    const int numParams = plugin->getParameterCount();
+#else
     int numParams = 0;
     bool outputsReached = false;
 
     for (uint32_t i=0, count=plugin->getParameterCount(); i < count; ++i)
     {
-        if (! plugin->isParameterOutput(i))
+        if (plugin->isParameterInput(i))
         {
             // parameter outputs must be all at the end
             DISTRHO_SAFE_ASSERT_BREAK(! outputsReached);
@@ -1248,6 +1426,7 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
         }
         outputsReached = true;
     }
+#endif
 
     // plugin fields
     effect->numParams   = numParams;
@@ -1278,11 +1457,9 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
     VstObject* const obj(new VstObject());
     obj->audioMaster = audioMaster;
     obj->plugin      = nullptr;
-#ifdef VESTIGE_HEADER
-    effect->ptr3   = obj;
-#else
+
+    // done
     effect->object = obj;
-#endif
 
     return effect;
 }
