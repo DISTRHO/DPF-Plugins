@@ -28,6 +28,9 @@ mkdir plugins
 
 mv repos/DPF dpf
 rm -rf dpf/.git*
+rm -rf dpf/.travis*
+rm -rf dpf/examples
+rm -f  dpf/Makefile
 
 for PLUGIN in ${PLUGINS[@]}; do
   for f in $(ls repos/$PLUGIN/plugins/); do
