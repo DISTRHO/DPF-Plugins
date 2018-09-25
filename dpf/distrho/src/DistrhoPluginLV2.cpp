@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -23,12 +23,17 @@
 #include "lv2/instance-access.h"
 #include "lv2/midi.h"
 #include "lv2/options.h"
+#include "lv2/parameters.h"
 #include "lv2/state.h"
 #include "lv2/time.h"
 #include "lv2/urid.h"
 #include "lv2/worker.h"
 #include "lv2/lv2_kxstudio_properties.h"
 #include "lv2/lv2_programs.h"
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+# include "libmodla.h"
+#endif
 
 #ifdef noexcept
 # undef noexcept
@@ -51,13 +56,21 @@ START_NAMESPACE_DISTRHO
 
 typedef std::map<const String, String> StringMap;
 
+#if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+static const writeMidiFunc writeMidiCallback = nullptr;
+#endif
+
 // -----------------------------------------------------------------------
 
 class PluginLv2
 {
 public:
     PluginLv2(const double sampleRate, const LV2_URID_Map* const uridMap, const LV2_Worker_Schedule* const worker, const bool usingNominal)
-        : fUsingNominal(usingNominal),
+        : fPlugin(this, writeMidiCallback),
+          fUsingNominal(usingNominal),
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+          fRunCount(0),
+#endif
           fPortControls(nullptr),
           fLastControlValues(nullptr),
           fSampleRate(sampleRate),
@@ -98,9 +111,6 @@ public:
 
 #if DISTRHO_LV2_USE_EVENTS_IN
         fPortEventsIn = nullptr;
-#endif
-#if DISTRHO_LV2_USE_EVENTS_OUT
-        fPortEventsOut = nullptr;
 #endif
 #if DISTRHO_PLUGIN_WANT_LATENCY
         fPortLatency = nullptr;
@@ -218,7 +228,7 @@ public:
 #if DISTRHO_LV2_USE_EVENTS_OUT
         if (port == index++)
         {
-            fPortEventsOut = (LV2_Atom_Sequence*)dataLocation;
+            fEventsOutData.port = (LV2_Atom_Sequence*)dataLocation;
             return;
         }
 #endif
@@ -379,7 +389,7 @@ public:
                     if (fLastPositionData.barBeat >= 0.0f)
                     {
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = fLastPositionData.barBeat-rest+1.0;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
                         fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
                     }
                 }
@@ -509,14 +519,12 @@ public:
 
             curValue = *fPortControls[i];
 
-            if (fLastControlValues[i] != curValue && ! fPlugin.isParameterOutput(i))
+            if (fPlugin.isParameterInput(i) && d_isNotEqual(fLastControlValues[i], curValue))
             {
                 fLastControlValues[i] = curValue;
 
                 if (fPlugin.getParameterDesignation(i) == kParameterDesignationBypass)
-                {
                     curValue = 1.0f - curValue;
-                }
 
                 fPlugin.setParameterValue(i, curValue);
             }
@@ -525,10 +533,19 @@ public:
         // Run plugin
         if (sampleCount != 0)
         {
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+            fRunCount = mod_license_run_begin(fRunCount, sampleCount);
+#endif
+
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             fPlugin.run(fPortAudioIns, fPortAudioOuts, sampleCount, fMidiEvents, midiEventCount);
 #else
             fPlugin.run(fPortAudioIns, fPortAudioOuts, sampleCount);
+#endif
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+                mod_license_run_noise(fRunCount, fPortAudioOuts[i], sampleCount, i);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
@@ -563,7 +580,7 @@ public:
                                                               (double)fLastPositionData.beatsPerBar);
 
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = fLastPositionData.barBeat-rest+1.0;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
                         fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
 
                         if (fLastPositionData.bar >= 0)
@@ -590,20 +607,14 @@ public:
 #endif
         }
 
-        updateParameterOutputs();
+        updateParameterOutputsAndTriggers();
 
 #if DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI
-        const uint32_t capacity = fPortEventsOut->atom.size;
+        fEventsOutData.initIfNeeded(fURIDs.atomSequence);
 
-        uint32_t size, offset = 0;
         LV2_Atom_Event* aev;
-
-        fPortEventsOut->atom.size = sizeof(LV2_Atom_Sequence_Body);
-        fPortEventsOut->atom.type = fURIDs.atomSequence;
-        fPortEventsOut->body.unit = 0;
-        fPortEventsOut->body.pad  = 0;
-
-        // TODO - MIDI Output
+        uint32_t offset = fEventsOutData.offset;
+        const uint32_t capacity = fEventsOutData.capacity;
 
         for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
         {
@@ -628,6 +639,7 @@ public:
                     break;
 
                 // reserve msg space
+                // FIXME create a large enough buffer beforehand
                 char msgBuf[msgSize];
                 std::memset(msgBuf, 0, msgSize);
 
@@ -636,20 +648,22 @@ public:
                 std::memcpy(msgBuf+(key.length()+1), value.buffer(), value.length());
 
                 // put data
-                aev = (LV2_Atom_Event*)(LV2_ATOM_CONTENTS(LV2_Atom_Sequence, fPortEventsOut) + offset);
+                aev = (LV2_Atom_Event*)(LV2_ATOM_CONTENTS(LV2_Atom_Sequence, fEventsOutData.port) + offset);
                 aev->time.frames = 0;
                 aev->body.type   = fURIDs.distrhoState;
                 aev->body.size   = msgSize;
                 std::memcpy(LV2_ATOM_BODY(&aev->body), msgBuf, msgSize-1);
 
-                size    = lv2_atom_pad_size(sizeof(LV2_Atom_Event) + msgSize);
-                offset += size;
-                fPortEventsOut->atom.size += size;
+                fEventsOutData.growBy(lv2_atom_pad_size(sizeof(LV2_Atom_Event) + msgSize));
 
                 fNeededUiSends[i] = false;
                 break;
             }
         }
+#endif
+
+#if DISTRHO_LV2_USE_EVENTS_OUT
+        fEventsOutData.endRun();
 #endif
     }
 
@@ -669,7 +683,7 @@ public:
             {
                 if (options[i].type == fURIDs.atomInt)
                 {
-                    const int bufferSize(*(const int*)options[i].value);
+                    const int32_t bufferSize(*(const int32_t*)options[i].value);
                     fPlugin.setBufferSize(bufferSize);
                 }
                 else
@@ -681,7 +695,7 @@ public:
             {
                 if (options[i].type == fURIDs.atomInt)
                 {
-                    const int bufferSize(*(const int*)options[i].value);
+                    const int32_t bufferSize(*(const int32_t*)options[i].value);
                     fPlugin.setBufferSize(bufferSize);
                 }
                 else
@@ -689,11 +703,11 @@ public:
                     d_stderr("Host changed maxBlockLength but with wrong value type");
                 }
             }
-            else if (options[i].key == fUridMap->map(fUridMap->handle, LV2_CORE__sampleRate))
+            else if (options[i].key == fUridMap->map(fUridMap->handle, LV2_PARAMETERS__sampleRate))
             {
-                if (options[i].type == fURIDs.atomDouble)
+                if (options[i].type == fURIDs.atomFloat)
                 {
-                    const double sampleRate(*(const double*)options[i].value);
+                    const float sampleRate(*(const float*)options[i].value);
                     fSampleRate = sampleRate;
                     fPlugin.setSampleRate(sampleRate);
                 }
@@ -847,6 +861,10 @@ private:
     PluginExporter fPlugin;
     const bool fUsingNominal; // if false use maxBlockLength
 
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    uint32_t fRunCount;
+#endif
+
     // LV2 ports
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
     const float*  fPortAudioIns[DISTRHO_PLUGIN_NUM_INPUTS];
@@ -861,9 +879,6 @@ private:
     float** fPortControls;
 #if DISTRHO_LV2_USE_EVENTS_IN
     LV2_Atom_Sequence* fPortEventsIn;
-#endif
-#if DISTRHO_LV2_USE_EVENTS_OUT
-    LV2_Atom_Sequence* fPortEventsOut;
 #endif
 #if DISTRHO_PLUGIN_WANT_LATENCY
     float* fPortLatency;
@@ -899,6 +914,44 @@ private:
               ticksPerBeat(-1.0) {}
 
     } fLastPositionData;
+#endif
+
+#if DISTRHO_LV2_USE_EVENTS_OUT
+    struct Lv2EventsOutData {
+        uint32_t capacity, offset;
+        LV2_Atom_Sequence* port;
+
+        Lv2EventsOutData()
+            : capacity(0),
+              offset(0),
+              port(nullptr) {}
+
+        void initIfNeeded(const LV2_URID uridAtomSequence)
+        {
+            if (capacity != 0)
+                return;
+
+            capacity = port->atom.size;
+
+            port->atom.size = sizeof(LV2_Atom_Sequence_Body);
+            port->atom.type = uridAtomSequence;
+            port->body.unit = 0;
+            port->body.pad  = 0;
+        }
+
+        void growBy(const uint32_t size)
+        {
+            offset += size;
+            port->atom.size += size;
+        }
+
+        void endRun()
+        {
+            capacity = 0;
+            offset = 0;
+        }
+
+    } fEventsOutData;
 #endif
 
     // LV2 URIDs
@@ -977,17 +1030,23 @@ private:
     }
 #endif
 
-    void updateParameterOutputs()
+    void updateParameterOutputsAndTriggers()
     {
+        float curValue;
+
         for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
         {
-            if (! fPlugin.isParameterOutput(i))
-                continue;
+            if (fPlugin.isParameterOutput(i))
+            {
+                curValue = fLastControlValues[i] = fPlugin.getParameterValue(i);
 
-            fLastControlValues[i] = fPlugin.getParameterValue(i);
-
-            if (fPortControls[i] != nullptr)
-                *fPortControls[i] = fLastControlValues[i];
+                if (fPortControls[i] != nullptr)
+                    *fPortControls[i] = curValue;
+            }
+            else if ((fPlugin.getParameterHints(i) & kParameterIsTrigger) == kParameterIsTrigger)
+            {
+                // NOTE: host is responsible for auto-updating control port buffers
+            }
         }
 
 #if DISTRHO_PLUGIN_WANT_LATENCY
@@ -995,6 +1054,38 @@ private:
             *fPortLatency = fPlugin.getLatency();
 #endif
     }
+
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+    bool writeMidi(const MidiEvent& midiEvent)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fEventsOutData.port != nullptr, false);
+
+        fEventsOutData.initIfNeeded(fURIDs.atomSequence);
+
+        const uint32_t capacity = fEventsOutData.capacity;
+        const uint32_t offset = fEventsOutData.offset;
+
+        if (sizeof(LV2_Atom_Event) + midiEvent.size > capacity - offset)
+            return false;
+
+        LV2_Atom_Event* const aev = (LV2_Atom_Event*)(LV2_ATOM_CONTENTS(LV2_Atom_Sequence, fEventsOutData.port) + offset);
+        aev->time.frames = midiEvent.frame;
+        aev->body.type   = fURIDs.midiEvent;
+        aev->body.size   = midiEvent.size;
+        std::memcpy(LV2_ATOM_BODY(&aev->body),
+                    midiEvent.size > MidiEvent::kDataSize ? midiEvent.dataExt : midiEvent.data,
+                    midiEvent.size);
+
+        fEventsOutData.growBy(lv2_atom_pad_size(sizeof(LV2_Atom_Event) + midiEvent.size));
+
+        return true;
+    }
+
+    static bool writeMidiCallback(void* ptr, const MidiEvent& midiEvent)
+    {
+        return ((PluginLv2*)ptr)->writeMidi(midiEvent);
+    }
+#endif
 };
 
 // -----------------------------------------------------------------------
@@ -1033,6 +1124,10 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
         d_stderr("Worker feature missing, cannot continue!");
         return nullptr;
     }
+#endif
+
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    mod_license_check(features, DISTRHO_PLUGIN_URI);
 #endif
 
     d_lastBufferSize = 0;
@@ -1194,7 +1289,11 @@ static const void* lv2_extension_data(const char* uri)
         return &directaccess;
 #endif
 
+#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+    return mod_license_interface(uri);
+#else
     return nullptr;
+#endif
 }
 
 #undef instancePtr

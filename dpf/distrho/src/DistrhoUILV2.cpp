@@ -22,7 +22,9 @@
 #include "lv2/atom-util.h"
 #include "lv2/data-access.h"
 #include "lv2/instance-access.h"
+#include "lv2/midi.h"
 #include "lv2/options.h"
+#include "lv2/parameters.h"
 #include "lv2/ui.h"
 #include "lv2/urid.h"
 #include "lv2/lv2_kxstudio_properties.h"
@@ -33,6 +35,15 @@
 #endif
 
 START_NAMESPACE_DISTRHO
+
+typedef struct _LV2_Atom_MidiEvent {
+    LV2_Atom atom;    /**< Atom header. */
+    uint8_t  data[3]; /**< MIDI data (body). */
+} LV2_Atom_MidiEvent;
+
+#if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
+static const sendNoteFunc sendNoteCallback = nullptr;
+#endif
 
 // -----------------------------------------------------------------------
 
@@ -50,6 +61,7 @@ public:
           fController(controller),
           fWriteFunction(writeFunc),
           fEventTransferURID(uridMap->map(uridMap->handle, LV2_ATOM__eventTransfer)),
+          fMidiEventURID(uridMap->map(uridMap->handle, LV2_MIDI__MidiEvent)),
           fKeyValueURID(uridMap->map(uridMap->handle, DISTRHO_PLUGIN_LV2_STATE_PREFIX "KeyValueState")),
           fWinIdWasNull(winId == 0)
     {
@@ -175,17 +187,17 @@ public:
     {
         for (int i=0; options[i].key != 0; ++i)
         {
-            if (options[i].key == fUridMap->map(fUridMap->handle, LV2_CORE__sampleRate))
+            if (options[i].key == fUridMap->map(fUridMap->handle, LV2_PARAMETERS__sampleRate))
             {
-                if (options[i].type == fUridMap->map(fUridMap->handle, LV2_ATOM__Double))
+                if (options[i].type == fUridMap->map(fUridMap->handle, LV2_ATOM__Float))
                 {
-                    const double sampleRate(*(const double*)options[i].value);
+                    const float sampleRate(*(const float*)options[i].value);
                     fUI.setSampleRate(sampleRate);
                     continue;
                 }
                 else
                 {
-                    d_stderr("Host changed sampleRate but with wrong value type");
+                    d_stderr("Host changed UI sample-rate but with wrong value type");
                     continue;
                 }
             }
@@ -255,9 +267,28 @@ protected:
         fWriteFunction(fController, eventInPortIndex, atomSize, fEventTransferURID, atom);
     }
 
-    void sendNote(const uint8_t /*channel*/, const uint8_t /*note*/, const uint8_t /*velocity*/)
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+    void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)
     {
+        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
+
+        if (channel > 0xF)
+            return;
+
+        const uint32_t eventInPortIndex(DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS);
+
+        LV2_Atom_MidiEvent atomMidiEvent;
+        atomMidiEvent.atom.size = 3;
+        atomMidiEvent.atom.type = fMidiEventURID;
+
+        atomMidiEvent.data[0] = channel + (velocity != 0 ? 0x90 : 0x80);
+        atomMidiEvent.data[1] = note;
+        atomMidiEvent.data[2] = velocity;
+
+        // send to DSP side
+        fWriteFunction(fController, eventInPortIndex, sizeof(LV2_Atom_MidiEvent), fEventTransferURID, &atomMidiEvent);
     }
+#endif
 
     void setSize(const uint width, const uint height)
     {
@@ -281,6 +312,7 @@ private:
 
     // Need to save this
     const LV2_URID fEventTransferURID;
+    const LV2_URID fMidiEventURID;
     const LV2_URID fKeyValueURID;
 
     // using ui:showInterface if true
@@ -306,10 +338,12 @@ private:
         uiPtr->setState(key, value);
     }
 
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     static void sendNoteCallback(void* ptr, uint8_t channel, uint8_t note, uint8_t velocity)
     {
         uiPtr->sendNote(channel, note, velocity);
     }
+#endif
 
     static void setSizeCallback(void* ptr, uint width, uint height)
     {
@@ -402,23 +436,23 @@ static LV2UI_Handle lv2ui_instantiate(const LV2UI_Descriptor*, const char* uri, 
 
     if (options != nullptr)
     {
-        const LV2_URID uridSampleRate(uridMap->map(uridMap->handle, LV2_CORE__sampleRate));
+        const LV2_URID uridSampleRate(uridMap->map(uridMap->handle, LV2_PARAMETERS__sampleRate));
 
         for (int i=0; options[i].key != 0; ++i)
         {
             if (options[i].key == uridSampleRate)
             {
-                if (options[i].type == uridMap->map(uridMap->handle, LV2_ATOM__Double))
-                    d_lastUiSampleRate = *(const double*)options[i].value;
+                if (options[i].type == uridMap->map(uridMap->handle, LV2_ATOM__Float))
+                    d_lastUiSampleRate = *(const float*)options[i].value;
                 else
-                    d_stderr("Host provides sampleRate but has wrong value type");
+                    d_stderr("Host provides UI sample-rate but has wrong value type");
 
                 break;
             }
         }
     }
 
-    if (d_lastUiSampleRate == 0.0)
+    if (d_lastUiSampleRate < 1.0)
     {
         d_stdout("WARNING: this host does not send sample-rate information for LV2 UIs, using 44100 as fallback (this could be wrong)");
         d_lastUiSampleRate = 44100.0;

@@ -438,13 +438,11 @@ void
 puglLeaveContext(PuglView* view, bool flush)
 {
 #ifdef PUGL_HAVE_GL
-	if (view->ctx_type == PUGL_GL) {
-		if (flush) {
-			if (view->impl->glview->doubleBuffered) {
-				[[view->impl->glview openGLContext] flushBuffer];
-			} else {
-				glFlush();
-			}
+	if (view->ctx_type == PUGL_GL && flush) {
+		if (view->impl->glview->doubleBuffered) {
+			[[view->impl->glview openGLContext] flushBuffer];
+		} else {
+			glFlush();
 		}
 		//[NSOpenGLContext clearCurrentContext];
 	}
@@ -572,4 +570,7 @@ void*
 puglGetContext(PuglView* view)
 {
 	return NULL;
+
+	// unused
+	(void)view;
 }

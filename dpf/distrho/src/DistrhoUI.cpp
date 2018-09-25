@@ -82,7 +82,7 @@ void UI::setState(const char* key, const char* value)
 }
 #endif
 
-#if DISTRHO_PLUGIN_IS_SYNTH
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
 void UI::sendNote(uint8_t channel, uint8_t note, uint8_t velocity)
 {
     pData->sendNoteCallback(channel, note, velocity);
@@ -125,9 +125,11 @@ void UI::sampleRateChanged(double) {}
 /* ------------------------------------------------------------------------------------------------------------
  * UI Callbacks (optional) */
 
+#ifndef DGL_FILE_BROWSER_DISABLED
 void UI::uiFileBrowserSelected(const char*)
 {
 }
+#endif
 
 void UI::uiReshape(uint width, uint height)
 {

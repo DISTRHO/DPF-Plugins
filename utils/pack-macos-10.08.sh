@@ -31,13 +31,14 @@ rm -rf tmp/*
 
 NAME="$1"
 
-export CFLAGS="-mmacosx-version-min=10.5 -DMAC_OS_X_VERSION_MAX_ALLOWED=1060 -arch i386 -arch x86_64 -DHAVE_CPP11_SUPPORT=0"
+export CFLAGS="-mmacosx-version-min=10.5 -DMAC_OS_X_VERSION_MAX_ALLOWED=1060 -arch i386 -arch x86_64 -mfpmath=sse"
 export CXXFLAGS="$CFLAGS"
 export LDFLAGS="$CFLAGS"
 export MACOS="true"
+export MACOS_OLD="true"
 
 make -C .. clean
-make HAVE_JACK=false HAVE_LIBLO=false HAVE_PROJM=false -C .. -j 4
+make HAVE_JACK=false HAVE_LIBLO=false HAVE_PROJM=false -C .. -j 2
 rm -rf *ladspa* *dssi*
 mkdir -p "$NAME-macOS"
 mv *.lv2 *.vst "$NAME-macOS"

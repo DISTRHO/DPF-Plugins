@@ -1665,7 +1665,7 @@ static void add_place_raw (Display *dpy, const char *name, const char *path) {
 	strcpy (_placelist[_placecnt].name, name);
 	_placelist[_placecnt].flags = 0;
 
-	int sw;
+	int sw = -1;
 	query_font_geometry (dpy, _fib_gc, name, &sw, NULL, NULL, NULL);
 	if (sw > _fib_place_width) {
 		_fib_place_width = sw;
@@ -2126,6 +2126,7 @@ int x_fib_handle_events (Display *dpy, XEvent *event) {
 			if (!strcmp (XGetAtomName (dpy, event->xclient.message_type), "WM_PROTOCOLS")) {
 				_status = -1;
 			}
+			break;
 		case ConfigureNotify:
 			if (
 					(event->xconfigure.width > 1 && event->xconfigure.height > 1)
@@ -2319,6 +2320,7 @@ int x_fib_cfg_buttons (int k, int v) {
 				_btn_filter.flags |= 2;
 				_fib_filter_fn = 0;
 			}
+			break;
 		default:
 			return -2;
 	}

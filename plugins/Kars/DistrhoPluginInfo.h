@@ -21,11 +21,10 @@
 #define DISTRHO_PLUGIN_NAME  "Kars"
 #define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/Kars"
 
-#define DISTRHO_PLUGIN_HAS_UI        1
+#define DISTRHO_PLUGIN_HAS_UI        0
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1
 #define DISTRHO_PLUGIN_IS_SYNTH      1
 #define DISTRHO_PLUGIN_NUM_INPUTS    0
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   1
-#define DISTRHO_PLUGIN_USES_MODGUI   1
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

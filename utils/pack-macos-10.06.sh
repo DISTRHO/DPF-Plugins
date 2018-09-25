@@ -40,14 +40,14 @@ export MACOS_OLD="true"
 make -C .. clean
 make HAVE_JACK=false HAVE_LIBLO=false HAVE_PROJM=false -C .. -j 4
 rm -rf *ladspa* *dssi*
-mkdir -p "$NAME-macos"
-mv *.lv2 *.vst "$NAME-macos"
+mkdir -p "$NAME-macOS"
+mv *.lv2 *.vst "$NAME-macOS"
 for MODGUI in ${MODGUIS[@]}; do
-  cp -r ../modguis/$MODGUI.modgui/modgui "$NAME-macos"/$MODGUI.lv2/
-  cp ../modguis/$MODGUI.modgui/manifest.ttl "$NAME-macos"/$MODGUI.lv2/modgui.ttl
+  cp -r ../modguis/$MODGUI.modgui/modgui "$NAME-macOS"/$MODGUI.lv2/
+  cp ../modguis/$MODGUI.modgui/manifest.ttl "$NAME-macOS"/$MODGUI.lv2/modgui.ttl
 done
-cp "../utils/README-MacOS.txt" "$NAME-macos/README.txt"
-compressFolderAsZip "$NAME-macos"
+cp "../utils/README-MacOS.txt" "$NAME-macOS/README.txt"
+compressFolderAsZip "$NAME-macOS"
 rm -rf tmp/*
 
 make -C .. clean

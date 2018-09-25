@@ -170,6 +170,16 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 0.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 1.0f;
+        parameter.enumValues.count = 2;
+        parameter.enumValues.restrictedMode = true;
+        {
+            ParameterEnumerationValue* const enumValues = new ParameterEnumerationValue[2];
+            enumValues[0].value = 0.0f;
+            enumValues[0].label = "Square";
+            enumValues[1].value = 1.0f;
+            enumValues[1].label = "Triangle";
+            parameter.enumValues.values = enumValues;
+        }
         break;
     case paramTuning:
         parameter.hints      = kParameterIsAutomable; // was 0.5 <-> 2.0, log

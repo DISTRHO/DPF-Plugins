@@ -12,49 +12,38 @@ NAME = CycleShifter
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPluginCycleShifter.cpp.o
+FILES_DSP = \
+	DistrhoPluginCycleShifter.cpp
 
-OBJS_UI  = \
-	DistrhoArtworkCycleShifter.cpp.o \
-	DistrhoUICycleShifter.cpp.o
+FILES_UI  = \
+	DistrhoArtworkCycleShifter.cpp \
+	DistrhoUICycleShifter.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.ndc-Plugs.mk
+include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
-endif
 
-ifeq ($(BUILD_LADSPA),true)
 TARGETS += ladspa
-endif
+TARGETS += vst
 
-ifeq ($(BUILD_DSSI),true)
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_LIBLO),true)
 TARGETS += dssi
 endif
 endif
-endif
 
-ifeq ($(BUILD_LV2),true)
 ifeq ($(HAVE_DGL),true)
 TARGETS += lv2_sep
 else
 TARGETS += lv2_dsp
-endif
-endif
-
-ifeq ($(BUILD_VST),true)
-TARGETS += vst
 endif
 
 all: $(TARGETS)
