@@ -12,49 +12,38 @@ NAME = 3BandSplitter
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPlugin3BandSplitter.cpp.o
+FILES_DSP = \
+	DistrhoPlugin3BandSplitter.cpp
 
-OBJS_UI  = \
-	DistrhoArtwork3BandSplitter.cpp.o \
-	DistrhoUI3BandSplitter.cpp.o
+FILES_UI  = \
+	DistrhoArtwork3BandSplitter.cpp \
+	DistrhoUI3BandSplitter.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.Mini-Series.mk
+include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
-endif
 
-ifeq ($(BUILD_LADSPA),true)
 TARGETS += ladspa
-endif
+TARGETS += vst
 
-ifeq ($(BUILD_DSSI),true)
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_LIBLO),true)
 TARGETS += dssi
 endif
 endif
-endif
 
-ifeq ($(BUILD_LV2),true)
 ifeq ($(HAVE_DGL),true)
 TARGETS += lv2_sep
 else
 TARGETS += lv2_dsp
-endif
-endif
-
-ifeq ($(BUILD_VST2),true)
-TARGETS += vst
 endif
 
 all: $(TARGETS)

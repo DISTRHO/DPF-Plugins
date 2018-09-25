@@ -4,9 +4,9 @@
 # Created by falkTX
 #
 
-include Makefile.mk
+include dpf/Makefile.base.mk
 
-all: libs plugins gen
+all: dgl plugins gen
 
 # --------------------------------------------------------------
 
@@ -15,12 +15,12 @@ DESTDIR ?=
 
 # --------------------------------------------------------------
 
-libs:
+dgl:
 ifeq ($(HAVE_DGL),true)
 	$(MAKE) -C dpf/dgl
 endif
 
-plugins: libs
+plugins: dgl
 	# glBars (needs OpenGL)
 ifeq ($(HAVE_DGL),true)
 	$(MAKE) all -C plugins/glBars
@@ -58,6 +58,7 @@ endif
 	$(MAKE) all -C plugins/gigaverb
 	$(MAKE) all -C plugins/pitchshift
 
+ifneq ($(CROSS_COMPILING),true)
 gen: plugins dpf/utils/lv2_ttl_generator
 	@$(CURDIR)/dpf/utils/generate-ttl.sh
 ifeq ($(MACOS),true)
@@ -66,13 +67,14 @@ endif
 
 dpf/utils/lv2_ttl_generator:
 	$(MAKE) -C dpf/utils/lv2-ttl-generator
+else
+gen:
+endif
 
 # --------------------------------------------------------------
 
 clean:
-ifeq ($(HAVE_DGL),true)
 	$(MAKE) clean -C dpf/dgl
-endif
 	$(MAKE) clean -C dpf/utils/lv2-ttl-generator
 
 	# glBars
@@ -122,22 +124,6 @@ ifeq ($(HAVE_DGL),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
 endif
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
-
-	# Kars
-	cp -r modguis/Kars.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/
-	cp    modguis/Kars.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Kars.lv2/modgui.ttl
-
-	# Mini-Series
-	cp -r modguis/PingPongPan.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/
-	cp    modguis/PingPongPan.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/PingPongPan.lv2/modgui.ttl
-
-	# MVerb
-	cp -r modguis/MVerb.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/
-	cp    modguis/MVerb.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/MVerb.lv2/modgui.ttl
-
-	# Nekobi
-	cp -r modguis/Nekobi.modgui/modgui       $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/
-	cp    modguis/Nekobi.modgui/manifest.ttl $(DESTDIR)$(PREFIX)/lib/lv2/Nekobi.lv2/modgui.ttl
 
 # --------------------------------------------------------------
 

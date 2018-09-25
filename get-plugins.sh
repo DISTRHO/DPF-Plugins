@@ -24,24 +24,18 @@ cd ..
 rm -rf dpf
 rm -rf modguis
 rm -rf plugins
-mkdir modguis
 mkdir plugins
 
 mv repos/DPF dpf
 rm -rf dpf/.git*
 
 for PLUGIN in ${PLUGINS[@]}; do
-  if [ -d repos/$PLUGIN/modguis ]; then
-    mv repos/$PLUGIN/modguis/* modguis/
-  fi
   for f in $(ls repos/$PLUGIN/plugins/); do
     mv repos/$PLUGIN/plugins/$f plugins/$f
     if [ -d plugins/$f ]; then
       cp repos/$PLUGIN/LICENSE plugins/$f/LICENSE
     fi
   done
-  mv plugins/Makefile.mk plugins/Makefile.$PLUGIN.mk
-  sed -i -e "s/Makefile.mk/Makefile.$PLUGIN.mk/" plugins/*/Makefile
 done
 
 rm -rf repos

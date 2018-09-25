@@ -12,33 +12,26 @@ NAME = ProM
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPluginProM.cpp.o
+FILES_DSP = \
+	DistrhoPluginProM.cpp
 
-OBJS_UI  = \
-	DistrhoUIProM.cpp.o
+FILES_UI  = \
+	DistrhoUIProM.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.ProM.mk
+include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
-endif
 
-ifeq ($(BUILD_LV2),true)
 TARGETS += lv2
-endif
-
-ifeq ($(BUILD_VST2),true)
 TARGETS += vst
-endif
 
 all: $(TARGETS)
 

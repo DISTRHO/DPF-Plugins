@@ -29,11 +29,6 @@
 # define __cdecl
 #endif
 
-// has some conflicts
-#ifdef noexcept
-# undef noexcept
-#endif
-
 #define VESTIGE_HEADER
 #define VST_FORCE_DEPRECATED 0
 
@@ -410,7 +405,9 @@ public:
 #  ifdef __LP64__
         fUsingNsView = true;
 #  else
-#   warning 32bit VST UIs on OSX only work if the host supports "hasCockosViewAsConfig"
+#   ifndef DISTRHO_NO_WARNINGS
+#    warning 32bit VST UIs on OSX only work if the host supports "hasCockosViewAsConfig"
+#   endif
         fUsingNsView = false;
 #  endif
 # endif // DISTRHO_OS_MAC

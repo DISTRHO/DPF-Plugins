@@ -12,16 +12,21 @@ NAME = glBars
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPluginGLBars.cpp.o
+FILES_DSP = \
+	DistrhoPluginGLBars.cpp
 
-OBJS_UI  = \
-	DistrhoUIGLBars.cpp.o
+FILES_UI  = \
+	DistrhoUIGLBars.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.glBars.mk
+include ../../dpf/Makefile.plugins.mk
+
+# --------------------------------------------------------------
+# Extra flags
+
+LINK_FLAGS += -lpthread
 
 # --------------------------------------------------------------
 # Enable all possible plugin types

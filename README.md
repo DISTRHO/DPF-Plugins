@@ -25,9 +25,6 @@ Screenshots
 glBars<br/>
 ![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/glBars/Screenshot.png "glBars")
 
-Kars<br/>
-![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/Kars/Screenshot.png "Kars")
-
 3 Band EQ<br/>
 ![screenshot](https://raw.githubusercontent.com/DISTRHO/DPF-Plugins/master/plugins/3BandEQ/Screenshot.png "3 Band EQ")
 

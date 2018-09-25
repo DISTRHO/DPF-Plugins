@@ -12,47 +12,44 @@ NAME = Nekobi
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPluginNekobi.cpp.o
+FILES_DSP = \
+	DistrhoPluginNekobi.cpp
 
-OBJS_UI  = \
-	DistrhoArtworkNekobi.cpp.o \
-	DistrhoUINekobi.cpp.o
+FILES_UI  = \
+	DistrhoArtworkNekobi.cpp \
+	DistrhoUINekobi.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.Nekobi.mk
+include ../../dpf/Makefile.plugins.mk
+
+# --------------------------------------------------------------
+# Extra flags
+
+LINK_FLAGS += -lpthread
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
-endif
 
-ifeq ($(BUILD_DSSI),true)
 TARGETS += dssi_dsp
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_LIBLO),true)
 TARGETS += dssi_ui
 endif
 endif
-endif
 
-ifeq ($(BUILD_LV2),true)
 ifeq ($(HAVE_DGL),true)
 TARGETS += lv2_sep
 else
 TARGETS += lv2_dsp
 endif
-endif
 
-ifeq ($(BUILD_VST2),true)
 TARGETS += vst
-endif
 
 all: $(TARGETS)
 

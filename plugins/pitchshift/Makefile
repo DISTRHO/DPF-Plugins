@@ -12,34 +12,29 @@ NAME = MaPitchshift
 # --------------------------------------------------------------
 # Files to build
 
-OBJS_DSP = \
-	DistrhoPluginMaxGen.cpp.o
+FILES_DSP = \
+	DistrhoPluginMaxGen.cpp
 
 # --------------------------------------------------------------
 # Do some magic
 
-include ../Makefile.DPF-Max-Gen.mk
+include ../../dpf/Makefile.plugins.mk
+
+# --------------------------------------------------------------
+# Extra flags
+
+BUILD_CXX_FLAGS += -I../common -I../common/gen_dsp
 
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(BUILD_JACK),true)
 ifeq ($(HAVE_JACK),true)
 TARGETS += jack
 endif
-endif
 
-ifeq ($(BUILD_LADSPA),true)
 TARGETS += ladspa
-endif
-
-ifeq ($(BUILD_LV2),true)
 TARGETS += lv2_dsp
-endif
-
-ifeq ($(BUILD_VST2),true)
 TARGETS += vst
-endif
 
 all: $(TARGETS)
 
