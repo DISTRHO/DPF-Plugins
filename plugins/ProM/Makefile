@@ -24,6 +24,12 @@ FILES_UI  = \
 include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------
+# Extra flags
+
+BASE_FLAGS += $(shell pkg-config --cflags libprojectM)
+LINK_FLAGS += $(shell pkg-config --libs libprojectM) -lpthread
+
+# --------------------------------------------------------------
 # Enable all possible plugin types
 
 ifeq ($(HAVE_JACK),true)

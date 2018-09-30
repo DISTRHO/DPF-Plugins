@@ -32,6 +32,8 @@ public:
     enum Parameters
     {
         paramSustain = 0,
+        paramRelease,
+        paramVolume,
         paramCount
     };
 
@@ -97,6 +99,8 @@ protected:
 
 private:
     bool     fSustain;
+    float    fRelease;
+    float    fVolume;
     double   fSampleRate;
     uint32_t fBlockStart;
 
@@ -104,16 +108,16 @@ private:
         uint32_t on;
         uint32_t off;
         uint8_t  velocity;
-        float   index;
-        float   size;
-        int     sizei;
-        float*  wavetable;
+        float  voice;
+        float  size;
+        int    sizei;
+        float* wavetable;
 
         Note() noexcept
           : on(kNoteNull),
             off(kNoteNull),
             velocity(0),
-            index(0.0f),
+            voice(0.0f),
             size(0.0f),
             wavetable(nullptr) {}
 
@@ -131,7 +135,7 @@ private:
             if (wavetable != nullptr)
                 delete[] wavetable;
 
-            const float frequency = 440.0f * std::pow(2.0f, (index - 69.0f) / 12.0f);
+            const float frequency = 440.0f * std::pow(2.0f, (voice - 69.0f) / 12.0f);
             size  = sampleRate / frequency;
             sizei = int(size)+1;
             wavetable = new float[sizei];
@@ -140,7 +144,7 @@ private:
 
     } fNotes[kMaxNotes];
 
-    void addSamples(float* out, int voice, uint32_t offset, uint32_t count);
+    void addSamples(float* out, int voice, uint32_t frames);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistrhoPluginKars)
 };

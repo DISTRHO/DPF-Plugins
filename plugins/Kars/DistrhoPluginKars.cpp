@@ -23,12 +23,14 @@ START_NAMESPACE_DISTRHO
 DistrhoPluginKars::DistrhoPluginKars()
     : Plugin(paramCount, 0, 0), // 0 programs, 0 states
       fSustain(false),
+      fRelease(0.01),
+      fVolume(75.0f),
       fSampleRate(getSampleRate()),
       fBlockStart(0)
 {
     for (int i=kMaxNotes; --i >= 0;)
     {
-        fNotes[i].index = i;
+        fNotes[i].voice = i;
         fNotes[i].setSampleRate(fSampleRate);
     }
 }
@@ -38,15 +40,35 @@ DistrhoPluginKars::DistrhoPluginKars()
 
 void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
 {
-    if (index != 0)
-        return;
-
-    parameter.hints      = kParameterIsAutomable|kParameterIsBoolean;
-    parameter.name       = "Sustain";
-    parameter.symbol     = "sustain";
-    parameter.ranges.def = 0.0f;
-    parameter.ranges.min = 0.0f;
-    parameter.ranges.max = 1.0f;
+    switch (index)
+    {
+    case paramSustain:
+        parameter.hints      = kParameterIsAutomable|kParameterIsBoolean;
+        parameter.name       = "Sustain";
+        parameter.symbol     = "sustain";
+        parameter.ranges.def = 0.0f;
+        parameter.ranges.min = 0.0f;
+        parameter.ranges.max = 1.0f;
+        break;
+    case paramRelease:
+        parameter.hints      = kParameterIsAutomable;
+        parameter.name       = "Release";
+        parameter.symbol     = "release";
+        parameter.unit       = "s";
+        parameter.ranges.def = 0.01f;
+        parameter.ranges.min = 0.0f;
+        parameter.ranges.max = 5.0f;
+        break;
+    case paramVolume:
+        parameter.hints      = kParameterIsAutomable;
+        parameter.name       = "Volume";
+        parameter.symbol     = "volume";
+        parameter.unit       = "%";
+        parameter.ranges.def = 75.0f;
+        parameter.ranges.min = 0.0f;
+        parameter.ranges.max = 100.0f;
+        break;
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -54,18 +76,30 @@ void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
 
 float DistrhoPluginKars::getParameterValue(uint32_t index) const
 {
-    if (index != 0)
-        return 0.0f;
+    switch (index)
+    {
+    case paramSustain: return fSustain ? 1.0f : 0.0f;
+    case paramRelease: return fRelease;
+    case paramVolume:  return fVolume;
+    }
 
-    return fSustain ? 1.0f : 0.0f;
+    return 0.0f;
 }
 
 void DistrhoPluginKars::setParameterValue(uint32_t index, float value)
 {
-    if (index != 0)
-        return;
-
-    fSustain = value > 0.5f;
+    switch (index)
+    {
+    case paramSustain:
+        fSustain = value > 0.5f;
+        break;
+    case paramRelease:
+        fRelease = value;
+        break;
+    case paramVolume:
+        fVolume = value;
+        break;
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -83,19 +117,112 @@ void DistrhoPluginKars::activate()
     }
 }
 
+/**
+   Handy class to help keep audio buffer in sync with incoming MIDI events.
+   To use it, create a local variable (on the stack) and call nextEvent() until it returns false.
+   @code
+    for (AudioMidiSyncHelper amsh(outputs, frames, midiEvents, midiEventCount); amsh.nextEvent();)
+    {
+        float* const outL = amsh.outputs[0];
+        float* const outR = amsh.outputs[1];
+
+        for (uint32_t i=0; i<amsh.midiEventCount; ++i)
+        {
+            const MidiEvent& ev(amsh.midiEvents[i]);
+            // ... do something with the midi event
+        }
+
+        renderSynth(outL, outR, amsh.frames);
+    }
+   @endcode
+
+   Some important notes when using this class:
+    1. MidiEvent::frame retains its original value, but it is useless, do not use it.
+    2. The class variables names are be the same as the default ones in the run function.
+       Keep that in mind and try to avoid typos. :)
+ */
+class AudioMidiSyncHelper {
+public:
+    /** Parameters from the run function, adjusted for event sync */
+    float** outputs;
+    uint32_t frames;
+    const MidiEvent* midiEvents;
+    uint32_t midiEventCount;
+
+    /**
+       Constructor, using values from the run function.
+    */
+    AudioMidiSyncHelper(float** const o, uint32_t f, const MidiEvent* m, uint32_t mc)
+        : outputs(o),
+          frames(0),
+          midiEvents(m),
+          midiEventCount(0),
+          remainingFrames(f),
+          remainingMidiEventCount(mc) {}
+
+    /**
+       Process a batch of events untill no more are available.
+       You must not read any more values from this class after this function returns false.
+    */
+    bool nextEvent()
+    {
+        if (remainingMidiEventCount == 0)
+        {
+            if (remainingFrames == 0)
+                return false;
+
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+                outputs[i] += frames;
+
+            if (midiEventCount != 0)
+                midiEvents += midiEventCount;
+
+            frames = remainingFrames;
+            midiEvents = nullptr;
+            midiEventCount = 0;
+            remainingFrames = 0;
+            return true;
+        }
+
+        const uint32_t eventFrame = midiEvents[0].frame;
+        DISTRHO_SAFE_ASSERT_RETURN(eventFrame < remainingFrames, false);
+
+        midiEventCount = 1;
+
+        for (uint32_t i=1; i<remainingMidiEventCount; ++i)
+        {
+            if (midiEvents[i].frame != eventFrame)
+            {
+                midiEventCount = i;
+                break;
+            }
+        }
+
+        frames = remainingFrames - eventFrame;
+        remainingFrames -= frames;
+        remainingMidiEventCount -= midiEventCount;
+        return true;
+    }
+
+private:
+    /** @internal */
+    uint32_t remainingFrames;
+    uint32_t remainingMidiEventCount;
+};
+
 void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, const MidiEvent* midiEvents, uint32_t midiEventCount)
 {
     uint8_t note, velo;
-    float* out = outputs[0];
+    std::memset(outputs[0], 0, sizeof(float)*frames);
 
-    for (uint32_t count, pos=0, curEventIndex=0; pos<frames;)
+    for (AudioMidiSyncHelper amsh(outputs, frames, midiEvents, midiEventCount); amsh.nextEvent();)
     {
-        for (;curEventIndex < midiEventCount && pos >= midiEvents[curEventIndex].frame; ++curEventIndex)
+        for (uint32_t i=0; i<amsh.midiEventCount; ++i)
         {
-            if (midiEvents[curEventIndex].size > MidiEvent::kDataSize)
+            if (amsh.midiEvents[i].size > MidiEvent::kDataSize)
                 continue;
 
-            const uint8_t*  data = midiEvents[curEventIndex].data;
+            const uint8_t*  data = amsh.midiEvents[i].data;
             const uint8_t status = data[0] & 0xF0;
 
             switch (status)
@@ -106,7 +233,7 @@ void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, con
                 DISTRHO_SAFE_ASSERT_BREAK(note < 128); // kMaxNotes
                 if (velo > 0)
                 {
-                    fNotes[note].on  = fBlockStart + midiEvents[curEventIndex].frame;
+                    fNotes[note].on  = fBlockStart + amsh.midiEvents[i].frame;
                     fNotes[note].off = kNoteNull;
                     fNotes[note].velocity = velo;
                     break;
@@ -115,35 +242,26 @@ void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, con
             case 0x80:
                 note = data[1];
                 DISTRHO_SAFE_ASSERT_BREAK(note < 128); // kMaxNotes
-                fNotes[note].off = fBlockStart + midiEvents[curEventIndex].frame;
+                fNotes[note].off = fBlockStart + amsh.midiEvents[i].frame;
                 break;
             }
         }
 
-        if (curEventIndex < midiEventCount && midiEvents[curEventIndex].frame < frames)
-            count = midiEvents[curEventIndex].frame - pos;
-        else
-            count = frames - pos;
-
-        std::memset(out+pos, 0, sizeof(float)*count);
-        //for (uint32_t i=0; i<count; ++i)
-        //    out[pos + i] = 0.0f;
+        float* const out = amsh.outputs[0];
 
         for (int i=kMaxNotes; --i >= 0;)
         {
             if (fNotes[i].on != kNoteNull)
-                addSamples(out, i, pos, count);
+                addSamples(out, i, amsh.frames);
         }
-
-        pos += count;
     }
 
     fBlockStart += frames;
 }
 
-void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t offset, uint32_t count)
+void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t frames)
 {
-    const uint32_t start = fBlockStart + offset;
+    const uint32_t start = fBlockStart;
 
     Note& note(fNotes[voice]);
 
@@ -162,7 +280,7 @@ void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t offset, uint3
     float gain, sample;
     uint32_t index, size;
 
-    for (uint32_t i=0, s=start-note.on; i<count; ++i, ++s)
+    for (uint32_t i=0, s=start-note.on; i<frames; ++i, ++s)
     {
         gain = vgain;
 
@@ -170,8 +288,8 @@ void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t offset, uint3
         {
             // reuse index and size to save some performance.
             // actual values are release and dist
-            index = 1 + uint32_t(0.01 * fSampleRate); // release, not index
-            size   = i + start - note.off;            // dist, not size
+            index = 1 + uint32_t(fRelease * fSampleRate); // release, not index
+            size  = i + start - note.off;                 // dist, not size
 
             if (size > index)
             {
@@ -198,7 +316,7 @@ void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t offset, uint3
             note.wavetable[index] = sample/2;
         }
 
-        out[offset+i] += gain * sample;
+        out[i] += gain * sample * (fVolume / 100.0f);
     }
 }
 

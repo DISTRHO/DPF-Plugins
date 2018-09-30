@@ -24,9 +24,11 @@
 // -----------------------------------------------------------------------
 // Forward class names
 
+#ifdef DISTRHO_DEFINES_H_INCLUDED
 START_NAMESPACE_DISTRHO
 class UI;
 END_NAMESPACE_DISTRHO
+#endif
 
 START_NAMESPACE_DGL
 
@@ -173,6 +175,22 @@ public:
         ResizeEvent() noexcept
             : size(0, 0),
               oldSize(0, 0) {}
+    };
+
+   /**
+      Widget position changed event.
+      @a pos    The new absolute position of the widget.
+      @a oldPos The previous absolute position of the widget.
+      @see onPositionChanged
+    */
+    struct PositionChangedEvent {
+        Point<int> pos;
+        Point<int> oldPos;
+
+        /** Constuctor */
+        PositionChangedEvent() noexcept
+            : pos(0, 0),
+              oldPos(0, 0) {}
     };
 
    /**
@@ -362,6 +380,11 @@ protected:
     */
     virtual void onResize(const ResizeEvent&);
 
+   /**
+      A function called when the widget's absolute position is changed.
+    */
+    virtual void onPositionChanged(const PositionChangedEvent&);
+
 private:
     struct PrivateData;
     PrivateData* const pData;
@@ -373,7 +396,9 @@ private:
     friend class NanoWidget;
     friend class Window;
     friend class StandaloneWindow;
+#ifdef DISTRHO_DEFINES_H_INCLUDED
     friend class DISTRHO_NAMESPACE::UI;
+#endif
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Widget)
 };
