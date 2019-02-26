@@ -15,6 +15,10 @@ DESTDIR ?=
 
 # --------------------------------------------------------------
 
+HAVE_PROJM = $(shell pkg-config --exists libprojectM && echo true)
+
+# --------------------------------------------------------------
+
 dgl:
 ifeq ($(HAVE_DGL),true)
 	$(MAKE) -C dpf/dgl
