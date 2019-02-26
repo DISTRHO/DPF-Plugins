@@ -546,7 +546,7 @@ struct TimePosition {
 
        /**
           Current tick within beat.@n
-          Should always be > 0 and <= @a ticksPerBeat.@n
+          Should always be >= 0 and < @a ticksPerBeat.@n
           The first tick is tick '0'.
         */
         int32_t tick;
@@ -567,7 +567,7 @@ struct TimePosition {
         float beatType;
 
        /**
-          Number of ticks within a bar.@n
+          Number of ticks within a beat.@n
           Usually a moderately large integer with many denominators, such as 1920.0.
         */
         double ticksPerBeat;
@@ -590,6 +590,22 @@ struct TimePosition {
               beatType(0.0f),
               ticksPerBeat(0.0),
               beatsPerMinute(0.0) {}
+
+       /**
+          Reinitialize this position using the default null initialization.
+        */
+        void clear() noexcept
+        {
+            valid = false;
+            bar = 0;
+            beat = 0;
+            tick = 0;
+            barStartTick = 0.0;
+            beatsPerBar = 0.0f;
+            beatType = 0.0f;
+            ticksPerBeat = 0.0;
+            beatsPerMinute = 0.0;
+        }
     } bbt;
 
    /**
@@ -599,6 +615,16 @@ struct TimePosition {
         : playing(false),
           frame(0),
           bbt() {}
+
+   /**
+      Reinitialize this position using the default null initialization.
+    */
+    void clear() noexcept
+    {
+        playing  = false;
+        frame = 0;
+        bbt.clear();
+    }
 };
 
 /** @} */

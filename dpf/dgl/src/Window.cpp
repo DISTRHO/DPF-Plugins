@@ -19,10 +19,6 @@
 
 #include "../Base.hpp"
 
-#undef PUGL_HAVE_CAIRO
-#undef PUGL_HAVE_GL
-#define PUGL_HAVE_GL 1
-
 #include "pugl/pugl.h"
 
 #if defined(__GNUC__) && (__GNUC__ >= 7)
@@ -61,7 +57,7 @@ extern "C" {
 #define FOR_EACH_WIDGET_INV(rit) \
   for (std::list<Widget*>::reverse_iterator rit = fWidgets.rbegin(); rit != fWidgets.rend(); ++rit)
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(DGL_DEBUG_EVENTS)
 # define DBG(msg)  std::fprintf(stderr, "%s", msg);
 # define DBGp(...) std::fprintf(stderr, __VA_ARGS__);
 # define DBGF      std::fflush(stderr);
@@ -87,6 +83,7 @@ struct Window::PrivateData {
           fUsingEmbed(false),
           fWidth(1),
           fHeight(1),
+          fScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(),
@@ -117,6 +114,7 @@ struct Window::PrivateData {
           fUsingEmbed(false),
           fWidth(1),
           fHeight(1),
+          fScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(parent.pData),
@@ -159,6 +157,7 @@ struct Window::PrivateData {
           fUsingEmbed(parentId != 0),
           fWidth(1),
           fHeight(1),
+          fScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(),
@@ -204,7 +203,6 @@ struct Window::PrivateData {
             return;
         }
 
-        puglInitContextType(fView, PUGL_GL);
         puglInitUserResizable(fView, fResizable);
         puglInitWindowSize(fView, static_cast<int>(fWidth), static_cast<int>(fHeight));
 
@@ -539,6 +537,7 @@ struct Window::PrivateData {
         DBG("Window setResizable called\n");
 
         fResizable = yesNo;
+        fView->user_resizable = yesNo;
 
 #if defined(DISTRHO_OS_WINDOWS)
         const int winFlags = fResizable ? GetWindowLong(hwnd, GWL_STYLE) |  WS_SIZEBOX
@@ -550,6 +549,17 @@ struct Window::PrivateData {
 #endif
 
         setSize(fWidth, fHeight, true);
+    }
+
+    // -------------------------------------------------------------------
+
+    void setGeometryConstraints(uint width, uint height, bool aspect)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fResizable,);
+
+        fView->min_width  = width;
+        fView->min_height = height;
+        puglUpdateGeometryConstraints(fView, width, height, aspect);
     }
 
     // -------------------------------------------------------------------
@@ -605,7 +615,6 @@ struct Window::PrivateData {
             }
         }
 #else
-        XResizeWindow(xDisplay, xWindow, width, height);
 
         if (! fResizable)
         {
@@ -620,8 +629,10 @@ struct Window::PrivateData {
             sizeHints.max_width  = static_cast<int>(width);
             sizeHints.max_height = static_cast<int>(height);
 
-            XSetNormalHints(xDisplay, xWindow, &sizeHints);
+            XSetWMNormalHints(xDisplay, xWindow, &sizeHints);
         }
+
+        XResizeWindow(xDisplay, xWindow, width, height);
 
         if (! forced)
             XFlush(xDisplay);
@@ -685,6 +696,32 @@ struct Window::PrivateData {
 
     // -------------------------------------------------------------------
 
+    double getScaling() const noexcept
+    {
+        return fScaling;
+    }
+
+    void setScaling(double scaling) noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(scaling > 0.0,);
+
+        fScaling = scaling;
+    }
+
+    // -------------------------------------------------------------------
+
+    bool getIgnoringKeyRepeat() const noexcept
+    {
+        return fView->ignoreKeyRepeat;
+    }
+
+    void setIgnoringKeyRepeat(bool ignore) noexcept
+    {
+        puglIgnoreKeyRepeat(fView, ignore);
+    }
+
+    // -------------------------------------------------------------------
+
     void addWidget(Widget* const widget)
     {
         fWidgets.push_back(widget);
@@ -736,7 +773,7 @@ struct Window::PrivateData {
         FOR_EACH_WIDGET(it)
         {
             Widget* const widget(*it);
-            widget->pData->display(fWidth, fHeight, false);
+            widget->pData->display(fWidth, fHeight, fScaling, false);
         }
 
         fSelf->onDisplayAfter();
@@ -796,7 +833,7 @@ struct Window::PrivateData {
         return 1;
     }
 
-    void onPuglMouse(const int button, const bool press, const int x, const int y)
+    void onPuglMouse(const int button, const bool press, int x, int y)
     {
         DBGp("PUGL: onMouse : %i %i %i %i\n", button, press, x, y);
 
@@ -805,6 +842,9 @@ struct Window::PrivateData {
 
         if (fModal.childFocus != nullptr)
             return fModal.childFocus->focus();
+
+        x /= fScaling;
+        y /= fScaling;
 
         Widget::MouseEvent ev;
         ev.button = button;
@@ -823,12 +863,15 @@ struct Window::PrivateData {
         }
     }
 
-    void onPuglMotion(const int x, const int y)
+    void onPuglMotion(int x, int y)
     {
-        DBGp("PUGL: onMotion : %i %i\n", x, y);
+        // DBGp("PUGL: onMotion : %i %i\n", x, y);
 
         if (fModal.childFocus != nullptr)
             return;
+
+        x /= fScaling;
+        y /= fScaling;
 
         Widget::MotionEvent ev;
         ev.mod  = static_cast<Modifier>(puglGetModifiers(fView));
@@ -845,12 +888,17 @@ struct Window::PrivateData {
         }
     }
 
-    void onPuglScroll(const int x, const int y, const float dx, const float dy)
+    void onPuglScroll(int x, int y, float dx, float dy)
     {
         DBGp("PUGL: onScroll : %i %i %f %f\n", x, y, dx, dy);
 
         if (fModal.childFocus != nullptr)
             return;
+
+        x /= fScaling;
+        y /= fScaling;
+        dx /= fScaling;
+        dy /= fScaling;
 
         Widget::ScrollEvent ev;
         ev.delta = Point<float>(dx, dy);
@@ -1000,6 +1048,7 @@ struct Window::PrivateData {
     bool fUsingEmbed;
     uint fWidth;
     uint fHeight;
+    double fScaling;
     char* fTitle;
     std::list<Widget*> fWidgets;
 
@@ -1221,6 +1270,11 @@ bool Window::openFileBrowser(const FileBrowserOptions& options)
 }
 #endif
 
+bool Window::isEmbed() const noexcept
+{
+    return pData->fUsingEmbed;
+}
+
 bool Window::isVisible() const noexcept
 {
     return pData->fVisible;
@@ -1239,6 +1293,11 @@ bool Window::isResizable() const noexcept
 void Window::setResizable(bool yesNo)
 {
     pData->setResizable(yesNo);
+}
+
+void Window::setGeometryConstraints(uint width, uint height, bool aspect)
+{
+    pData->setGeometryConstraints(width, height, aspect);
 }
 
 uint Window::getWidth() const noexcept
@@ -1279,6 +1338,26 @@ void Window::setTitle(const char* title)
 void Window::setTransientWinId(uintptr_t winId)
 {
     pData->setTransientWinId(winId);
+}
+
+double Window::getScaling() const noexcept
+{
+    return pData->getScaling();
+}
+
+void Window::setScaling(double scaling) noexcept
+{
+    pData->setScaling(scaling);
+}
+
+bool Window::getIgnoringKeyRepeat() const noexcept
+{
+    return pData->getIgnoringKeyRepeat();
+}
+
+void Window::setIgnoringKeyRepeat(bool ignore) noexcept
+{
+    pData->setIgnoringKeyRepeat(ignore);
 }
 
 Application& Window::getApp() const noexcept

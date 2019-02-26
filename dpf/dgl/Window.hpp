@@ -92,6 +92,8 @@ public:
     bool openFileBrowser(const FileBrowserOptions& options);
 #endif
 
+    bool isEmbed() const noexcept;
+
     bool isVisible() const noexcept;
     void setVisible(bool yesNo);
 
@@ -107,7 +109,14 @@ public:
     const char* getTitle() const noexcept;
     void setTitle(const char* title);
 
+    void setGeometryConstraints(uint width, uint height, bool aspect);
     void setTransientWinId(uintptr_t winId);
+
+    double getScaling() const noexcept;
+    void setScaling(double scaling) noexcept;
+
+    bool getIgnoringKeyRepeat() const noexcept;
+    void setIgnoringKeyRepeat(bool ignore) noexcept;
 
     Application& getApp() const noexcept;
     intptr_t getWindowId() const noexcept;

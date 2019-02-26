@@ -23,28 +23,25 @@
 
 #include <stdint.h>
 
-#include "pugl/common.h"
-#include "pugl/event.h"
-
-#ifdef PUGL_SHARED
-#    ifdef _WIN32
-#        define PUGL_LIB_IMPORT __declspec(dllimport)
-#        define PUGL_LIB_EXPORT __declspec(dllexport)
-#    else
-#        define PUGL_LIB_IMPORT __attribute__((visibility("default")))
-#        define PUGL_LIB_EXPORT __attribute__((visibility("default")))
-#    endif
-#    ifdef PUGL_INTERNAL
-#        define PUGL_API PUGL_LIB_EXPORT
-#    else
-#        define PUGL_API PUGL_LIB_IMPORT
-#    endif
+/*
+  This API is pure portable C and contains no platform specific elements, or
+  even a GL dependency.  However, unfortunately GL includes vary across
+  platforms so they are included here to allow for pure portable programs.
+*/
+#ifdef __APPLE__
+#    include "OpenGL/gl.h"
 #else
 #    ifdef _WIN32
-#        define PUGL_API
-#    else
-#        define PUGL_API __attribute__((visibility("hidden")))
+#        include <winsock2.h>
+#        include <windows.h>  /* Broken Windows GL headers require this */
 #    endif
+#    include "GL/gl.h"
+#endif
+
+#ifdef _WIN32
+#    define PUGL_API
+#else
+#    define PUGL_API __attribute__((visibility("hidden")))
 #endif
 
 #ifdef __cplusplus
@@ -58,6 +55,82 @@ extern "C" {
    A minimal portable API for OpenGL.
    @{
 */
+
+/**
+   A Pugl view.
+*/
+typedef struct PuglViewImpl PuglView;
+
+/**
+   A native window handle.
+
+   On X11, this is a Window.
+   On OSX, this is an NSView*.
+   On Windows, this is a HWND.
+*/
+typedef intptr_t PuglNativeWindow;
+
+/**
+   Return status code.
+*/
+typedef enum {
+	PUGL_SUCCESS = 0
+} PuglStatus;
+
+/**
+   Convenience symbols for ASCII control characters.
+*/
+typedef enum {
+	PUGL_CHAR_BACKSPACE = 0x08,
+	PUGL_CHAR_ESCAPE    = 0x1B,
+	PUGL_CHAR_DELETE    = 0x7F
+} PuglChar;
+
+/**
+   Special (non-Unicode) keyboard keys.
+*/
+typedef enum {
+	PUGL_KEY_F1 = 1,
+	PUGL_KEY_F2,
+	PUGL_KEY_F3,
+	PUGL_KEY_F4,
+	PUGL_KEY_F5,
+	PUGL_KEY_F6,
+	PUGL_KEY_F7,
+	PUGL_KEY_F8,
+	PUGL_KEY_F9,
+	PUGL_KEY_F10,
+	PUGL_KEY_F11,
+	PUGL_KEY_F12,
+	PUGL_KEY_LEFT,
+	PUGL_KEY_UP,
+	PUGL_KEY_RIGHT,
+	PUGL_KEY_DOWN,
+	PUGL_KEY_PAGE_UP,
+	PUGL_KEY_PAGE_DOWN,
+	PUGL_KEY_HOME,
+	PUGL_KEY_END,
+	PUGL_KEY_INSERT,
+	PUGL_KEY_SHIFT,
+	PUGL_KEY_CTRL,
+	PUGL_KEY_ALT,
+	PUGL_KEY_SUPER
+} PuglKey;
+
+/**
+   Keyboard modifier flags.
+*/
+typedef enum {
+	PUGL_MOD_SHIFT = 1 << 0,  /**< Shift key */
+	PUGL_MOD_CTRL  = 1 << 1,  /**< Control key */
+	PUGL_MOD_ALT   = 1 << 2,  /**< Alt/Option key */
+	PUGL_MOD_SUPER = 1 << 3   /**< Mod4/Command/Windows key */
+} PuglMod;
+
+/**
+   Handle for opaque user data.
+*/
+typedef void* PuglHandle;
 
 /**
    A function called when the window is closed.
@@ -104,6 +177,16 @@ typedef void (*PuglMouseFunc)(
    @param height The new view height.
 */
 typedef void (*PuglReshapeFunc)(PuglView* view, int width, int height);
+
+/**
+   A function called outside of gl-context when the plugin schedules a resize via puglPostResize.
+
+   @param view The view being resized.
+   @param width The new width to resize to (variable is initialized to current size)
+   @param height The new height to resize to (variable is initialized to current size)
+   @param set_hints If not null, set window-hints
+ */
+typedef void (*PuglResizeFunc)(PuglView* view, int *width, int *height, int *set_hints);
 
 /**
    A function called on scrolling (e.g. mouse wheel or track pad).
@@ -191,12 +274,6 @@ PUGL_API void
 puglInitTransientFor(PuglView* view, uintptr_t parent);
 
 /**
-   Set the context type before creating a window.
-*/
-PUGL_API void
-puglInitContextType(PuglView* view, PuglContextType type);
-
-/**
    @}
 */
 
@@ -215,13 +292,31 @@ PUGL_API int
 puglCreateWindow(PuglView* view, const char* title);
 
 /**
-   Show the current window.
+   Create a new GL window.
+   @param parent Parent window, or 0 for top level.
+   @param title Window title, or NULL.
+   @param width Window width in pixels.
+   @param height Window height in pixels.
+   @param resizable Whether window should be user resizable.
+*/
+PUGL_API PuglView*
+puglCreate(PuglNativeWindow parent,
+           const char*      title,
+           int              min_width,
+           int              min_height,
+           int              width,
+           int              height,
+           bool             resizable,
+           unsigned long    transientId);
+
+/**
+   Show Window (external ui)
 */
 PUGL_API void
 puglShowWindow(PuglView* view);
 
 /**
-   Hide the current window.
+   Hide Window (external ui)
 */
 PUGL_API void
 puglHideWindow(PuglView* view);
@@ -253,15 +348,6 @@ puglSetHandle(PuglView* view, PuglHandle handle);
 */
 PUGL_API PuglHandle
 puglGetHandle(PuglView* view);
-
-/**
-   Get the drawing context.
-
-   For PUGL_GL contexts, this is unused and returns NULL.
-   For PUGL_CAIRO contexts, this returns a pointer to a cairo_t.
-*/
-PUGL_API void*
-puglGetContext(PuglView* view);
 
 /**
    Return the timestamp (if any) of the currently-processing event.
@@ -338,6 +424,12 @@ PUGL_API void
 puglSetReshapeFunc(PuglView* view, PuglReshapeFunc reshapeFunc);
 
 /**
+   Set callback function to change window size.
+*/
+PUGL_API void
+puglSetResizeFunc(PuglView* view, PuglResizeFunc resizeFunc);
+
+/**
    Set the function to call on file-browser selections.
 */
 PUGL_API void
@@ -346,6 +438,12 @@ puglSetFileSelectedFunc(PuglView* view, PuglFileSelectedFunc fileSelectedFunc);
 /**
    @}
 */
+
+/**
+   TODO document this.
+ */
+PUGL_API int
+puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, bool aspect);
 
 /**
    Grab the input focus.
@@ -367,6 +465,12 @@ puglProcessEvents(PuglView* view);
 */
 PUGL_API void
 puglPostRedisplay(PuglView* view);
+
+/**
+   Request a resize on the next call to puglProcessEvents().
+*/
+PUGL_API void
+puglPostResize(PuglView* view);
 
 /**
    Destroy a GL window.

@@ -218,7 +218,7 @@ puglDisplay(PuglView* view)
 	if (puglview->reshapeFunc) {
 		puglview->reshapeFunc(puglview, width, height);
 	} else {
-		puglDefaultReshape(puglview, width, height);
+		puglDefaultReshape(width, height);
 	}
 
 	puglLeaveContext(puglview, false);
@@ -427,18 +427,13 @@ puglInitInternals()
 void
 puglEnterContext(PuglView* view)
 {
-#ifdef PUGL_HAVE_GL
-	if (view->ctx_type == PUGL_GL) {
-		[[view->impl->glview openGLContext] makeCurrentContext];
-	}
-#endif
+	[[view->impl->glview openGLContext] makeCurrentContext];
 }
 
 void
 puglLeaveContext(PuglView* view, bool flush)
 {
-#ifdef PUGL_HAVE_GL
-	if (view->ctx_type == PUGL_GL && flush) {
+	if (flush) {
 		if (view->impl->glview->doubleBuffered) {
 			[[view->impl->glview openGLContext] flushBuffer];
 		} else {
@@ -446,7 +441,6 @@ puglLeaveContext(PuglView* view, bool flush)
 		}
 		//[NSOpenGLContext clearCurrentContext];
 	}
-#endif
 }
 
 int
@@ -465,7 +459,7 @@ puglCreateWindow(PuglView* view, const char* title)
 	
 	impl->glview->puglview = view;
 
-	if (view->resizable) {
+	if (view->user_resizable) {
 		[impl->glview setAutoresizingMask:NSViewWidthSizable|NSViewHeightSizable];
 	}
 
@@ -566,11 +560,14 @@ puglGetNativeWindow(PuglView* view)
 	return (PuglNativeWindow)view->impl->glview;
 }
 
-void*
-puglGetContext(PuglView* view)
+int
+puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, bool aspect)
 {
-	return NULL;
+	// TODO
+	return 1;
 
-	// unused
 	(void)view;
+	(void)min_width;
+	(void)min_height;
+	(void)aspect;
 }

@@ -76,25 +76,17 @@ puglInitInternals()
 void
 puglEnterContext(PuglView* view)
 {
-#ifdef PUGL_HAVE_GL
-	if (view->ctx_type == PUGL_GL) {
-		wglMakeCurrent(view->impl->hdc, view->impl->hglrc);
-	}
-#endif
+	wglMakeCurrent(view->impl->hdc, view->impl->hglrc);
 }
 
 void
 puglLeaveContext(PuglView* view, bool flush)
 {
-#ifdef PUGL_HAVE_GL
-	if (view->ctx_type == PUGL_GL) {
-		if (flush) {
-			glFlush();
-			SwapBuffers(view->impl->hdc);
-		}
-		wglMakeCurrent(NULL, NULL);
+	if (flush) {
+		glFlush();
+		SwapBuffers(view->impl->hdc);
 	}
-#endif
+	wglMakeCurrent(NULL, NULL);
 }
 
 int
@@ -137,7 +129,7 @@ puglCreateWindow(PuglView* view, const char* title)
 	}
 
 	int winFlags = WS_POPUPWINDOW | WS_CAPTION;
-	if (view->resizable) {
+	if (view->user_resizable) {
 		winFlags |= WS_SIZEBOX;
 		if (view->min_width > 0 && view->min_height > 0) {
 			// Adjust the minimum window size to accomodate requested view size
@@ -231,7 +223,7 @@ puglReshape(PuglView* view, int width, int height)
 	if (view->reshapeFunc) {
 		view->reshapeFunc(view, width, height);
 	} else {
-		puglDefaultReshape(view, width, height);
+		puglDefaultReshape(width, height);
 	}
 
 	view->width  = width;
@@ -477,13 +469,14 @@ puglGetNativeWindow(PuglView* view)
 	return (PuglNativeWindow)view->impl->hwnd;
 }
 
-void*
-puglGetContext(PuglView* /*view*/)
+int
+puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, bool aspect)
 {
-#ifdef PUGL_HAVE_CAIRO
-	if (view->ctx_type == PUGL_CAIRO) {
-		// TODO
-	}
-#endif
-	return NULL;
+	// TODO
+	return 1;
+
+	(void)view;
+	(void)min_width;
+	(void)min_height;
+	(void)aspect;
 }
