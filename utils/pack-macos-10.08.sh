@@ -18,7 +18,7 @@ echo Missing argument
 exit
 fi
 
-sed -i -e "s|-MD -MP|-D_MD_MP_WORKAROUND|" */*.mk dpf/dgl/*.mk
+sed -i -e "s|-MD -MP|-D_MD_MP_WORKAROUND|" */*.mk
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ export MACOS="true"
 export MACOS_OLD="true"
 
 make clean
-make HAVE_JACK=false HAVE_LIBLO=false HAVE_PROJM=false -C .. -j 2
+make HAVE_JACK=false HAVE_LIBLO=false HAVE_PROJM=false -j 2
 rm -rf bin/*ladspa* bin/*dssi*
 mkdir -p "$NAME-macOS"
 mv bin/*.lv2 bin/*.vst "$NAME-macOS"
@@ -44,4 +44,4 @@ make clean
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
-sed -i -e "s|-D_MD_MP_WORKAROUND|-MD -MP|" */*.mk dpf/dgl/*.mk
+sed -i -e "s|-D_MD_MP_WORKAROUND|-MD -MP|" */*.mk
