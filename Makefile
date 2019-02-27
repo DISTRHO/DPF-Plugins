@@ -25,11 +25,6 @@ ifeq ($(HAVE_DGL),true)
 endif
 
 plugins: dgl
-	# glBars (needs OpenGL)
-ifeq ($(HAVE_DGL),true)
-	$(MAKE) all -C plugins/glBars
-endif
-
 	# Kars
 	$(MAKE) all -C plugins/Kars
 
@@ -49,18 +44,21 @@ endif
 	# Nekobi
 	$(MAKE) all -C plugins/Nekobi
 
-	# ProM (needs OpenGL + ProjectM)
-ifeq ($(HAVE_DGL),true)
-ifeq ($(HAVE_PROJM),true)
-	$(MAKE) all -C plugins/ProM
-endif
-endif
-
 	# Max-Gen stuff
 	$(MAKE) all -C plugins/bitcrush
 	$(MAKE) all -C plugins/freeverb
 	$(MAKE) all -C plugins/gigaverb
 	$(MAKE) all -C plugins/pitchshift
+
+ifeq ($(HAVE_DGL),true)
+	# glBars (needs OpenGL)
+	$(MAKE) all -C plugins/glBars
+
+ifeq ($(HAVE_PROJM),true)
+	# ProM (needs OpenGL + ProjectM)
+	$(MAKE) all -C plugins/ProM
+endif # HAVE_PROJM
+endif # HAVE_DGL
 
 ifneq ($(CROSS_COMPILING),true)
 gen: plugins dpf/utils/lv2_ttl_generator
@@ -121,32 +119,36 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
 	install -d $(DESTDIR)$(PREFIX)/bin/
 
-	cp bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
-	cp bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
-	cp bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
+	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
+	install -m 644 bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
+	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 
 ifeq ($(HAVE_DGL),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
-endif
+endif # HAVE_DGL
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
 ifeq ($(HAVE_JACK),true)
-	cp -r bin/3BandEQ          $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/3BandSplitter    $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/AmplitudeImposer $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/CycleShifter     $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/Kars             $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/MVerb            $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/MaBitcrush       $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/MaFreeverb       $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/MaGigaverb       $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/MaPitchshift     $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/Nekobi           $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/PingPongPan      $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/ProM             $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/SoulForce        $(DESTDIR)$(PREFIX)/bin/
-	cp -r bin/glBars           $(DESTDIR)$(PREFIX)/bin/
-endif
+	install -m 755 bin/Kars             $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/3BandEQ          $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/3BandSplitter    $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/PingPongPan      $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/AmplitudeImposer $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/CycleShifter     $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/SoulForce        $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MVerb            $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/Nekobi           $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaBitcrush       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaFreeverb       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaGigaverb       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaPitchshift     $(DESTDIR)$(PREFIX)/bin/
+ifeq ($(HAVE_DGL),true)
+	install -m 755 bin/glBars           $(DESTDIR)$(PREFIX)/bin/
+ifeq ($(HAVE_PROJM),true)
+	install -m 755 bin/ProM             $(DESTDIR)$(PREFIX)/bin/
+endif # HAVE_PROJM
+endif # HAVE_DGL
+endif # HAVE_JACK
 
 # --------------------------------------------------------------
 
