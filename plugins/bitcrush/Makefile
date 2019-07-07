@@ -24,6 +24,7 @@ include ../../dpf/Makefile.plugins.mk
 # Extra flags
 
 BUILD_CXX_FLAGS += -I../common -I../common/gen_dsp
+BUILD_CXX_FLAGS += -Wno-unused-parameter
 
 # --------------------------------------------------------------
 # Enable all possible plugin types

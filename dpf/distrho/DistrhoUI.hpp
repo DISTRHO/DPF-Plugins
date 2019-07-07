@@ -32,6 +32,13 @@ typedef DGL_NAMESPACE::NanoWidget UIWidget;
 typedef DGL_NAMESPACE::Widget UIWidget;
 #endif
 
+#ifdef DGL_CAIRO
+# include "Cairo.hpp"
+#endif
+#ifdef DGL_OPENGL
+# include "OpenGL.hpp"
+#endif
+
 START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
@@ -62,7 +69,7 @@ public:
     */
     virtual ~UI();
 
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#if DISTRHO_UI_USER_RESIZABLE && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
    /**
       Set geometry constraints for the UI when resized by the user, and optionally scale UI automatically.
       @see Window::setGeometryConstraints(uint,uint,bool)
@@ -82,13 +89,17 @@ public:
 
    /**
       editParameter.
-      @TODO Document this.
+
+      Touch/pressed-down event.
+      Lets the host know the user is tweaking a parameter.
+      Required in some hosts to record automation.      
     */
     void editParameter(uint32_t index, bool started);
 
    /**
       setParameterValue.
-      @TODO Document this.
+      
+      Change a parameter value in the Plugin.
     */
     void setParameterValue(uint32_t index, float value);
 
@@ -130,6 +141,13 @@ public:
              it will return null when called from anywhere else.
     */
     static const char* getNextBundlePath() noexcept;
+
+   /**
+      Get the scale factor that will be used for the next UI.
+      @note: This function is only valid during createUI(),
+             it will return 1.0 when called from anywhere else.
+    */
+    static double getNextScaleFactor() noexcept;
 
 # if DISTRHO_PLUGIN_HAS_EMBED_UI
    /**

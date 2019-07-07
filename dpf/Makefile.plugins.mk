@@ -15,10 +15,6 @@ endif
 
 include $(DPF_PATH)/Makefile.base.mk
 
-ifeq ($(FILES_UI),)
-HAVE_DGL = false
-endif
-
 # ---------------------------------------------------------------------------------------------------------------------
 # Basic setup
 
@@ -28,8 +24,12 @@ BUILD_DIR = ../../build/$(NAME)
 BUILD_C_FLAGS   += -I.
 BUILD_CXX_FLAGS += -I. -I$(DPF_PATH)/distrho -I$(DPF_PATH)/dgl
 
-ifeq ($(HAVE_DGL),true)
-BASE_FLAGS += -DHAVE_DGL
+ifeq ($(HAVE_CAIRO),true)
+DGL_FLAGS += -DHAVE_CAIRO
+endif
+
+ifeq ($(HAVE_OPENGL),true)
+DGL_FLAGS += -DHAVE_OPENGL
 endif
 
 ifeq ($(HAVE_JACK),true)
@@ -59,7 +59,39 @@ lv2_ui     = $(TARGET_DIR)/$(NAME).lv2/$(NAME)_ui$(LIB_EXT)
 vst        = $(TARGET_DIR)/$(NAME)-vst$(LIB_EXT)
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Handle plugins without UI
+# Handle UI stuff, disable UI support automatically
+
+ifeq ($(FILES_UI),)
+UI_TYPE = none
+endif
+
+ifeq ($(UI_TYPE),)
+UI_TYPE = opengl
+endif
+
+ifeq ($(UI_TYPE),cairo)
+ifeq ($(HAVE_CAIRO),true)
+DGL_FLAGS += $(CAIRO_FLAGS) -DDGL_CAIRO
+DGL_LIBS  += $(CAIRO_LIBS)
+DGL_LIB    = $(DPF_PATH)/build/libdgl-cairo.a
+HAVE_DGL   = true
+else
+HAVE_DGL   = false
+endif
+endif
+
+ifeq ($(UI_TYPE),opengl)
+ifeq ($(HAVE_OPENGL),true)
+DGL_FLAGS += $(OPENGL_FLAGS) -DDGL_OPENGL
+DGL_LIBS  += $(OPENGL_LIBS)
+DGL_LIB    = $(DPF_PATH)/build/libdgl-opengl.a
+HAVE_DGL   = true
+else
+HAVE_DGL   = false
+endif
+endif
+
+DGL_LIBS += $(DGL_SYSTEM_LIBS)
 
 ifneq ($(HAVE_DGL),true)
 dssi_ui =
@@ -67,6 +99,9 @@ lv2_ui =
 DGL_LIBS =
 OBJS_UI =
 endif
+
+# TODO split dsp and ui object build flags
+BASE_FLAGS += $(DGL_FLAGS)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # all needs to be first
@@ -80,6 +115,11 @@ $(BUILD_DIR)/%.c.o: %.c
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	@$(CC) $< $(BUILD_C_FLAGS) -c -o $@
+
+$(BUILD_DIR)/%.cc.o: %.cc
+	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
+	@echo "Compiling $<"
+	@$(CXX) $< $(BUILD_CXX_FLAGS) -c -o $@
 
 $(BUILD_DIR)/%.cpp.o: %.cpp
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
@@ -105,12 +145,12 @@ $(BUILD_DIR)/DistrhoUIMain_%.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
 $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoPluginMain.cpp (JACK)"
-	@$(CXX) $< $(BUILD_CXX_FLAGS) $(shell pkg-config --cflags jack) -DDISTRHO_PLUGIN_TARGET_JACK -c -o $@
+	@$(CXX) $< $(BUILD_CXX_FLAGS) $(shell $(PKG_CONFIG) --cflags jack) -DDISTRHO_PLUGIN_TARGET_JACK -c -o $@
 
 $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoUIMain.cpp (DSSI)"
-	@$(CXX) $< $(BUILD_CXX_FLAGS) $(shell pkg-config --cflags liblo) -DDISTRHO_PLUGIN_TARGET_DSSI -c -o $@
+	@$(CXX) $< $(BUILD_CXX_FLAGS) $(shell $(PKG_CONFIG) --cflags liblo) -DDISTRHO_PLUGIN_TARGET_DSSI -c -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 # JACK
@@ -118,13 +158,13 @@ $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
 jack: $(jack)
 
 ifeq ($(HAVE_DGL),true)
-$(jack): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o $(BUILD_DIR)/DistrhoUIMain_JACK.cpp.o $(DPF_PATH)/build/libdgl.a
+$(jack): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o $(BUILD_DIR)/DistrhoUIMain_JACK.cpp.o $(DGL_LIB)
 else
 $(jack): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating JACK standalone for $(NAME)"
-	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(shell pkg-config --libs jack) -o $@
+	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(shell $(PKG_CONFIG) --libs jack) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 # LADSPA
@@ -148,10 +188,10 @@ $(dssi_dsp): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_DSSI.cpp.o
 	@echo "Creating DSSI plugin library for $(NAME)"
 	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(SHARED) -o $@
 
-$(dssi_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o $(DPF_PATH)/build/libdgl.a
+$(dssi_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o $(DGL_LIB)
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating DSSI UI for $(NAME)"
-	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(shell pkg-config --libs liblo) -o $@
+	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(shell $(PKG_CONFIG) --libs liblo) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 # LV2
@@ -160,7 +200,7 @@ lv2: $(lv2)
 lv2_dsp: $(lv2_dsp)
 lv2_sep: $(lv2_dsp) $(lv2_ui)
 
-$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DPF_PATH)/build/libdgl.a
+$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin for $(NAME)"
 	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) -o $@
@@ -170,7 +210,7 @@ $(lv2_dsp): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
 	@echo "Creating LV2 plugin library for $(NAME)"
 	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(SHARED) -o $@
 
-$(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DPF_PATH)/build/libdgl.a
+$(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin UI for $(NAME)"
 	@$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) -o $@
@@ -181,7 +221,7 @@ $(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DPF_PATH)/build/lib
 vst: $(vst)
 
 ifeq ($(HAVE_DGL),true)
-$(vst): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST.cpp.o $(DPF_PATH)/build/libdgl.a
+$(vst): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST.cpp.o $(DGL_LIB)
 else
 $(vst): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST.cpp.o
 endif

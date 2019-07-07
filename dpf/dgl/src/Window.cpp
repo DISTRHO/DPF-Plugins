@@ -19,6 +19,15 @@
 
 #include "../Base.hpp"
 
+#ifdef DGL_CAIRO
+# define PUGL_CAIRO
+# include "../Cairo.hpp"
+#endif
+#ifdef DGL_OPENGL
+# define PUGL_OPENGL
+# include "../OpenGL.hpp"
+#endif
+
 #include "pugl/pugl.h"
 
 #if defined(__GNUC__) && (__GNUC__ >= 7)
@@ -84,6 +93,7 @@ struct Window::PrivateData {
           fWidth(1),
           fHeight(1),
           fScaling(1.0),
+          fAutoScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(),
@@ -115,6 +125,7 @@ struct Window::PrivateData {
           fWidth(1),
           fHeight(1),
           fScaling(1.0),
+          fAutoScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(parent.pData),
@@ -147,7 +158,7 @@ struct Window::PrivateData {
 #endif
     }
 
-    PrivateData(Application& app, Window* const self, const intptr_t parentId, const bool resizable)
+    PrivateData(Application& app, Window* const self, const intptr_t parentId, const double scaling, const bool resizable)
         : fApp(app),
           fSelf(self),
           fView(puglInit()),
@@ -157,7 +168,8 @@ struct Window::PrivateData {
           fUsingEmbed(parentId != 0),
           fWidth(1),
           fHeight(1),
-          fScaling(1.0),
+          fScaling(scaling),
+          fAutoScaling(1.0),
           fTitle(nullptr),
           fWidgets(),
           fModal(),
@@ -222,11 +234,12 @@ struct Window::PrivateData {
         puglCreateWindow(fView, nullptr);
 
         PuglInternals* impl = fView->impl;
+
 #if defined(DISTRHO_OS_WINDOWS)
         hwnd = impl->hwnd;
         DISTRHO_SAFE_ASSERT(hwnd != 0);
 #elif defined(DISTRHO_OS_MAC)
-        mView   = impl->glview;
+        mView   = impl->view;
         mWindow = impl->window;
         DISTRHO_SAFE_ASSERT(mView != nullptr);
         if (fUsingEmbed) {
@@ -555,6 +568,7 @@ struct Window::PrivateData {
 
     void setGeometryConstraints(uint width, uint height, bool aspect)
     {
+        // Did you forget to set DISTRHO_UI_USER_RESIZABLE ?
         DISTRHO_SAFE_ASSERT_RETURN(fResizable,);
 
         fView->min_width  = width;
@@ -701,11 +715,11 @@ struct Window::PrivateData {
         return fScaling;
     }
 
-    void setScaling(double scaling) noexcept
+    void setAutoScaling(const double scaling) noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(scaling > 0.0,);
 
-        fScaling = scaling;
+        fAutoScaling = scaling;
     }
 
     // -------------------------------------------------------------------
@@ -773,7 +787,7 @@ struct Window::PrivateData {
         FOR_EACH_WIDGET(it)
         {
             Widget* const widget(*it);
-            widget->pData->display(fWidth, fHeight, fScaling, false);
+            widget->pData->display(fWidth, fHeight, fAutoScaling, false);
         }
 
         fSelf->onDisplayAfter();
@@ -843,8 +857,8 @@ struct Window::PrivateData {
         if (fModal.childFocus != nullptr)
             return fModal.childFocus->focus();
 
-        x /= fScaling;
-        y /= fScaling;
+        x /= fAutoScaling;
+        y /= fAutoScaling;
 
         Widget::MouseEvent ev;
         ev.button = button;
@@ -870,8 +884,8 @@ struct Window::PrivateData {
         if (fModal.childFocus != nullptr)
             return;
 
-        x /= fScaling;
-        y /= fScaling;
+        x /= fAutoScaling;
+        y /= fAutoScaling;
 
         Widget::MotionEvent ev;
         ev.mod  = static_cast<Modifier>(puglGetModifiers(fView));
@@ -895,10 +909,10 @@ struct Window::PrivateData {
         if (fModal.childFocus != nullptr)
             return;
 
-        x /= fScaling;
-        y /= fScaling;
-        dx /= fScaling;
-        dy /= fScaling;
+        x /= fAutoScaling;
+        y /= fAutoScaling;
+        dx /= fAutoScaling;
+        dy /= fAutoScaling;
 
         Widget::ScrollEvent ev;
         ev.delta = Point<float>(dx, dy);
@@ -1038,9 +1052,10 @@ struct Window::PrivateData {
 
     // -------------------------------------------------------------------
 
-    Application& fApp;
-    Window*      fSelf;
-    PuglView*    fView;
+    Application&    fApp;
+    Window*         fSelf;
+    GraphicsContext fContext;
+    PuglView*       fView;
 
     bool fFirstInit;
     bool fVisible;
@@ -1049,6 +1064,7 @@ struct Window::PrivateData {
     uint fWidth;
     uint fHeight;
     double fScaling;
+    double fAutoScaling;
     char* fTitle;
     std::list<Widget*> fWidgets;
 
@@ -1081,7 +1097,7 @@ struct Window::PrivateData {
     HWND hwndParent;
 #elif defined(DISTRHO_OS_MAC)
     bool            fNeedsIdle;
-    PuglOpenGLView* mView;
+    NSView<PuglGenericView>* mView;
     id              mWindow;
     id              mParentWindow;
 #else
@@ -1155,8 +1171,8 @@ Window::Window(Application& app)
 Window::Window(Application& app, Window& parent)
     : pData(new PrivateData(app, this, parent)) {}
 
-Window::Window(Application& app, intptr_t parentId, bool resizable)
-    : pData(new PrivateData(app, this, parentId, resizable)) {}
+Window::Window(Application& app, intptr_t parentId, double scaling, bool resizable)
+    : pData(new PrivateData(app, this, parentId, scaling, resizable)) {}
 
 Window::~Window()
 {
@@ -1347,11 +1363,6 @@ double Window::getScaling() const noexcept
     return pData->getScaling();
 }
 
-void Window::setScaling(double scaling) noexcept
-{
-    pData->setScaling(scaling);
-}
-
 bool Window::getIgnoringKeyRepeat() const noexcept
 {
     return pData->getIgnoringKeyRepeat();
@@ -1370,6 +1381,20 @@ Application& Window::getApp() const noexcept
 intptr_t Window::getWindowId() const noexcept
 {
     return puglGetNativeWindow(pData->fView);
+}
+
+const GraphicsContext& Window::getGraphicsContext() const noexcept
+{
+    GraphicsContext& context = pData->fContext;
+#ifdef DGL_CAIRO
+    context.cairo = (cairo_t*)puglGetContext(pData->fView);
+#endif
+    return context;
+}
+
+void Window::_setAutoScaling(double scaling) noexcept
+{
+    pData->setAutoScaling(scaling);
 }
 
 void Window::_addWidget(Widget* const widget)
@@ -1407,8 +1432,10 @@ void Window::removeIdleCallback(IdleCallback* const callback)
 
 void Window::onDisplayBefore()
 {
+#ifdef DGL_OPENGL
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
+#endif
 }
 
 void Window::onDisplayAfter()
@@ -1417,6 +1444,7 @@ void Window::onDisplayAfter()
 
 void Window::onReshape(uint width, uint height)
 {
+#ifdef DGL_OPENGL
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glMatrixMode(GL_PROJECTION);
@@ -1425,6 +1453,7 @@ void Window::onReshape(uint width, uint height)
     glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+#endif
 }
 
 void Window::onClose()

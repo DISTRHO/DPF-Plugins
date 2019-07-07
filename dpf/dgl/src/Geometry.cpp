@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2019 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -442,21 +442,6 @@ void Line<T>::moveBy(const Point<T>& pos) noexcept
 }
 
 template<typename T>
-void Line<T>::draw()
-{
-    DISTRHO_SAFE_ASSERT_RETURN(fPosStart != fPosEnd,);
-
-    glBegin(GL_LINES);
-
-    {
-        glVertex2d(fPosStart.fX, fPosStart.fY);
-        glVertex2d(fPosEnd.fX, fPosEnd.fY);
-    }
-
-    glEnd();
-}
-
-template<typename T>
 bool Line<T>::isNull() const noexcept
 {
     return fPosStart == fPosEnd;
@@ -650,27 +635,6 @@ bool Circle<T>::operator!=(const Circle<T>& cir) const noexcept
     return (fPos != cir.fPos || d_isNotEqual(fSize, cir.fSize) || fNumSegments != cir.fNumSegments);
 }
 
-template<typename T>
-void Circle<T>::_draw(const bool outline)
-{
-    DISTRHO_SAFE_ASSERT_RETURN(fNumSegments >= 3 && fSize > 0.0f,);
-
-    double t, x = fSize, y = 0.0;
-
-    glBegin(outline ? GL_LINE_LOOP : GL_POLYGON);
-
-    for (uint i=0; i<fNumSegments; ++i)
-    {
-        glVertex2d(x + fPos.fX, y + fPos.fY);
-
-        t = x;
-        x = fCos * x - fSin * y;
-        y = fSin * t + fCos * y;
-    }
-
-    glEnd();
-}
-
 // -----------------------------------------------------------------------
 // Triangle
 
@@ -699,18 +663,6 @@ Triangle<T>::Triangle(const Triangle<T>& tri) noexcept
       fPos3(tri.fPos3) {}
 
 template<typename T>
-void Triangle<T>::draw()
-{
-    _draw(false);
-}
-
-template<typename T>
-void Triangle<T>::drawOutline()
-{
-    _draw(true);
-}
-
-template<typename T>
 bool Triangle<T>::isNull() const noexcept
 {
     return fPos1 == fPos2 && fPos1 == fPos3;
@@ -735,6 +687,18 @@ bool Triangle<T>::isInvalid() const noexcept
 }
 
 template<typename T>
+void Triangle<T>::draw()
+{
+    _draw(false);
+}
+
+template<typename T>
+void Triangle<T>::drawOutline()
+{
+    _draw(true);
+}
+
+template<typename T>
 Triangle<T>& Triangle<T>::operator=(const Triangle<T>& tri) noexcept
 {
     fPos1 = tri.fPos1;
@@ -753,22 +717,6 @@ template<typename T>
 bool Triangle<T>::operator!=(const Triangle<T>& tri) const noexcept
 {
     return (fPos1 != tri.fPos1 || fPos2 != tri.fPos2 || fPos3 != tri.fPos3);
-}
-
-template<typename T>
-void Triangle<T>::_draw(const bool outline)
-{
-    DISTRHO_SAFE_ASSERT_RETURN(fPos1 != fPos2 && fPos1 != fPos3,);
-
-    glBegin(outline ? GL_LINE_LOOP : GL_TRIANGLES);
-
-    {
-        glVertex2d(fPos1.fX, fPos1.fY);
-        glVertex2d(fPos2.fX, fPos2.fY);
-        glVertex2d(fPos3.fX, fPos3.fY);
-    }
-
-    glEnd();
 }
 
 // -----------------------------------------------------------------------
@@ -996,30 +944,6 @@ template<typename T>
 bool Rectangle<T>::operator!=(const Rectangle<T>& rect) const noexcept
 {
     return (fPos != rect.fPos || fSize != rect.fSize);
-}
-
-template<typename T>
-void Rectangle<T>::_draw(const bool outline)
-{
-    DISTRHO_SAFE_ASSERT_RETURN(fSize.isValid(),);
-
-    glBegin(outline ? GL_LINE_LOOP : GL_QUADS);
-
-    {
-        glTexCoord2f(0.0f, 0.0f);
-        glVertex2d(fPos.fX, fPos.fY);
-
-        glTexCoord2f(1.0f, 0.0f);
-        glVertex2d(fPos.fX+fSize.fWidth, fPos.fY);
-
-        glTexCoord2f(1.0f, 1.0f);
-        glVertex2d(fPos.fX+fSize.fWidth, fPos.fY+fSize.fHeight);
-
-        glTexCoord2f(0.0f, 1.0f);
-        glVertex2d(fPos.fX, fPos.fY+fSize.fHeight);
-    }
-
-    glEnd();
 }
 
 // -----------------------------------------------------------------------

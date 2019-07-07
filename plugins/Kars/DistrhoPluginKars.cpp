@@ -1,6 +1,6 @@
 /*
  * DISTRHO Kars Plugin, based on karplong by Chris Cannam.
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2019 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -158,7 +158,8 @@ public:
           midiEvents(m),
           midiEventCount(0),
           remainingFrames(f),
-          remainingMidiEventCount(mc) {}
+          remainingMidiEventCount(mc),
+          totalFramesUsed(0) {}
 
     /**
        Process a batch of events untill no more are available.
@@ -166,41 +167,76 @@ public:
     */
     bool nextEvent()
     {
-        if (remainingMidiEventCount == 0)
-        {
-            if (remainingFrames == 0)
-                return false;
+        // nothing else to do
+        if (remainingFrames == 0)
+            return false;
 
+        // initial setup, need to find first MIDI event
+        if (totalFramesUsed == 0)
+        {
+            // no MIDI events at all in this process cycle
+            if (remainingMidiEventCount == 0)
+            {
+                frames = remainingFrames;
+                remainingFrames = 0;
+                totalFramesUsed += frames;
+                return true;
+            }
+
+            // render audio until first midi event, if needed
+            if (const uint32_t firstEventFrame = midiEvents[0].frame)
+            {
+                frames = midiEvents[0].frame;
+                remainingFrames -= frames;
+                totalFramesUsed += frames;
+                return true;
+            }
+        }
+        else
+        {
             for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
                 outputs[i] += frames;
+        }
 
-            if (midiEventCount != 0)
-                midiEvents += midiEventCount;
-
+        // no more MIDI events available
+        if (remainingMidiEventCount == 0)
+        {
             frames = remainingFrames;
             midiEvents = nullptr;
             midiEventCount = 0;
             remainingFrames = 0;
+            totalFramesUsed += frames;
             return true;
         }
 
-        const uint32_t eventFrame = midiEvents[0].frame;
-        DISTRHO_SAFE_ASSERT_RETURN(eventFrame < remainingFrames, false);
+        // if there were midi events before, increment pointer
+        if (midiEventCount != 0)
+            midiEvents += midiEventCount;
+
+        const uint32_t firstEventFrame = midiEvents[0].frame;
+        DISTRHO_SAFE_ASSERT_RETURN((firstEventFrame - frames) < remainingFrames, false);
 
         midiEventCount = 1;
-
-        for (uint32_t i=1; i<remainingMidiEventCount; ++i)
+        while (midiEventCount < remainingMidiEventCount)
         {
-            if (midiEvents[i].frame != eventFrame)
-            {
-                midiEventCount = i;
+            if (midiEvents[midiEventCount].frame == firstEventFrame)
+                ++midiEventCount;
+            else
                 break;
-            }
         }
 
-        frames = remainingFrames - eventFrame;
+        if (totalFramesUsed != 0)
+        {
+            // need to modify timestamp of midi events
+            MidiEvent* const rwEvents = const_cast<MidiEvent*>(midiEvents);
+            for (uint32_t i=0; i < midiEventCount; ++i)
+                rwEvents[i].frame -= totalFramesUsed;
+        }
+
+        frames = remainingFrames - firstEventFrame;
         remainingFrames -= frames;
         remainingMidiEventCount -= midiEventCount;
+        totalFramesUsed += frames;
         return true;
     }
 
@@ -208,6 +244,7 @@ private:
     /** @internal */
     uint32_t remainingFrames;
     uint32_t remainingMidiEventCount;
+    uint32_t totalFramesUsed;
 };
 
 void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, const MidiEvent* midiEvents, uint32_t midiEventCount)
@@ -254,9 +291,9 @@ void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, con
             if (fNotes[i].on != kNoteNull)
                 addSamples(out, i, amsh.frames);
         }
-    }
 
-    fBlockStart += frames;
+        fBlockStart += amsh.frames;
+    }
 }
 
 void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t frames)

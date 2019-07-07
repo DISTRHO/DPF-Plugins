@@ -2,6 +2,7 @@
   Copyright 2012-2014 David Robillard <http://drobilla.net>
   Copyright 2011-2012 Ben Loftis, Harrison Consoles
   Copyright 2013,2015 Robin Gareus <robin@gareus.org>
+  Copyright 2012-2019 Filipe Coelho <falktx@falktx.com>
 
   Permission to use, copy, modify, and/or distribute this software for any
   purpose with or without fee is hereby granted, provided that the above
@@ -24,8 +25,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef PUGL_CAIRO
+#include <cairo/cairo.h>
+#include <cairo/cairo-xlib.h>
+#endif
+#ifdef PUGL_OPENGL
 #include <GL/gl.h>
 #include <GL/glx.h>
+#endif
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -53,10 +60,19 @@ struct PuglInternalsImpl {
 	Display*   display;
 	int        screen;
 	Window     win;
+#ifdef PUGL_CAIRO
+	cairo_t*         xlib_cr;
+	cairo_t*         buffer_cr;
+	cairo_surface_t* xlib_surface;
+	cairo_surface_t* buffer_surface;
+#endif
+#ifdef PUGL_OPENGL
 	GLXContext ctx;
 	Bool       doubleBuffered;
+#endif
 };
 
+#ifdef PUGL_OPENGL
 /**
    Attributes for single-buffered RGBA with at least
    4 bits per color and a 16 bit depth buffer.
@@ -102,6 +118,7 @@ static int attrListDblMS[] = {
 	GLX_SAMPLES, 4,
 	None
 };
+#endif
 
 PuglInternals*
 puglInitInternals(void)
@@ -112,12 +129,15 @@ puglInitInternals(void)
 void
 puglEnterContext(PuglView* view)
 {
+#ifdef PUGL_OPENGL
 	glXMakeCurrent(view->impl->display, view->impl->win, view->impl->ctx);
+#endif
 }
 
 void
 puglLeaveContext(PuglView* view, bool flush)
 {
+#ifdef PUGL_OPENGL
 	if (flush) {
 		glFlush();
 		if (view->impl->doubleBuffered) {
@@ -125,12 +145,13 @@ puglLeaveContext(PuglView* view, bool flush)
 		}
 	}
 	glXMakeCurrent(view->impl->display, None, NULL);
+#endif
 }
 
 int
 puglCreateWindow(PuglView* view, const char* title)
 {
-	PuglInternals* impl = (PuglInternals*)calloc(1, sizeof(PuglInternals));
+	PuglInternals* impl = view->impl;
 	if (!impl) {
 		return 1;
 	}
@@ -142,9 +163,12 @@ puglCreateWindow(PuglView* view, const char* title)
 		return 1;
 	}
 	impl->screen = DefaultScreen(impl->display);
-	impl->doubleBuffered = True;
 
-	XVisualInfo* vi = glXChooseVisual(impl->display, impl->screen, attrListDblMS);
+	XVisualInfo*         vi   = NULL;
+
+#ifdef PUGL_OPENGL
+	impl->doubleBuffered = True;
+	vi = glXChooseVisual(impl->display, impl->screen, attrListDblMS);
 
 	if (!vi) {
 		vi = glXChooseVisual(impl->display, impl->screen, attrListDbl);
@@ -157,6 +181,13 @@ puglCreateWindow(PuglView* view, const char* title)
 		vi = glXChooseVisual(impl->display, impl->screen, attrListSgl);
 		impl->doubleBuffered = False;
 	}
+#endif
+#ifdef PUGL_CAIRO
+	XVisualInfo pat;
+	int         n;
+	pat.screen = impl->screen;
+	vi         = XGetVisualInfo(impl->display, VisualScreenMask, &pat, &n);
+#endif
 
 	if (!vi) {
 		XCloseDisplay(impl->display);
@@ -165,18 +196,23 @@ puglCreateWindow(PuglView* view, const char* title)
 	}
 
 #ifdef PUGL_VERBOSE
+#ifdef PUGL_OPENGL
 	int glxMajor, glxMinor;
 	glXQueryVersion(impl->display, &glxMajor, &glxMinor);
 	printf("puGL: GLX-Version : %d.%d\n", glxMajor, glxMinor);
 #endif
+#endif
 
+#ifdef PUGL_OPENGL
 	impl->ctx = glXCreateContext(impl->display, vi, 0, GL_TRUE);
 
 	if (!impl->ctx) {
+		XFree(vi);
 		XCloseDisplay(impl->display);
 		free(impl);
 		return 1;
 	}
+#endif
 
 	Window xParent = view->parent
 		? (Window)view->parent
@@ -201,10 +237,35 @@ puglCreateWindow(PuglView* view, const char* title)
 		CWBorderPixel | CWColormap | CWEventMask, &attr);
 
 	if (!impl->win) {
+#ifdef PUGL_OPENGL
+		glXDestroyContext(impl->display, impl->ctx);
+#endif
+		XFree(vi);
 		XCloseDisplay(impl->display);
 		free(impl);
 		return 1;
 	}
+
+#ifdef PUGL_CAIRO
+	impl->xlib_surface = cairo_xlib_surface_create(
+		impl->display, impl->win, vi->visual, view->width, view->height);
+	if (impl->xlib_surface == NULL || cairo_surface_status(impl->xlib_surface) != CAIRO_STATUS_SUCCESS) {
+		printf("puGL: failed to create cairo surface\n");
+	}
+	else {
+		impl->xlib_cr = cairo_create(impl->xlib_surface);
+	}
+	if (impl->xlib_cr == NULL || cairo_status(impl->xlib_cr) != CAIRO_STATUS_SUCCESS) {
+		cairo_destroy(impl->xlib_cr);
+		cairo_surface_destroy(impl->xlib_surface);
+		XDestroyWindow(impl->display, impl->win);
+		XFree(vi);
+		XCloseDisplay(impl->display);
+		free(impl);
+		printf("puGL: failed to create cairo context\n");
+		return 1;
+	}
+#endif
 
 	if (view->width > 1 || view->height > 1) {
 		puglUpdateGeometryConstraints(view, view->min_width, view->min_height, view->min_width != view->width);
@@ -227,11 +288,13 @@ puglCreateWindow(PuglView* view, const char* title)
 	}
 
 #ifdef PUGL_VERBOSE
+#ifdef PUGL_OPENGL
 	if (glXIsDirect(impl->display, impl->ctx)) {
 		printf("puGL: DRI enabled (to disable, set LIBGL_ALWAYS_INDIRECT=1\n");
 	} else {
 		printf("puGL: No DRI available\n");
 	}
+#endif
 #endif
 
 	XFree(vi);
@@ -244,14 +307,25 @@ puglDestroy(PuglView* view)
 	if (!view) {
 		return;
 	}
+
+	PuglInternals* const impl = view->impl;
+
 #ifndef DGL_FILE_BROWSER_DISABLED
-	x_fib_close(view->impl->display);
+	x_fib_close(impl->display);
 #endif
 
-	glXDestroyContext(view->impl->display, view->impl->ctx);
-	XDestroyWindow(view->impl->display, view->impl->win);
-	XCloseDisplay(view->impl->display);
-	free(view->impl);
+#ifdef PUGL_OPENGL
+	glXDestroyContext(impl->display, impl->ctx);
+#endif
+#ifdef PUGL_CAIRO
+	cairo_destroy(impl->xlib_cr);
+	cairo_destroy(impl->buffer_cr);
+	cairo_surface_destroy(impl->xlib_surface);
+	cairo_surface_destroy(impl->buffer_surface);
+#endif
+	XDestroyWindow(impl->display, impl->win);
+	XCloseDisplay(impl->display);
+	free(impl);
 	free(view);
 }
 
@@ -287,14 +361,47 @@ puglReshape(PuglView* view, int width, int height)
 static void
 puglDisplay(PuglView* view)
 {
+	PuglInternals* impl = view->impl;
+
 	puglEnterContext(view);
+
+#ifdef PUGL_CAIRO
+	cairo_t* bc = impl->buffer_cr;
+	cairo_surface_t* xs = impl->xlib_surface;
+	cairo_surface_t* bs = impl->buffer_surface;
+	int w = cairo_xlib_surface_get_width(xs);
+	int h = cairo_xlib_surface_get_height(xs);
+
+	int bw = bs ? cairo_image_surface_get_width(bs) : -1;
+	int bh = bs ? cairo_image_surface_get_height(bs) : -1;
+	if (!bc || bw != w || bh != h) {
+		cairo_destroy(bc);
+		cairo_surface_destroy(bs);
+		bs = cairo_surface_create_similar_image(xs, CAIRO_FORMAT_ARGB32, w, h);
+		bc = bs ? cairo_create(bs) : NULL;
+		impl->buffer_cr = bc;
+		impl->buffer_surface = bs;
+	}
+
+	if (!bc) {
+		puglLeaveContext(view, false);
+		return;
+	}
+#endif
 
 	view->redisplay = false;
 	if (view->displayFunc) {
 		view->displayFunc(view);
 	}
 
+#ifdef PUGL_CAIRO
+	cairo_t* xc = impl->xlib_cr;
+	cairo_set_source_surface(xc, impl->buffer_surface, 0, 0);
+	cairo_paint(xc);
+#endif
+
 	puglLeaveContext(view, true);
+	(void)impl;
 }
 
 static void
@@ -554,6 +661,12 @@ puglProcessEvents(PuglView* view)
 	}
 
 	if (conf_width != -1) {
+#ifdef PUGL_CAIRO
+		// Resize surfaces/contexts before dispatching
+		view->redisplay = true;
+		cairo_xlib_surface_set_size(view->impl->xlib_surface,
+		                            conf_width, conf_height);
+#endif
 		puglReshape(view, conf_width, conf_height);
 	}
 
@@ -584,6 +697,18 @@ PuglNativeWindow
 puglGetNativeWindow(PuglView* view)
 {
 	return view->impl->win;
+}
+
+void*
+puglGetContext(PuglView* view)
+{
+#ifdef PUGL_CAIRO
+	return view->impl->buffer_cr;
+#endif
+	return NULL;
+
+	// may be unused
+	(void)view;
 }
 
 int

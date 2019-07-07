@@ -1,5 +1,6 @@
 /*
   Copyright 2012-2014 David Robillard <http://drobilla.net>
+  Copyright 2012-2019 Filipe Coelho <falktx@falktx.com>
 
   Permission to use, copy, modify, and/or distribute this software for any
   purpose with or without fee is hereby granted, provided that the above
@@ -18,16 +19,22 @@
    @file pugl_win.cpp Windows/WGL Pugl Implementation.
 */
 
-#include <winsock2.h>
-#include <windows.h>
-#include <windowsx.h>
-#include <GL/gl.h>
-
 #include <ctime>
 #include <cstdio>
 #include <cstdlib>
 
-#include "pugl/pugl_internal.h"
+#include <winsock2.h>
+#include <windows.h>
+#include <windowsx.h>
+#ifdef PUGL_CAIRO
+#include <cairo/cairo.h>
+#include <cairo/cairo-win32.h>
+#endif
+#ifdef PUGL_OPENGL
+#include <GL/gl.h>
+#endif
+
+#include "pugl_internal.h"
 
 #ifndef WM_MOUSEWHEEL
 #    define WM_MOUSEWHEEL 0x020A
@@ -48,8 +55,15 @@ HINSTANCE hInstance = NULL;
 
 struct PuglInternalsImpl {
 	HWND     hwnd;
+#ifdef PUGL_OPENGL
 	HDC      hdc;
 	HGLRC    hglrc;
+#endif
+#ifdef PUGL_CAIRO
+	cairo_t*         buffer_cr;
+	cairo_surface_t* buffer_surface;
+#endif
+	HDC paintHdc;
 	WNDCLASS wc;
 };
 
@@ -76,17 +90,21 @@ puglInitInternals()
 void
 puglEnterContext(PuglView* view)
 {
+#ifdef PUGL_OPENGL
 	wglMakeCurrent(view->impl->hdc, view->impl->hglrc);
+#endif
 }
 
 void
 puglLeaveContext(PuglView* view, bool flush)
 {
+#ifdef PUGL_OPENGL
 	if (flush) {
 		glFlush();
 		SwapBuffers(view->impl->hdc);
 	}
 	wglMakeCurrent(NULL, NULL);
+#endif
 }
 
 int
@@ -124,7 +142,6 @@ puglCreateWindow(PuglView* view, const char* title)
 	if (!RegisterClass(&impl->wc)) {
 		free((void*)impl->wc.lpszClassName);
 		free(impl);
-		free(view);
 		return 1;
 	}
 
@@ -155,12 +172,12 @@ puglCreateWindow(PuglView* view, const char* title)
 		UnregisterClass(impl->wc.lpszClassName, NULL);
 		free((void*)impl->wc.lpszClassName);
 		free(impl);
-		free(view);
 		return 1;
 	}
 
 	SetWindowLongPtr(impl->hwnd, GWLP_USERDATA, (LONG_PTR)view);
 
+#ifdef PUGL_OPENGL
 	impl->hdc = GetDC(impl->hwnd);
 
 	PIXELFORMATDESCRIPTOR pfd;
@@ -183,9 +200,9 @@ puglCreateWindow(PuglView* view, const char* title)
 		UnregisterClass (impl->wc.lpszClassName, NULL);
 		free((void*)impl->wc.lpszClassName);
 		free(impl);
-		free(view);
 		return 1;
 	}
+#endif
 
 	return PUGL_SUCCESS;
 }
@@ -205,13 +222,25 @@ puglHideWindow(PuglView* view)
 void
 puglDestroy(PuglView* view)
 {
+	if (!view) {
+		return;
+	}
+
+	PuglInternals* const impl = view->impl;
+
+#ifdef PUGL_OPENGL
 	wglMakeCurrent(NULL, NULL);
-	wglDeleteContext(view->impl->hglrc);
-	ReleaseDC(view->impl->hwnd, view->impl->hdc);
-	DestroyWindow(view->impl->hwnd);
-	UnregisterClass(view->impl->wc.lpszClassName, NULL);
-	free((void*)view->impl->wc.lpszClassName);
-	free(view->impl);
+	wglDeleteContext(impl->hglrc);
+	ReleaseDC(impl->hwnd, impl->hdc);
+#endif
+#ifdef PUGL_CAIRO
+	cairo_destroy(impl->buffer_cr);
+	cairo_surface_destroy(impl->buffer_surface);
+#endif
+	DestroyWindow(impl->hwnd);
+	UnregisterClass(impl->wc.lpszClassName, NULL);
+	free((void*)impl->wc.lpszClassName);
+	free(impl);
 	free(view);
 }
 
@@ -233,14 +262,57 @@ puglReshape(PuglView* view, int width, int height)
 static void
 puglDisplay(PuglView* view)
 {
+	PuglInternals* impl = view->impl;
+	bool success = true;
+
 	puglEnterContext(view);
 
-	view->redisplay = false;
-	if (view->displayFunc) {
-		view->displayFunc(view);
+#ifdef PUGL_CAIRO
+	cairo_t *wc = NULL;
+	cairo_t *bc = NULL;
+	cairo_surface_t *ws = NULL;
+	cairo_surface_t *bs = NULL;
+
+	HDC hdc = impl->paintHdc;
+	bc = impl->buffer_cr;
+	bs = impl->buffer_surface;
+	int w = view->width;
+	int h = view->height;
+	int bw = bs ? cairo_image_surface_get_width(bs) : -1;
+	int bh = bs ? cairo_image_surface_get_height(bs) : -1;
+	ws = hdc ? cairo_win32_surface_create(hdc) : NULL;
+	wc = ws ? cairo_create(ws) : NULL;
+	if (wc && (!bc || bw != w || bh != h)) {
+		cairo_destroy(bc);
+		cairo_surface_destroy(bs);
+		bs = cairo_surface_create_similar_image(ws, CAIRO_FORMAT_ARGB32, w, h);
+		bc = bs ? cairo_create(bs) : NULL;
+		impl->buffer_cr = bc;
+		impl->buffer_surface = bs;
+	}
+	success = wc != NULL && bc != NULL;
+#endif
+
+	if (success) {
+		view->redisplay = false;
+		if (view->displayFunc) {
+			view->displayFunc(view);
+		}
+#ifdef PUGL_CAIRO
+		cairo_set_source_surface(wc, bs, 0, 0);
+		cairo_paint(wc);
+#endif
 	}
 
-	puglLeaveContext(view, true);
+	puglLeaveContext(view, success);
+
+#ifdef PUGL_CAIRO
+	cairo_destroy(wc);
+	cairo_surface_destroy(ws);
+#endif
+
+	return;
+	(void)impl;
 }
 
 static PuglKey
@@ -329,8 +401,9 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		mmi->ptMinTrackSize.y = view->min_height;
 		break;
 	case WM_PAINT:
-		BeginPaint(view->impl->hwnd, &ps);
+		view->impl->paintHdc = BeginPaint(view->impl->hwnd, &ps);
 		puglDisplay(view);
+		view->impl->paintHdc = NULL;
 		EndPaint(view->impl->hwnd, &ps);
 		break;
 	case WM_MOUSEMOVE:
@@ -467,6 +540,18 @@ PuglNativeWindow
 puglGetNativeWindow(PuglView* view)
 {
 	return (PuglNativeWindow)view->impl->hwnd;
+}
+
+void*
+puglGetContext(PuglView* view)
+{
+#ifdef PUGL_CAIRO
+	return view->impl->buffer_cr;
+#endif
+	return NULL;
+
+	// may be unused
+	(void)view;
 }
 
 int

@@ -417,6 +417,10 @@ START_NAMESPACE_DISTRHO
    };
    @endcode
 
+   This is a work-in-progress documentation page. States, MIDI, Latency, Time-Position and UI are still TODO.
+*/
+
+#if 0
    @section States
    describe them
 
@@ -431,7 +435,7 @@ START_NAMESPACE_DISTRHO
 
    @section UI
    describe them
-*/
+#endif
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin Macros */
@@ -542,6 +546,16 @@ START_NAMESPACE_DISTRHO
    @see Plugin::setState(const char*, const char*)
  */
 #define DISTRHO_PLUGIN_WANT_STATE 1
+
+/**
+   Wherever the plugin implements the full state API.
+   When this macro is enabled, the plugin must implement a new getState(const char* key) function, which the host calls when saving its session/project.
+   This is useful for plugins that have custom internal values not exposed to the host as key-value state pairs or parameters.
+   Most simple effects and synths will not need this.
+   @note this macro is automatically enabled if a plugin has programs and state, as the key-value state pairs need to be updated when the current program changes.
+   @see Plugin::getState(const char*)
+ */
+#define DISTRHO_PLUGIN_WANT_FULL_STATE 1
 
 /**
    Wherever the plugin wants time position information from the host.

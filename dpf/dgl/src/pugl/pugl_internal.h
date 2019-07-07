@@ -1,5 +1,6 @@
 /*
   Copyright 2012-2014 David Robillard <http://drobilla.net>
+  Copyright 2012-2019 Filipe Coelho <falktx@falktx.com>
 
   Permission to use, copy, modify, and/or distribute this software for any
   purpose with or without fee is hereby granted, provided that the above
@@ -239,6 +240,7 @@ puglLeaveContext(PuglView* view, bool flush);
 static void
 puglDefaultReshape(int width, int height)
 {
+#ifdef PUGL_OPENGL
 #ifdef ROBTK_HERE
 	glViewport(0, 0, width, height);
 	glMatrixMode(GL_PROJECTION);
@@ -257,4 +259,5 @@ puglDefaultReshape(int width, int height)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 #endif
+#endif // PUGL_OPENGL
 }

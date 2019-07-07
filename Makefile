@@ -20,7 +20,7 @@ HAVE_PROJM = $(shell pkg-config --exists libprojectM && echo true)
 # --------------------------------------------------------------
 
 dgl:
-ifeq ($(HAVE_DGL),true)
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	$(MAKE) -C dpf/dgl
 endif
 
@@ -50,7 +50,7 @@ plugins: dgl
 	$(MAKE) all -C plugins/gigaverb
 	$(MAKE) all -C plugins/pitchshift
 
-ifeq ($(HAVE_DGL),true)
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	# glBars (needs OpenGL)
 	$(MAKE) all -C plugins/glBars
 
@@ -58,7 +58,7 @@ ifeq ($(HAVE_PROJM),true)
 	# ProM (needs OpenGL + ProjectM)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_PROJM
-endif # HAVE_DGL
+endif # HAVE_CAIRO_OR_OPENGL
 
 ifneq ($(CROSS_COMPILING),true)
 gen: plugins dpf/utils/lv2_ttl_generator
@@ -123,9 +123,9 @@ install:
 	install -m 644 bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
 	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 
-ifeq ($(HAVE_DGL),true)
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
-endif # HAVE_DGL
+endif # HAVE_CAIRO_OR_OPENGL
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
 ifeq ($(HAVE_JACK),true)
@@ -142,12 +142,12 @@ ifeq ($(HAVE_JACK),true)
 	install -m 755 bin/MaFreeverb       $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/MaGigaverb       $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/MaPitchshift     $(DESTDIR)$(PREFIX)/bin/
-ifeq ($(HAVE_DGL),true)
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	install -m 755 bin/glBars           $(DESTDIR)$(PREFIX)/bin/
 ifeq ($(HAVE_PROJM),true)
 	install -m 755 bin/ProM             $(DESTDIR)$(PREFIX)/bin/
 endif # HAVE_PROJM
-endif # HAVE_DGL
+endif # HAVE_CAIRO_OR_OPENGL
 endif # HAVE_JACK
 
 # --------------------------------------------------------------

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Kars Plugin, based on karplong by Chris Cannam.
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2019 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -70,7 +70,7 @@ protected:
 
     uint32_t getVersion() const noexcept override
     {
-        return d_version(1, 0, 0);
+        return d_version(1, 1, 0);
     }
 
     int64_t getUniqueId() const noexcept override

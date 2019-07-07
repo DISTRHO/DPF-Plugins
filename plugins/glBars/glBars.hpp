@@ -3,7 +3,7 @@
  * Copyright (C) 1998-2000  Peter Alm, Mikael Alm, Olle Hallnas, Thomas Nilsson and 4Front Technologies
  * Copyright (C) 2000 Christian Zander <phoenix@minion.de>
  * Copyright (C) 2015 Nedko Arnaudov
- * Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2016-2019 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,7 +20,7 @@
 #ifndef GLBARS_STATE_HPP_INCLUDED
 #define GLBARS_STATE_HPP_INCLUDED
 
-#include "Base.hpp"
+#include "OpenGL.hpp"
 
 static inline
 void draw_rectangle(GLfloat x1, GLfloat y1, GLfloat z1, GLfloat x2, GLfloat y2, GLfloat z2)

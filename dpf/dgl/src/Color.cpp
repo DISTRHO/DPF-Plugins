@@ -16,11 +16,26 @@
 
 #include "../Color.hpp"
 
+#ifndef HAVE_DCAIRO
 #include "nanovg/nanovg.h"
+#endif
 
 START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
+
+static float computeHue(float h, float m1, float m2)
+{
+    if (h < 0) h += 1;
+    if (h > 1) h -= 1;
+    if (h < 1.0f/6.0f)
+        return m1 + (m2 - m1) * h * 6.0f;
+    if (h < 3.0f/6.0f)
+        return m2;
+    if (h < 4.0f/6.0f)
+        return m1 + (m2 - m1) * (2.0f/3.0f - h) * 6.0f;
+    return m1;
+}
 
 static void fixRange(float& value)
 {
@@ -105,7 +120,20 @@ Color::Color(const Color& color1, const Color& color2, float u) noexcept
 
 Color Color::fromHSL(float hue, float saturation, float lightness, float alpha)
 {
-    return nvgHSLA(hue, saturation, lightness, static_cast<uchar>(getFixedRange(alpha)*255.0f));
+    float m1, m2;
+    Color col;
+    hue = fmodf(hue, 1.0f);
+    if (hue < 0.0f) hue += 1.0f;
+    fixRange(saturation);
+    fixRange(lightness);
+    m2 = lightness <= 0.5f ? (lightness * (1 + saturation)) : (lightness + saturation - lightness * saturation);
+    m1 = 2 * lightness - m2;
+    col.red = computeHue(hue + 1.0f/3.0f, m1, m2);
+    col.green = computeHue(hue, m1, m2);
+    col.blue = computeHue(hue - 1.0f/3.0f, m1, m2);
+    col.alpha = alpha;
+    col.fixBounds();
+    return col;
 }
 
 Color Color::fromHTML(const char* rgb, float alpha)
@@ -220,24 +248,6 @@ void Color::fixBounds() noexcept
     fixRange(green);
     fixRange(blue);
     fixRange(alpha);
-}
-
-// -----------------------------------------------------------------------
-
-Color::Color(const NVGcolor& c) noexcept
-    : red(c.r), green(c.g), blue(c.b), alpha(c.a)
-{
-    fixBounds();
-}
-
-Color::operator NVGcolor() const noexcept
-{
-    NVGcolor nc;
-    nc.r = red;
-    nc.g = green;
-    nc.b = blue;
-    nc.a = alpha;
-    return nc;
 }
 
 // -----------------------------------------------------------------------

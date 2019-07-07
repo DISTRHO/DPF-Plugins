@@ -482,6 +482,7 @@ private:
     // cached values
     float fTheta, fCos, fSin;
 
+   /** @internal */
     void _draw(const bool outline);
 };
 
@@ -517,16 +518,6 @@ public:
     Triangle(const Triangle<T>& tri) noexcept;
 
    /**
-      Draw this triangle using the current OpenGL state.
-    */
-    void draw();
-
-   /**
-      Draw lines (outline of this triangle) using the current OpenGL state.
-    */
-    void drawOutline();
-
-   /**
       Return true if triangle is null (all its points are equal).
       An null triangle is also invalid.
     */
@@ -549,6 +540,16 @@ public:
     */
     bool isInvalid() const noexcept;
 
+   /**
+      Draw this triangle using the current OpenGL state.
+    */
+    void draw();
+
+   /**
+      Draw lines (outline of this triangle) using the current OpenGL state.
+    */
+    void drawOutline();
+
     Triangle<T>& operator=(const Triangle<T>& tri) noexcept;
     bool operator==(const Triangle<T>& tri) const noexcept;
     bool operator!=(const Triangle<T>& tri) const noexcept;
@@ -556,6 +557,7 @@ public:
 private:
     Point<T> fPos1, fPos2, fPos3;
 
+   /** @internal */
     void _draw(const bool outline);
 };
 
@@ -740,6 +742,7 @@ private:
     Point<T> fPos;
     Size<T>  fSize;
 
+   /** @internal */
     void _draw(const bool outline);
 };
 

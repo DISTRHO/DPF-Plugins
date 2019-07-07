@@ -27,8 +27,9 @@ START_NAMESPACE_DISTRHO
 double      d_lastUiSampleRate = 0.0;
 void*       d_lastUiDspPtr     = nullptr;
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-uintptr_t   g_nextWindowId     = 0;
 const char* g_nextBundlePath   = nullptr;
+double      g_nextScaleFactor  = 1.0;
+uintptr_t   g_nextWindowId     = 0;
 #else
 Window*     d_lastUiWindow     = nullptr;
 #endif
@@ -57,7 +58,7 @@ UI::~UI()
     delete pData;
 }
 
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#if DISTRHO_UI_USER_RESIZABLE && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 void UI::setGeometryConstraints(uint minWidth, uint minHeight, bool keepAspectRatio, bool automaticallyScale)
 {
     DISTRHO_SAFE_ASSERT_RETURN(minWidth > 0,);
@@ -67,7 +68,13 @@ void UI::setGeometryConstraints(uint minWidth, uint minHeight, bool keepAspectRa
     pData->minWidth = minWidth;
     pData->minHeight = minHeight;
 
-    getParentWindow().setGeometryConstraints(minWidth, minHeight, keepAspectRatio);
+    Window& window(getParentWindow());
+
+    const double uiScaleFactor = window.getScaling();
+    window.setGeometryConstraints(minWidth * uiScaleFactor, minHeight * uiScaleFactor, keepAspectRatio);
+
+    if (d_isNotZero(uiScaleFactor - 1.0))
+        setSize(getWidth() * uiScaleFactor, getHeight() * uiScaleFactor);
 }
 #endif
 
@@ -122,6 +129,11 @@ const char* UI::getNextBundlePath() noexcept
     return g_nextBundlePath;
 }
 
+double UI::getNextScaleFactor() noexcept
+{
+    return g_nextScaleFactor;
+}
+
 # if DISTRHO_PLUGIN_HAS_EMBED_UI
 uintptr_t UI::getNextWindowId() noexcept
 {
@@ -147,6 +159,7 @@ void UI::uiFileBrowserSelected(const char*)
 
 void UI::uiReshape(uint width, uint height)
 {
+#ifdef DGL_OPENGL
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glMatrixMode(GL_PROJECTION);
@@ -155,6 +168,11 @@ void UI::uiReshape(uint width, uint height)
     glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+#else
+    // unused
+    (void)width;
+    (void)height;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------------------------------
