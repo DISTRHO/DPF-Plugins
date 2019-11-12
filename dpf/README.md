@@ -27,15 +27,21 @@ List of plugins made with DPF:<br/>
  - [DISTRHO ndc Plugs](https://github.com/DISTRHO/ndc-Plugs)
  - [Juice Plugins](https://github.com/DISTRHO/JuicePlugins) (work in progress)
  - [ZamAudio Suite](https://github.com/zamaudio/zam-plugins)
- - [DragonFly-Reverb](https://github.com/michaelwillis/dragonfly-reverb)
- - [Wolf-Shaper](https://github.com/pdesaulniers/wolf-shaper) and [Wolf-Spectrum](https://github.com/pdesaulniers/wolf-spectrum)
+ - [Dragonfly Reverb](https://michaelwillis.github.io/dragonfly-reverb)
+ - [Wolf Shaper](https://github.com/pdesaulniers/wolf-shaper)
+ - [Wolf Spectrum](https://github.com/pdesaulniers/wolf-spectrum)
  - [YK Chorus](https://github.com/SpotlightKid/ykchorus)
  - [Ninjas2](https://github.com/rghvdberg/ninjas2)
  - [String-machine](https://github.com/jpcima/string-machine)
  - [Rezonateur](https://github.com/jpcima/rezonateur)
  - [QuadraFuzz](https://github.com/jpcima/quadrafuzz)
- - [Shiru Plugins](https://github.com/linuxmao-org/shiru-plugins)
+ - [Stone Phaser](https://github.com/jpcima/stone-phaser)
+ - [Uhhyou Plugins](https://github.com/ryukau/LV2Plugins)
+ - [Shiru Plugins](https://github.com/linuxmao-org/shiru-plugins) (work in progress)
+ - [midiomatic](https://github.com/SpotlightKid/midiomatic) (work in progress)
+ - [osamc-lv2-workshop](https://github.com/osamc-lv2-workshop/lv2-workshop) (simple plugins code examples)
 
+Checking the [github "DPF" tag](https://github.com/topics/dpf) can potentially brings up other DPF-made plugins.
 
 Plugin examples are available in the `example/` folder inside this repo.<br/>
 Extra OpenGL UI examples are available [here](https://github.com/DISTRHO/gl-examples).

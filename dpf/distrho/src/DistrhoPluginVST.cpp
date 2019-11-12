@@ -231,6 +231,8 @@ public:
 
         d_stdout("handlePluginKeyEvent %i %i %li\n", down, index, (long int)value);
 
+        using namespace DGL_NAMESPACE;
+
         int special = 0;
         switch (value)
         {
@@ -575,7 +577,7 @@ public:
             else
             {
                 d_lastUiSampleRate = fPlugin.getSampleRate();
-                
+
                 // TODO
                 const float scaleFactor = 1.0f;
 
@@ -588,7 +590,8 @@ public:
             return 1;
 
         case effEditOpen:
-            if (fVstUI == nullptr)
+            delete fVstUI; // hosts which don't pair effEditOpen/effEditClose calls (Minihost Modular)
+            fVstUI = nullptr;
             {
 # if DISTRHO_OS_MAC
                 if (! fUsingNsView)
@@ -598,7 +601,7 @@ public:
                 }
 # endif
                 d_lastUiSampleRate = fPlugin.getSampleRate();
-                
+
                 // TODO
                 const float scaleFactor = 1.0f;
 
@@ -920,23 +923,25 @@ public:
         return ranges.getNormalizedValue(fPlugin.getParameterValue(index));
     }
 
-    void vst_setParameter(const int32_t index, float value)
+    void vst_setParameter(const int32_t index, const float value)
     {
         const uint32_t hints(fPlugin.getParameterHints(index));
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
 
+        // TODO figure out how to detect kVstParameterUsesIntegerMinMax host support, and skip normalization
+        float realValue = ranges.getUnnormalizedValue(value);
+
         if (hints & kParameterIsBoolean)
         {
             const float midRange = ranges.min + (ranges.max - ranges.min) / 2.0f;
-
-            value = value > midRange ? ranges.max : ranges.min;
+            realValue = realValue > midRange ? ranges.max : ranges.min;
         }
-        else if (hints & kParameterIsInteger)
+
+        if (hints & kParameterIsInteger)
         {
-            value = std::round(value);
+            realValue = std::round(realValue);
         }
 
-        const float realValue(ranges.getUnnormalizedValue(value));
         fPlugin.setParameterValue(index, realValue);
 
 #if DISTRHO_PLUGIN_HAS_UI
@@ -1306,7 +1311,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
     case effGetParameterProperties:
         if (ptr != nullptr && index < static_cast<int32_t>(plugin.getParameterCount()))
         {
-            if (VstParameterProperties* const properties = (VstParameterProperties*)ptr) 
+            if (VstParameterProperties* const properties = (VstParameterProperties*)ptr)
             {
                 memset(properties, 0, sizeof(VstParameterProperties));
 
