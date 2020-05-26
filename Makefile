@@ -60,18 +60,16 @@ ifeq ($(HAVE_PROJM),true)
 endif # HAVE_PROJM
 endif # HAVE_CAIRO_OR_OPENGL
 
-ifneq ($(CROSS_COMPILING),true)
 gen: plugins dpf/utils/lv2_ttl_generator
+ifneq ($(CROSS_COMPILING),true)
 	@$(CURDIR)/dpf/utils/generate-ttl.sh
+endif
 ifeq ($(MACOS),true)
 	@$(CURDIR)/dpf/utils/generate-vst-bundles.sh
 endif
 
 dpf/utils/lv2_ttl_generator:
 	$(MAKE) -C dpf/utils/lv2-ttl-generator
-else
-gen:
-endif
 
 # --------------------------------------------------------------
 
@@ -121,10 +119,16 @@ install:
 
 	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
 	install -m 644 bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
+ifeq ($(MACOS),true)
+	cp -r bin/*.vst               $(DESTDIR)$(PREFIX)/lib/vst/
+else
 	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
+endif
 
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifneq ($(MACOS),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
+endif # MACOS
 endif # HAVE_CAIRO_OR_OPENGL
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
