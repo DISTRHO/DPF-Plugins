@@ -133,23 +133,23 @@ endif # HAVE_CAIRO_OR_OPENGL
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
 ifeq ($(HAVE_JACK),true)
-	install -m 755 bin/Kars             $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/3BandEQ          $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/3BandSplitter    $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/PingPongPan      $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/AmplitudeImposer $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/CycleShifter     $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/SoulForce        $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/MVerb            $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/Nekobi           $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/MaBitcrush       $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/MaFreeverb       $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/MaGigaverb       $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 bin/MaPitchshift     $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/3BandEQ$(APP_EXT)          $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/3BandSplitter$(APP_EXT)    $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/PingPongPan$(APP_EXT)      $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/AmplitudeImposer$(APP_EXT) $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/CycleShifter$(APP_EXT)     $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/SoulForce$(APP_EXT)        $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MVerb$(APP_EXT)            $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/Nekobi$(APP_EXT)           $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaBitcrush$(APP_EXT)       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaFreeverb$(APP_EXT)       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaGigaverb$(APP_EXT)       $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/MaPitchshift$(APP_EXT)     $(DESTDIR)$(PREFIX)/bin/
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-	install -m 755 bin/glBars           $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/glBars$(APP_EXT)           $(DESTDIR)$(PREFIX)/bin/
 ifeq ($(HAVE_PROJM),true)
-	install -m 755 bin/ProM             $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 bin/ProM$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 endif # HAVE_PROJM
 endif # HAVE_CAIRO_OR_OPENGL
 endif # HAVE_JACK
