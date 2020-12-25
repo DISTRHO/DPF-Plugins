@@ -172,6 +172,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.max = 1.0f;
         parameter.enumValues.count = 2;
         parameter.enumValues.restrictedMode = true;
+        parameter.midiCC = 70; //Sound Variation
         {
             ParameterEnumerationValue* const enumValues = new ParameterEnumerationValue[2];
             enumValues[0].value = 0.0f;
@@ -188,6 +189,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 0.0f;
         parameter.ranges.min = -12.0f;
         parameter.ranges.max = 12.0f;
+        parameter.midiCC = 75;
         break;
     case paramCutoff:
         parameter.hints      = kParameterIsAutomable; // modified x2.5
@@ -197,6 +199,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 25.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
+        parameter.midiCC = 74;
         break;
     case paramResonance:
         parameter.hints      = kParameterIsAutomable; // modified x100
@@ -206,6 +209,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 25.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 95.0f;
+        parameter.midiCC = 71;
         break;
     case paramEnvMod:
         parameter.hints      = kParameterIsAutomable; // modified x100
@@ -215,6 +219,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 50.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
+        parameter.midiCC = 1; //Mod Wheel
         break;
     case paramDecay:
         parameter.hints      = kParameterIsAutomable; // was 0.000009 <-> 0.0005, log
@@ -224,6 +229,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 75.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
+        parameter.midiCC = 72;
         break;
     case paramAccent:
         parameter.hints      = kParameterIsAutomable; // modified x100
@@ -233,6 +239,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 25.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
+        parameter.midiCC = 76;
         break;
     case paramVolume:
         parameter.hints      = kParameterIsAutomable; // modified x100
@@ -242,6 +249,7 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.def = 75.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
+        parameter.midiCC = 7; //Volume
         break;
     case paramBypass:
         parameter.initDesignation(kParameterDesignationBypass);
