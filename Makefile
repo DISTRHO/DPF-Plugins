@@ -19,6 +19,12 @@ HAVE_PROJM = $(shell pkg-config --exists libprojectM && echo true)
 
 # --------------------------------------------------------------
 
+ifeq ($(CROSS_COMPILING),true)
+CAN_GENERATE_TTL = true
+else ifneq ($(EXE_WRAPPER),)
+CAN_GENERATE_TTL = true
+endif
+
 dgl:
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	$(MAKE) -C dpf/dgl
@@ -61,7 +67,7 @@ endif # HAVE_PROJM
 endif # HAVE_CAIRO_OR_OPENGL
 
 gen: plugins dpf/utils/lv2_ttl_generator
-ifneq ($(CROSS_COMPILING),true)
+ifeq ($(CAN_GENERATE_TTL),true)
 	@$(CURDIR)/dpf/utils/generate-ttl.sh
 endif
 ifeq ($(MACOS),true)
