@@ -19,7 +19,7 @@ HAVE_PROJM = $(shell pkg-config --exists libprojectM && echo true)
 
 # --------------------------------------------------------------
 
-ifeq ($(CROSS_COMPILING),true)
+ifneq ($(CROSS_COMPILING),true)
 CAN_GENERATE_TTL = true
 else ifneq ($(EXE_WRAPPER),)
 CAN_GENERATE_TTL = true
