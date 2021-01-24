@@ -51,7 +51,7 @@ protected:
 
     const char* getDescription() const override
     {
-        return "3 Band Equalizer, splitted output version.";
+        return "3 Band Equalizer, split output version.";
     }
 
     const char* getMaker() const noexcept override
