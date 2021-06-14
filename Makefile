@@ -56,7 +56,7 @@ plugins: dgl
 	$(MAKE) all -C plugins/gigaverb
 	$(MAKE) all -C plugins/pitchshift
 
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifeq ($(HAVE_OPENGL),true)
 	# glBars (needs OpenGL)
 	$(MAKE) all -C plugins/glBars
 
@@ -64,7 +64,7 @@ ifeq ($(HAVE_PROJM),true)
 	# ProM (needs OpenGL + ProjectM)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_PROJM
-endif # HAVE_CAIRO_OR_OPENGL
+endif # HAVE_OPENGL
 
 gen: plugins dpf/utils/lv2_ttl_generator
 ifeq ($(CAN_GENERATE_TTL),true)
@@ -131,11 +131,11 @@ else
 	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 endif
 
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 ifneq ($(MACOS),true)
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
-endif # MACOS
 endif # HAVE_CAIRO_OR_OPENGL
+endif # MACOS
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
 ifeq ($(HAVE_JACK),true)
@@ -152,12 +152,12 @@ ifeq ($(HAVE_JACK),true)
 	install -m 755 bin/MaFreeverb$(APP_EXT)       $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/MaGigaverb$(APP_EXT)       $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/MaPitchshift$(APP_EXT)     $(DESTDIR)$(PREFIX)/bin/
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifeq ($(HAVE_OPENGL),true)
 	install -m 755 bin/glBars$(APP_EXT)           $(DESTDIR)$(PREFIX)/bin/
 ifeq ($(HAVE_PROJM),true)
 	install -m 755 bin/ProM$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 endif # HAVE_PROJM
-endif # HAVE_CAIRO_OR_OPENGL
+endif # HAVE_OPENGL
 endif # HAVE_JACK
 
 # --------------------------------------------------------------

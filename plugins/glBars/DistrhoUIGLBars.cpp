@@ -26,7 +26,10 @@ START_NAMESPACE_DISTRHO
 // -----------------------------------------------------------------------
 
 DistrhoUIGLBars::DistrhoUIGLBars()
-    : UI(512, 512) {}
+    : UI(512, 512)
+{
+    setGeometryConstraints(256, 256, true);
+}
 
 DistrhoUIGLBars::~DistrhoUIGLBars()
 {
@@ -103,14 +106,14 @@ bool DistrhoUIGLBars::onKeyboard(const KeyboardEvent& ev)
         else if (ev.key == '+')
         {
             /**/ if (getWidth() < 1100 && getHeight() < 1100)
-                setSize(getWidth()+100, getHeight()+100);
+                setSize(std::min(getWidth()+100, 1100U), std::min(getHeight()+100, 1100U));
             else if (getWidth() != 1100 || getHeight() != 1100)
                     setSize(1100, 1100);
         }
         else if (ev.key == '-')
         {
-            /**/ if (getWidth() >= 200 && getHeight() >= 200)
-                setSize(getWidth()-100, getHeight()-100);
+            /**/ if (getWidth() > 100 && getHeight() > 100)
+                setSize(std::max(getWidth()-100, 100U), std::max(getHeight()-100, 100U));
             else if (getWidth() != 100 || getHeight() != 100)
                 setSize(100, 100);
         }

@@ -30,6 +30,7 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS        1
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1
 #define DISTRHO_PLUGIN_LV2_CATEGORY       "lv2:AnalyserPlugin"
+#define DISTRHO_UI_USER_RESIZABLE         1
 
 enum Parameters {
     kParameterScale = 0,

@@ -209,11 +209,6 @@ void DistrhoPlugin3BandEQ::activate()
 
     xLP  = std::exp(-2.0f * kPI * freqLP / sr);
 
-#ifdef DISTRHO_OS_WINDOWS
-    // don't ask me why, but this fixes a crash/exception below on windows...
-    printf("%f\n", -xLP);
-#endif
-
     a0LP = 1.0f - xLP;
     b1LP = -xLP;
 

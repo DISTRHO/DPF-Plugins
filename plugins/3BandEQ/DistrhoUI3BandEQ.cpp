@@ -1,6 +1,6 @@
 /*
  * DISTRHO 3BandEQ Plugin, based on 3BandEQ by Michael Gruhn
- * Copyright (C) 2012-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,15 +25,15 @@ namespace Art = DistrhoArtwork3BandEQ;
 
 DistrhoUI3BandEQ::DistrhoUI3BandEQ()
     : UI(Art::backgroundWidth, Art::backgroundHeight),
-      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, GL_BGR),
+      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fAboutWindow(this)
 {
     // about
-    Image aboutImage(Art::aboutData, Art::aboutWidth, Art::aboutHeight, GL_BGR);
+    Image aboutImage(Art::aboutData, Art::aboutWidth, Art::aboutHeight, kImageFormatBGR);
     fAboutWindow.setImage(aboutImage);
 
     // sliders
-    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight);
+    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, kImageFormatBGRA);
     Point<int> sliderPosStart(57, 43);
     Point<int> sliderPosEnd(57, 43 + 160);
 
@@ -80,7 +80,7 @@ DistrhoUI3BandEQ::DistrhoUI3BandEQ()
     fSliderMaster->setCallback(this);
 
     // knobs
-    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight);
+    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight, kImageFormatBGRA);
 
     // knob Low-Mid
     fKnobLowMid = new ImageKnob(this, knobImage, ImageKnob::Vertical);
@@ -101,8 +101,8 @@ DistrhoUI3BandEQ::DistrhoUI3BandEQ()
     fKnobMidHigh->setCallback(this);
 
     // about button
-    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight);
-    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight);
+    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight, kImageFormatBGRA);
+    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight, kImageFormatBGRA);
     fButtonAbout = new ImageButton(this, aboutImageNormal, aboutImageHover, aboutImageHover);
     fButtonAbout->setAbsolutePos(264, 300);
     fButtonAbout->setCallback(this);
@@ -161,7 +161,7 @@ void DistrhoUI3BandEQ::imageButtonClicked(ImageButton* button, int)
     if (button != fButtonAbout)
         return;
 
-    fAboutWindow.exec();
+    fAboutWindow.runAsModal();
 }
 
 void DistrhoUI3BandEQ::imageKnobDragStarted(ImageKnob* knob)
@@ -196,7 +196,9 @@ void DistrhoUI3BandEQ::imageSliderValueChanged(ImageSlider* slider, float value)
 
 void DistrhoUI3BandEQ::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 }
 
 // -----------------------------------------------------------------------

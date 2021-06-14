@@ -33,10 +33,10 @@ namespace Art = DistrhoArtworkCycleShifter;
 
 DistrhoUICycleShifter::DistrhoUICycleShifter()
     : UI(Art::backWidth, Art::backHeight),
-      fImgBackground(Art::backData, Art::backWidth, Art::backHeight, GL_LUMINANCE)
+      fImgBackground(Art::backData, Art::backWidth, Art::backHeight, kImageFormatGrayscale)
 {
     // sliders
-    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, GL_LUMINANCE);
+    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, kImageFormatGrayscale);
 
     fSliderNewCycleVol = new ImageSlider(this, sliderImage);
     fSliderNewCycleVol->setId(DistrhoPluginCycleShifter::kParameterNewCycleVolume);
@@ -101,7 +101,9 @@ void DistrhoUICycleShifter::imageSliderValueChanged(ImageSlider* slider, float v
 
 void DistrhoUICycleShifter::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 }
 
 // -----------------------------------------------------------------------

@@ -37,7 +37,8 @@ START_NAMESPACE_DISTRHO
 class DistrhoUINekobi : public UI,
                         public ImageButton::Callback,
                         public ImageKnob::Callback,
-                        public ImageSlider::Callback
+                        public ImageSlider::Callback,
+                        public IdleCallback
 {
 public:
     DistrhoUINekobi();
@@ -47,11 +48,6 @@ protected:
     // DSP Callbacks
 
     void parameterChanged(uint32_t index, float value) override;
-
-    // -------------------------------------------------------------------
-    // UI Callbacks
-
-    void uiIdle() override;
 
     // -------------------------------------------------------------------
     // Widget Callbacks
@@ -65,6 +61,11 @@ protected:
     void imageSliderValueChanged(ImageSlider* slider, float value) override;
 
     void onDisplay() override;
+
+    // -------------------------------------------------------------------
+    // Other Callbacks
+
+    void idleCallback() override;
 
 private:
     Image            fImgBackground;

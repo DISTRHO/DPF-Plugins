@@ -33,10 +33,10 @@ namespace Art = DistrhoArtworkAmplitudeImposer;
 
 DistrhoUIAmplitudeImposer::DistrhoUIAmplitudeImposer()
     : UI(Art::backWidth, Art::backHeight),
-      fImgBackground(Art::backData, Art::backWidth, Art::backHeight, GL_LUMINANCE)
+      fImgBackground(Art::backData, Art::backWidth, Art::backHeight, kImageFormatGrayscale)
 {
     // sliders
-    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, GL_LUMINANCE);
+    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, kImageFormatGrayscale);
 
     fSliderDepth = new ImageSlider(this, sliderImage);
     fSliderDepth->setId(DistrhoPluginAmplitudeImposer::kParameterDepth);
@@ -101,7 +101,9 @@ void DistrhoUIAmplitudeImposer::imageSliderValueChanged(ImageSlider* slider, flo
 
 void DistrhoUIAmplitudeImposer::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 }
 
 // -----------------------------------------------------------------------

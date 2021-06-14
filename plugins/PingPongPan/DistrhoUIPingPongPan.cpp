@@ -1,6 +1,6 @@
 /*
  * DISTRHO PingPongPan Plugin, based on PingPongPan by Michael Gruhn
- * Copyright (C) 2012-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,15 +25,15 @@ namespace Art = DistrhoArtworkPingPongPan;
 
 DistrhoUIPingPongPan::DistrhoUIPingPongPan()
     : UI(Art::backgroundWidth, Art::backgroundHeight),
-      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, GL_BGR),
+      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fAboutWindow(this)
 {
     // about
-    Image imageAbout(Art::aboutData, Art::aboutWidth, Art::aboutHeight, GL_BGR);
+    Image imageAbout(Art::aboutData, Art::aboutWidth, Art::aboutHeight, kImageFormatBGR);
     fAboutWindow.setImage(imageAbout);
 
     // knobs
-    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight);
+    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight, kImageFormatBGRA);
 
     // knob Low-Mid
     fKnobFreq = new ImageKnob(this, knobImage, ImageKnob::Vertical);
@@ -54,8 +54,8 @@ DistrhoUIPingPongPan::DistrhoUIPingPongPan()
     fKnobWidth->setCallback(this);
 
     // about button
-    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight);
-    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight);
+    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight, kImageFormatBGRA);
+    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight, kImageFormatBGRA);
     fButtonAbout = new ImageButton(this, aboutImageNormal, aboutImageHover, aboutImageHover);
     fButtonAbout->setAbsolutePos(183, 8);
     fButtonAbout->setCallback(this);
@@ -98,7 +98,7 @@ void DistrhoUIPingPongPan::imageButtonClicked(ImageButton* button, int)
     if (button != fButtonAbout)
         return;
 
-    fAboutWindow.exec();
+    fAboutWindow.runAsModal();
 }
 
 void DistrhoUIPingPongPan::imageKnobDragStarted(ImageKnob* knob)
@@ -118,7 +118,9 @@ void DistrhoUIPingPongPan::imageKnobValueChanged(ImageKnob* knob, float value)
 
 void DistrhoUIPingPongPan::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 }
 
 // -----------------------------------------------------------------------

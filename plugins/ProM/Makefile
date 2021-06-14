@@ -32,10 +32,7 @@ LINK_FLAGS += $(shell pkg-config --libs libprojectM) -lpthread
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(HAVE_JACK),true)
 TARGETS += jack
-endif
-
 TARGETS += lv2
 TARGETS += vst
 

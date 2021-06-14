@@ -1,6 +1,6 @@
 /*
  * Neko widget animation
- * Copyright (C) 2013-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2013-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -21,7 +21,6 @@
 #include "DistrhoArtworkNekobi.hpp"
 
 #include "Image.hpp"
-#include "Widget.hpp"
 
 #include <cstdlib> // rand
 
@@ -35,7 +34,6 @@ public:
     NekoWidget()
         : fPos(0),
           fTimer(0),
-          fTimerSpeed(20),
           fCurAction(kActionNone),
           fCurImage(&fImages.sit)
     {
@@ -62,7 +60,7 @@ public:
         }
     }
 
-    void draw()
+    void draw(const GraphicsContext& context)
     {
         int x = fPos+108;
         int y = -2;
@@ -73,16 +71,13 @@ public:
             y += 12;
         }
 
-        fCurImage->drawAt(x, y);
+        fCurImage->drawAt(context, x, y);
     }
 
     // returns true if needs repaint
     bool idle()
     {
-        if (++fTimer % fTimerSpeed != 0) // target is 20ms
-            return false;
-
-        if (fTimer == fTimerSpeed*9)
+        if (++fTimer == 10)
         {
             if (fCurAction == kActionNone)
                 fCurAction = static_cast<Action>(std::rand() % kActionCount);
@@ -158,12 +153,6 @@ public:
         return true;
     }
 
-    void setTimerSpeed(int speed)
-    {
-        fTimer = 0;
-        fTimerSpeed = speed;
-    }
-
     // -------------------------------------------------------------------
 
 private:
@@ -191,7 +180,6 @@ private:
 
     int fPos;
     int fTimer;
-    int fTimerSpeed;
 
     Action fCurAction;
     Image* fCurImage;

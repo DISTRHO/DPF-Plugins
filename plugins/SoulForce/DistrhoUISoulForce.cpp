@@ -33,14 +33,14 @@ namespace Art = DistrhoArtworkSoulForce;
 
 DistrhoUISoulForce::DistrhoUISoulForce()
     : UI(Art::backgroundWidth, Art::backgroundHeight),
-      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, GL_BGR),
-      fImgLedOff(Art::led_offData, Art::led_offWidth, Art::led_offHeight, GL_BGR),
-      fImgLedOn(Art::led_onData, Art::led_onWidth, Art::led_onHeight, GL_BGR),
+      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
+      fImgLedOff(Art::led_offData, Art::led_offWidth, Art::led_offHeight, kImageFormatBGR),
+      fImgLedOn(Art::led_onData, Art::led_onWidth, Art::led_onHeight, kImageFormatBGR),
       fFootDown(true)
 {
     // knobs
     fKnobShape = new ImageKnob(this,
-                     Image(Art::knob_shapeData, Art::knob_shapeWidth, Art::knob_shapeHeight, GL_BGR));
+                     Image(Art::knob_shapeData, Art::knob_shapeWidth, Art::knob_shapeHeight, kImageFormatBGR));
     fKnobShape->setId(DistrhoPluginSoulForce::kParameterShape);
     fKnobShape->setAbsolutePos(17, 64);
     fKnobShape->setRange(0.0f, 1.0f);
@@ -49,7 +49,7 @@ DistrhoUISoulForce::DistrhoUISoulForce()
     fKnobShape->setCallback(this);
 
     fKnobFBack = new ImageKnob(this,
-                     Image(Art::knob_feedbackData, Art::knob_feedbackWidth, Art::knob_feedbackHeight, GL_BGR));
+                     Image(Art::knob_feedbackData, Art::knob_feedbackWidth, Art::knob_feedbackHeight, kImageFormatBGR));
     fKnobFBack->setId(DistrhoPluginSoulForce::kParameterFeedback);
     fKnobFBack->setAbsolutePos(176, 64);
     fKnobFBack->setRange(0.0f, 1.0f);
@@ -59,17 +59,17 @@ DistrhoUISoulForce::DistrhoUISoulForce()
 
     // switches
     fSwitchSource = new ImageSwitch(this,
-                        Image(Art::switch_leftData, Art::switch_leftWidth, Art::switch_leftHeight, GL_BGR),
-                        Image(Art::switch_rightData, Art::switch_rightWidth, Art::switch_rightHeight, GL_BGR));
+                        Image(Art::switch_leftData, Art::switch_leftWidth, Art::switch_leftHeight, kImageFormatBGR),
+                        Image(Art::switch_rightData, Art::switch_rightWidth, Art::switch_rightHeight, kImageFormatBGR));
     fSwitchSource->setId(DistrhoPluginSoulForce::kParameterSource);
     fSwitchSource->setAbsolutePos(116, 191);
     fSwitchSource->setCallback(this);
 
     // buttons
     fButtonFoot = new ImageButton(this,
-                      Image(Art::button_upData, Art::button_upWidth, Art::button_upHeight, GL_BGR),
-                      Image(Art::button_upData, Art::button_upWidth, Art::button_upHeight, GL_BGR),
-                      Image(Art::button_downData, Art::button_downWidth, Art::button_downHeight, GL_BGR));
+                      Image(Art::button_upData, Art::button_upWidth, Art::button_upHeight, kImageFormatBGR),
+                      Image(Art::button_upData, Art::button_upWidth, Art::button_upHeight, kImageFormatBGR),
+                      Image(Art::button_downData, Art::button_downWidth, Art::button_downHeight, kImageFormatBGR));
     fButtonFoot->setId(DistrhoPluginSoulForce::kParameterFootswitch);
     fButtonFoot->setAbsolutePos(125, 282);
     fButtonFoot->setCallback(this);
@@ -208,12 +208,14 @@ void DistrhoUISoulForce::imageSwitchClicked(ImageSwitch* imageSwitch, bool down)
 
 void DistrhoUISoulForce::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 
     if (fFootDown)
-        fImgLedOn.drawAt(123, 240);
+        fImgLedOn.drawAt(context, 123, 240);
     else
-        fImgLedOff.drawAt(123, 240);
+        fImgLedOff.drawAt(context, 123, 240);
 }
 
 // -----------------------------------------------------------------------

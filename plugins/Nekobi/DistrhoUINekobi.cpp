@@ -1,6 +1,6 @@
 /*
  * DISTRHO Nekobi Plugin, based on Nekobee by Sean Bolton and others.
- * Copyright (C) 2013-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2013-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -26,18 +26,15 @@ namespace Art = DistrhoArtworkNekobi;
 
 DistrhoUINekobi::DistrhoUINekobi()
     : UI(Art::backgroundWidth, Art::backgroundHeight),
-      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, GL_BGR),
+      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fAboutWindow(this)
 {
-    // FIXME
-    fNeko.setTimerSpeed(5);
-
     // about
-    Image aboutImage(Art::aboutData, Art::aboutWidth, Art::aboutHeight, GL_BGR);
+    Image aboutImage(Art::aboutData, Art::aboutWidth, Art::aboutHeight, kImageFormatBGR);
     fAboutWindow.setImage(aboutImage);
 
     // slider
-    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight);
+    Image sliderImage(Art::sliderData, Art::sliderWidth, Art::sliderHeight, kImageFormatBGRA);
 
     fSliderWaveform = new ImageSlider(this, sliderImage);
     fSliderWaveform->setId(DistrhoPluginNekobi::paramWaveform);
@@ -49,7 +46,7 @@ DistrhoUINekobi::DistrhoUINekobi()
     fSliderWaveform->setCallback(this);
 
     // knobs
-    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight);
+    Image knobImage(Art::knobData, Art::knobWidth, Art::knobHeight, kImageFormatBGRA);
 
     // knob Tuning
     fKnobTuning = new ImageKnob(this, knobImage, ImageKnob::Vertical);
@@ -122,11 +119,14 @@ DistrhoUINekobi::DistrhoUINekobi()
     fKnobVolume->setCallback(this);
 
     // about button
-    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight);
-    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight);
+    Image aboutImageNormal(Art::aboutButtonNormalData, Art::aboutButtonNormalWidth, Art::aboutButtonNormalHeight, kImageFormatBGRA);
+    Image aboutImageHover(Art::aboutButtonHoverData, Art::aboutButtonHoverWidth, Art::aboutButtonHoverHeight, kImageFormatBGRA);
     fButtonAbout = new ImageButton(this, aboutImageNormal, aboutImageHover, aboutImageHover);
     fButtonAbout->setAbsolutePos(505, 5);
     fButtonAbout->setCallback(this);
+
+    // neko animation
+    addIdleCallback(this, 120);
 }
 
 // -----------------------------------------------------------------------
@@ -164,15 +164,6 @@ void DistrhoUINekobi::parameterChanged(uint32_t index, float value)
 }
 
 // -----------------------------------------------------------------------
-// UI Callbacks
-
-void DistrhoUINekobi::uiIdle()
-{
-    if (fNeko.idle())
-        repaint();
-}
-
-// -----------------------------------------------------------------------
 // Widget Callbacks
 
 void DistrhoUINekobi::imageButtonClicked(ImageButton* button, int)
@@ -180,7 +171,7 @@ void DistrhoUINekobi::imageButtonClicked(ImageButton* button, int)
     if (button != fButtonAbout)
         return;
 
-    fAboutWindow.exec();
+    fAboutWindow.runAsModal();
 }
 
 void DistrhoUINekobi::imageKnobDragStarted(ImageKnob* knob)
@@ -215,8 +206,19 @@ void DistrhoUINekobi::imageSliderValueChanged(ImageSlider* slider, float value)
 
 void DistrhoUINekobi::onDisplay()
 {
-    fImgBackground.draw();
-    fNeko.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
+    fNeko.draw(context);
+}
+
+// -----------------------------------------------------------------------
+// Other Callbacks
+
+void DistrhoUINekobi::idleCallback()
+{
+    if (fNeko.idle())
+        repaint();
 }
 
 // -----------------------------------------------------------------------
