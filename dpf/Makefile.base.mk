@@ -38,6 +38,9 @@ endif
 ifneq (,$(findstring mingw,$(TARGET_MACHINE)))
 WINDOWS=true
 endif
+ifneq (,$(findstring windows,$(TARGET_MACHINE)))
+WINDOWS=true
+endif
 
 endif
 endif
@@ -148,6 +151,9 @@ endif
 ifeq ($(MACOS),true)
 # MacOS linker flags
 LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,-dead_strip -Wl,-dead_strip_dylibs
+ifneq ($(SKIP_STRIPPING),true)
+LINK_OPTS += -Wl,-x
+endif
 else
 # Common linker flags
 LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-O1 -Wl,--as-needed
@@ -157,19 +163,13 @@ endif
 endif
 
 ifeq ($(NOOPT),true)
-# No CPU-specific optimization flags
+# Non-CPU-specific optimization flags
 BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
 ifeq ($(WINDOWS),true)
-# mingw has issues with this specific optimization
-# See https://github.com/falkTX/Carla/issues/696
-BASE_OPTS  += -fno-rerun-cse-after-loop
-# See https://github.com/falkTX/Carla/issues/855
+# Needed for windows, see https://github.com/falkTX/Carla/issues/855
 BASE_OPTS  += -mstackrealign
-ifeq ($(BUILDING_FOR_WINDOWS),true)
-BASE_FLAGS += -DBUILDING_CARLA_FOR_WINDOWS
-endif
 else
 # Not needed for Windows
 BASE_FLAGS += -fPIC -DPIC
@@ -206,7 +206,7 @@ endif
 
 ifeq ($(TESTBUILD),true)
 BASE_FLAGS += -Werror -Wcast-qual -Wconversion -Wformat -Wformat-security -Wredundant-decls -Wshadow -Wstrict-overflow -fstrict-overflow -Wundef -Wwrite-strings
-BASE_FLAGS += -Wpointer-arith -Wabi -Winit-self -Wuninitialized -Wstrict-overflow=5
+BASE_FLAGS += -Wpointer-arith -Wabi=98 -Winit-self -Wuninitialized -Wstrict-overflow=5
 # BASE_FLAGS += -Wfloat-equal
 ifeq ($(CC),clang)
 BASE_FLAGS += -Wdocumentation -Wdocumentation-unknown-command
@@ -228,19 +228,27 @@ endif
 # Check for required libraries
 
 HAVE_CAIRO  = $(shell $(PKG_CONFIG) --exists cairo && echo true)
+HAVE_VULKAN = $(shell $(PKG_CONFIG) --exists vulkan && echo true)
 
-ifeq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+ifeq ($(MACOS_OR_WINDOWS),true)
 HAVE_OPENGL = true
 else
 HAVE_OPENGL = $(shell $(PKG_CONFIG) --exists gl && echo true)
-HAVE_X11    = $(shell $(PKG_CONFIG) --exists x11 && echo true)
+ifneq ($(HAIKU),true)
+HAVE_X11     = $(shell $(PKG_CONFIG) --exists x11 && echo true)
+HAVE_XCURSOR = $(shell $(PKG_CONFIG) --exists xcursor && echo true)
+HAVE_XEXT    = $(shell $(PKG_CONFIG) --exists xext && echo true)
+HAVE_XRANDR  = $(shell $(PKG_CONFIG) --exists xrandr && echo true)
+endif
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Check for optional libraries
 
-HAVE_JACK  = $(shell $(PKG_CONFIG) --exists jack && echo true)
 HAVE_LIBLO = $(shell $(PKG_CONFIG) --exists liblo && echo true)
+
+# backwards compat
+HAVE_JACK = true
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set Generic DGL stuff
@@ -250,7 +258,7 @@ DGL_SYSTEM_LIBS += -lbe
 endif
 
 ifeq ($(MACOS),true)
-DGL_SYSTEM_LIBS += -framework Cocoa
+DGL_SYSTEM_LIBS += -framework Cocoa -framework CoreVideo
 endif
 
 ifeq ($(WINDOWS),true)
@@ -259,8 +267,21 @@ endif
 
 ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
 ifeq ($(HAVE_X11),true)
-DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags x11)
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags x11) -DHAVE_X11
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs x11)
+ifeq ($(HAVE_XCURSOR),true)
+# TODO -DHAVE_XCURSOR
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xcursor)
+DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xcursor)
+endif
+ifeq ($(HAVE_XEXT),true)
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xext) -DHAVE_XEXT -DHAVE_XSYNC
+DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xext)
+endif
+ifeq ($(HAVE_XRANDR),true)
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xrandr) -DHAVE_XRANDR
+DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xrandr)
+endif
 endif
 endif
 
@@ -291,7 +312,7 @@ OPENGL_LIBS  = $(shell $(PKG_CONFIG) --libs gl)
 endif
 
 ifeq ($(MACOS),true)
-OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1
+OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1 -Wno-deprecated-declarations
 OPENGL_LIBS  = -framework OpenGL
 endif
 
@@ -306,6 +327,52 @@ endif
 
 HAVE_CAIRO_OR_OPENGL = true
 
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set Stub specific stuff
+
+ifeq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+HAVE_STUB = true
+else
+HAVE_STUB = $(HAVE_X11)
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set Vulkan specific stuff
+
+ifeq ($(HAVE_VULKAN),true)
+
+DGL_FLAGS   += -DHAVE_VULKAN
+
+VULKAN_FLAGS  = $(shell $(PKG_CONFIG) --cflags vulkan)
+VULKAN_LIBS   = $(shell $(PKG_CONFIG) --libs vulkan)
+
+ifneq ($(WINDOWS),true)
+VULKAN_LIBS  += -ldl
+endif
+
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set optional libraries specific stuff
+
+ifeq ($(HAVE_LIBLO),true)
+LIBLO_FLAGS  = $(shell $(PKG_CONFIG) --cflags liblo)
+LIBLO_LIBS   = $(shell $(PKG_CONFIG) --libs liblo)
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Backwards-compatible HAVE_DGL
+
+ifeq ($(MACOS_OR_WINDOWS),true)
+HAVE_DGL = true
+else ifeq ($(HAVE_OPENGL),true)
+ifeq ($(HAIKU),true)
+HAVE_DGL = true
+else
+HAVE_DGL = $(HAVE_X11)
+endif
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------

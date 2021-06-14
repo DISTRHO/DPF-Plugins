@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -24,12 +24,14 @@
 #include "lv2/midi.h"
 #include "lv2/options.h"
 #include "lv2/parameters.h"
+#include "lv2/patch.h"
 #include "lv2/state.h"
 #include "lv2/time.h"
 #include "lv2/urid.h"
 #include "lv2/worker.h"
 #include "lv2/lv2_kxstudio_properties.h"
 #include "lv2/lv2_programs.h"
+#include "lv2/control-input-port-change-request.h"
 
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
 # include "libmodla.h"
@@ -54,10 +56,14 @@
 
 START_NAMESPACE_DISTRHO
 
-typedef std::map<const String, String> StringMap;
+typedef std::map<const String, String> StringToStringMap;
+typedef std::map<const LV2_URID, String> UridToStringMap;
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static const writeMidiFunc writeMidiCallback = nullptr;
+#endif
+#if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+static const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
 
 // -----------------------------------------------------------------------
@@ -65,8 +71,12 @@ static const writeMidiFunc writeMidiCallback = nullptr;
 class PluginLv2
 {
 public:
-    PluginLv2(const double sampleRate, const LV2_URID_Map* const uridMap, const LV2_Worker_Schedule* const worker, const bool usingNominal)
-        : fPlugin(this, writeMidiCallback),
+    PluginLv2(const double sampleRate,
+              const LV2_URID_Map* const uridMap,
+              const LV2_Worker_Schedule* const worker,
+              const LV2_ControlInputPort_Change_Request* const ctrlInPortChangeReq,
+              const bool usingNominal)
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
           fUsingNominal(usingNominal),
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
           fRunCount(0),
@@ -76,7 +86,8 @@ public:
           fSampleRate(sampleRate),
           fURIDs(uridMap),
           fUridMap(uridMap),
-          fWorker(worker)
+          fWorker(worker),
+          fCtrlInPortChangeReq(ctrlInPortChangeReq)
     {
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
         for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
@@ -127,6 +138,15 @@ public:
 
                 const String& dkey(fPlugin.getStateKey(i));
                 fStateMap[dkey] = fPlugin.getStateDefaultValue(i);
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+                if (fPlugin.isStateFile(i))
+                {
+                    const String dpf_lv2_key(DISTRHO_PLUGIN_URI "#" + dkey);
+                    const LV2_URID urid = uridMap->map(uridMap->handle, dpf_lv2_key.buffer());
+                    fUridStateFileMap[urid] = dkey;
+                }
+# endif
             }
         }
         else
@@ -209,10 +229,10 @@ public:
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
         fTimePosition.clear();
 
-        // hosts may not send all values, resulting on some invalid data
+        // hosts may not send all values, resulting on some invalid data, let's reset everything
         fTimePosition.bbt.bar   = 1;
         fTimePosition.bbt.beat  = 1;
-        fTimePosition.bbt.tick  = 0;
+        fTimePosition.bbt.tick  = 0.0;
         fTimePosition.bbt.barStartTick = 0;
         fTimePosition.bbt.beatsPerBar  = 4;
         fTimePosition.bbt.beatType     = 4;
@@ -427,8 +447,8 @@ public:
                     if (fLastPositionData.barBeat >= 0.0f)
                     {
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
-                        fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat - rest + 1.0);
+                        fTimePosition.bbt.tick = rest * fTimePosition.bbt.ticksPerBeat;
                     }
                 }
 
@@ -521,16 +541,16 @@ public:
         }
 #endif
 
-        // check for messages from UI
-#if DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI
+        // check for messages from UI or files
+#if DISTRHO_PLUGIN_WANT_STATE && (DISTRHO_PLUGIN_HAS_UI || DISTRHO_PLUGIN_WANT_STATEFILES)
         LV2_ATOM_SEQUENCE_FOREACH(fPortEventsIn, event)
         {
             if (event == nullptr)
                 break;
 
-            if (event->body.type == fURIDs.distrhoState && fWorker != nullptr)
+            if (event->body.type == fURIDs.dpfKeyValue)
             {
-                const void* const data((const void*)(event + 1));
+                const void* const data = (const void*)(event + 1);
 
                 // check if this is our special message
                 if (std::strcmp((const char*)data, "__dpf_ui_data__") == 0)
@@ -538,12 +558,28 @@ public:
                     for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
                         fNeededUiSends[i] = true;
                 }
-                else
                 // no, send to DSP as usual
+                else if (fWorker != nullptr)
                 {
-                    fWorker->schedule_work(fWorker->handle, event->body.size, data);
+                    fWorker->schedule_work(fWorker->handle, sizeof(LV2_Atom)+event->body.size, &event->body);
                 }
             }
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+            else if (event->body.type == fURIDs.atomObject && fWorker != nullptr)
+            {
+                const LV2_Atom_Object* const object = (const LV2_Atom_Object*)&event->body;
+
+                const LV2_Atom* property = nullptr;
+                const LV2_Atom* value    = nullptr;
+                lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
+
+                if (property != nullptr && property->type == fURIDs.atomURID &&
+                    value != nullptr && value->type == fURIDs.atomPath)
+                {
+                    fWorker->schedule_work(fWorker->handle, sizeof(LV2_Atom)+event->body.size, &event->body);
+                }
+            }
+# endif
         }
 #endif
 
@@ -613,8 +649,8 @@ public:
                                                               (double)fLastPositionData.beatsPerBar);
 
                         const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
-                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat-rest+1.0);
-                        fTimePosition.bbt.tick = rest*fTimePosition.bbt.ticksPerBeat+0.5;
+                        fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat - rest + 1.0);
+                        fTimePosition.bbt.tick = rest * fTimePosition.bbt.ticksPerBeat;
 
                         if (fLastPositionData.bar >= 0)
                         {
@@ -653,19 +689,19 @@ public:
             if (! fNeededUiSends[i])
                 continue;
 
-            const String& key = fPlugin.getStateKey(i);
+            const String& curKey(fPlugin.getStateKey(i));
 
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
+            for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
             {
-                const String& curKey = cit->first;
+                const String& key(cit->first);
 
                 if (curKey != key)
                     continue;
 
-                const String& value = cit->second;
+                const String& value(cit->second);
 
                 // set msg size (key + value + separator + 2x null terminator)
-                const size_t msgSize(key.length()+value.length()+3);
+                const size_t msgSize = key.length()+value.length()+3;
 
                 if (sizeof(LV2_Atom_Event) + msgSize > capacity - fEventsOutData.offset)
                 {
@@ -673,21 +709,18 @@ public:
                     break;
                 }
 
-                // reserve msg space
-                // FIXME create a large enough buffer beforehand
-                char msgBuf[msgSize];
-                std::memset(msgBuf, 0, msgSize);
-
-                // write key and value in atom bufer
-                std::memcpy(msgBuf, key.buffer(), key.length()+1);
-                std::memcpy(msgBuf+(key.length()+1), value.buffer(), value.length()+1);
-
                 // put data
                 aev = (LV2_Atom_Event*)(LV2_ATOM_CONTENTS(LV2_Atom_Sequence, fEventsOutData.port) + fEventsOutData.offset);
                 aev->time.frames = 0;
-                aev->body.type   = fURIDs.distrhoState;
+                aev->body.type   = fURIDs.dpfKeyValue;
                 aev->body.size   = msgSize;
-                std::memcpy(LV2_ATOM_BODY(&aev->body), msgBuf, msgSize);
+
+                uint8_t* const msgBuf = LV2_ATOM_BODY(&aev->body);
+                std::memset(msgBuf, 0, msgSize);
+
+                // write key and value in atom buffer
+                std::memcpy(msgBuf, key.buffer(), key.length()+1);
+                std::memcpy(msgBuf+(key.length()+1), value.buffer(), value.length()+1);
 
                 fEventsOutData.growBy(lv2_atom_pad_size(sizeof(LV2_Atom_Event) + msgSize));
 
@@ -795,7 +828,7 @@ public:
 
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
         // Update state
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
+        for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
         {
             const String& key = cit->first;
             fStateMap[key] = fPlugin.getState(key);
@@ -811,22 +844,52 @@ public:
     {
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
         // Update current state
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
+        for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
         {
             const String& key = cit->first;
             fStateMap[key] = fPlugin.getState(key);
         }
 # endif
 
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
+        String dpf_lv2_key;
+        LV2_URID urid;
+
+        for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
         {
-            const String& key   = cit->first;
-            const String& value = cit->second;
+            const String& curKey(fPlugin.getStateKey(i));
 
-            const String urnKey(DISTRHO_PLUGIN_LV2_STATE_PREFIX + key);
+            for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
+            {
+                const String& key(cit->first);
 
-            // some hosts need +1 for the null terminator, even though the type is string
-            store(handle, fUridMap->map(fUridMap->handle, urnKey.buffer()), value.buffer(), value.length()+1, fURIDs.atomString, LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE);
+                if (curKey != key)
+                    continue;
+
+                const String& value(cit->second);
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+                if (fPlugin.isStateFile(i))
+                {
+                    dpf_lv2_key = DISTRHO_PLUGIN_URI "#";
+                    urid = fURIDs.atomPath;
+                }
+                else
+# endif
+                {
+                    dpf_lv2_key = DISTRHO_PLUGIN_LV2_STATE_PREFIX;
+                    urid = fURIDs.atomString;
+                }
+
+                dpf_lv2_key += key;
+
+                // some hosts need +1 for the null terminator, even though the type is string
+                store(handle,
+                      fUridMap->map(fUridMap->handle, dpf_lv2_key.buffer()),
+                      value.buffer(),
+                      value.length()+1,
+                      urid,
+                      LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE);
+            }
         }
 
         return LV2_STATE_SUCCESS;
@@ -837,23 +900,42 @@ public:
         size_t   size;
         uint32_t type, flags;
 
+        String dpf_lv2_key;
+        LV2_URID urid;
+
         for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
         {
             const String& key(fPlugin.getStateKey(i));
-            const String urnKey(DISTRHO_PLUGIN_LV2_STATE_PREFIX + key);
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+            if (fPlugin.isStateFile(i))
+            {
+                dpf_lv2_key = DISTRHO_PLUGIN_URI "#";
+                urid = fURIDs.atomPath;
+            }
+            else
+# endif
+            {
+                dpf_lv2_key = DISTRHO_PLUGIN_LV2_STATE_PREFIX;
+                urid = fURIDs.atomString;
+            }
+
+            dpf_lv2_key += key;
 
             size  = 0;
             type  = 0;
             flags = LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE;
-            const void* data = retrieve(handle, fUridMap->map(fUridMap->handle, urnKey.buffer()), &size, &type, &flags);
+            const void* data = retrieve(handle,
+                                        fUridMap->map(fUridMap->handle, dpf_lv2_key.buffer()),
+                                        &size, &type, &flags);
 
             if (data == nullptr || size == 0)
                 continue;
 
-            DISTRHO_SAFE_ASSERT_CONTINUE(type == fURIDs.atomString);
+            DISTRHO_SAFE_ASSERT_CONTINUE(type == urid);
 
-            const char* const value((const char*)data);
-            const std::size_t length(std::strlen(value));
+            const char* const value  = (const char*)data;
+            const std::size_t length = std::strlen(value);
             DISTRHO_SAFE_ASSERT_CONTINUE(length == size || length+1 == size);
 
             setState(key, value);
@@ -871,12 +953,55 @@ public:
 
     LV2_Worker_Status lv2_work(const void* const data)
     {
-        const char* const key((const char*)data);
-        const char* const value(key+std::strlen(key)+1);
+        const LV2_Atom* const eventBody = (const LV2_Atom*)data;
 
-        setState(key, value);
+        if (eventBody->type == fURIDs.dpfKeyValue)
+        {
+            const char* const key   = (const char*)(eventBody + 1);
+            const char* const value = key + (std::strlen(key) + 1U);
 
-        return LV2_WORKER_SUCCESS;
+            setState(key, value);
+            return LV2_WORKER_SUCCESS;
+        }
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+        if (eventBody->type == fURIDs.atomObject)
+        {
+            const LV2_Atom_Object* const object = (const LV2_Atom_Object*)eventBody;
+
+            const LV2_Atom* property = nullptr;
+            const LV2_Atom* value    = nullptr;
+            lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
+            DISTRHO_SAFE_ASSERT_RETURN(property != nullptr, LV2_WORKER_ERR_UNKNOWN);
+            DISTRHO_SAFE_ASSERT_RETURN(property->type == fURIDs.atomURID, LV2_WORKER_ERR_UNKNOWN);
+            DISTRHO_SAFE_ASSERT_RETURN(value != nullptr, LV2_WORKER_ERR_UNKNOWN);
+            DISTRHO_SAFE_ASSERT_RETURN(value->type == fURIDs.atomPath, LV2_WORKER_ERR_UNKNOWN);
+
+            const LV2_URID urid        = ((const LV2_Atom_URID*)property)->body;
+            const char* const filename = (const char*)(value + 1);
+
+            String key;
+
+            try {
+                key = fUridStateFileMap[urid];
+            } DISTRHO_SAFE_EXCEPTION_RETURN("lv2_work fUridStateFileMap[urid]", LV2_WORKER_ERR_UNKNOWN);
+
+            setState(key, filename);
+
+            for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
+            {
+                if (fPlugin.getStateKey(i) == key)
+                {
+                    fNeededUiSends[i] = true;
+                    break;
+                }
+            }
+
+            return LV2_WORKER_SUCCESS;
+        }
+# endif
+
+        return LV2_WORKER_ERR_UNKNOWN;
     }
 
     LV2_Worker_Status lv2_work_response(uint32_t, const void*)
@@ -995,16 +1120,21 @@ private:
 
     // LV2 URIDs
     struct URIDs {
+        const LV2_URID_Map* _uridMap;
         LV2_URID atomBlank;
         LV2_URID atomObject;
         LV2_URID atomDouble;
         LV2_URID atomFloat;
         LV2_URID atomInt;
         LV2_URID atomLong;
+        LV2_URID atomPath;
         LV2_URID atomSequence;
         LV2_URID atomString;
-        LV2_URID distrhoState;
+        LV2_URID atomURID;
+        LV2_URID dpfKeyValue;
         LV2_URID midiEvent;
+        LV2_URID patchProperty;
+        LV2_URID patchValue;
         LV2_URID timePosition;
         LV2_URID timeBar;
         LV2_URID timeBarBeat;
@@ -1016,33 +1146,44 @@ private:
         LV2_URID timeSpeed;
 
         URIDs(const LV2_URID_Map* const uridMap)
-            : atomBlank(uridMap->map(uridMap->handle, LV2_ATOM__Blank)),
-              atomObject(uridMap->map(uridMap->handle, LV2_ATOM__Object)),
-              atomDouble(uridMap->map(uridMap->handle, LV2_ATOM__Double)),
-              atomFloat(uridMap->map(uridMap->handle, LV2_ATOM__Float)),
-              atomInt(uridMap->map(uridMap->handle, LV2_ATOM__Int)),
-              atomLong(uridMap->map(uridMap->handle, LV2_ATOM__Long)),
-              atomSequence(uridMap->map(uridMap->handle, LV2_ATOM__Sequence)),
-              atomString(uridMap->map(uridMap->handle, LV2_ATOM__String)),
-              distrhoState(uridMap->map(uridMap->handle, DISTRHO_PLUGIN_LV2_STATE_PREFIX "KeyValueState")),
-              midiEvent(uridMap->map(uridMap->handle, LV2_MIDI__MidiEvent)),
-              timePosition(uridMap->map(uridMap->handle, LV2_TIME__Position)),
-              timeBar(uridMap->map(uridMap->handle, LV2_TIME__bar)),
-              timeBarBeat(uridMap->map(uridMap->handle, LV2_TIME__barBeat)),
-              timeBeatUnit(uridMap->map(uridMap->handle, LV2_TIME__beatUnit)),
-              timeBeatsPerBar(uridMap->map(uridMap->handle, LV2_TIME__beatsPerBar)),
-              timeBeatsPerMinute(uridMap->map(uridMap->handle, LV2_TIME__beatsPerMinute)),
-              timeTicksPerBeat(uridMap->map(uridMap->handle, LV2_KXSTUDIO_PROPERTIES__TimePositionTicksPerBeat)),
-              timeFrame(uridMap->map(uridMap->handle, LV2_TIME__frame)),
-              timeSpeed(uridMap->map(uridMap->handle, LV2_TIME__speed)) {}
+            : _uridMap(uridMap),
+              atomBlank(map(LV2_ATOM__Blank)),
+              atomObject(map(LV2_ATOM__Object)),
+              atomDouble(map(LV2_ATOM__Double)),
+              atomFloat(map(LV2_ATOM__Float)),
+              atomInt(map(LV2_ATOM__Int)),
+              atomLong(map(LV2_ATOM__Long)),
+              atomPath(map(LV2_ATOM__Path)),
+              atomSequence(map(LV2_ATOM__Sequence)),
+              atomString(map(LV2_ATOM__String)),
+              atomURID(map(LV2_ATOM__URID)),
+              dpfKeyValue(map(DISTRHO_PLUGIN_LV2_STATE_PREFIX "KeyValueState")),
+              midiEvent(map(LV2_MIDI__MidiEvent)),
+              patchProperty(map(LV2_PATCH__property)),
+              patchValue(map(LV2_PATCH__value)),
+              timePosition(map(LV2_TIME__Position)),
+              timeBar(map(LV2_TIME__bar)),
+              timeBarBeat(map(LV2_TIME__barBeat)),
+              timeBeatUnit(map(LV2_TIME__beatUnit)),
+              timeBeatsPerBar(map(LV2_TIME__beatsPerBar)),
+              timeBeatsPerMinute(map(LV2_TIME__beatsPerMinute)),
+              timeTicksPerBeat(map(LV2_KXSTUDIO_PROPERTIES__TimePositionTicksPerBeat)),
+              timeFrame(map(LV2_TIME__frame)),
+              timeSpeed(map(LV2_TIME__speed)) {}
+
+        inline LV2_URID map(const char* const uri) const
+        {
+            return _uridMap->map(_uridMap->handle, uri);
+        }
     } fURIDs;
 
     // LV2 features
     const LV2_URID_Map* const fUridMap;
     const LV2_Worker_Schedule* const fWorker;
+    const LV2_ControlInputPort_Change_Request* const fCtrlInPortChangeReq;
 
 #if DISTRHO_PLUGIN_WANT_STATE
-    StringMap fStateMap;
+    StringToStringMap fStateMap;
     bool* fNeededUiSends;
 
     void setState(const char* const key, const char* const newValue)
@@ -1054,7 +1195,7 @@ private:
             return;
 
         // check if key already exists
-        for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
+        for (StringToStringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
         {
             const String& dkey(it->first);
 
@@ -1067,6 +1208,10 @@ private:
 
         d_stderr("Failed to find plugin state with key \"%s\"", key);
     }
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+    UridToStringMap fUridStateFileMap;
+# endif
 #endif
 
     void updateParameterOutputsAndTriggers()
@@ -1092,6 +1237,20 @@ private:
             *fPortLatency = fPlugin.getLatency();
 #endif
     }
+
+#if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+    bool requestParameterValueChange(const uint32_t index, const float value)
+    {
+        if (fCtrlInPortChangeReq == nullptr)
+            return false;
+        return fCtrlInPortChangeReq->request_change(fCtrlInPortChangeReq->handle, index, value);
+    }
+
+    static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
+    {
+        return (((PluginLv2*)ptr)->requestParameterValueChange(index, value) == 0);
+    }
+#endif
 
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
     bool writeMidi(const MidiEvent& midiEvent)
@@ -1133,6 +1292,7 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
     const LV2_Options_Option* options = nullptr;
     const LV2_URID_Map*       uridMap = nullptr;
     const LV2_Worker_Schedule* worker = nullptr;
+    const LV2_ControlInputPort_Change_Request* ctrlInPortChangeReq = nullptr;
 
     for (int i=0; features[i] != nullptr; ++i)
     {
@@ -1142,6 +1302,8 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
             uridMap = (const LV2_URID_Map*)features[i]->data;
         else if (std::strcmp(features[i]->URI, LV2_WORKER__schedule) == 0)
             worker = (const LV2_Worker_Schedule*)features[i]->data;
+        else if (std::strcmp(features[i]->URI, LV2_CONTROL_INPUT_PORT_CHANGE_REQUEST_URI) == 0)
+            ctrlInPortChangeReq = (const LV2_ControlInputPort_Change_Request*)features[i]->data;
     }
 
     if (options == nullptr)
@@ -1205,8 +1367,9 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
     }
 
     d_lastSampleRate = sampleRate;
+    d_lastCanRequestParameterValueChanges = ctrlInPortChangeReq != nullptr;
 
-    return new PluginLv2(sampleRate, uridMap, worker, usingNominal);
+    return new PluginLv2(sampleRate, uridMap, worker, ctrlInPortChangeReq, usingNominal);
 }
 
 #define instancePtr ((PluginLv2*)instance)

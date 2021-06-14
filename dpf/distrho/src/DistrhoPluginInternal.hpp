@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -19,6 +19,8 @@
 
 #include "../DistrhoPlugin.hpp"
 
+#include <set>
+
 START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
@@ -31,12 +33,43 @@ static const uint32_t kMaxMidiEvents = 512;
 
 extern uint32_t d_lastBufferSize;
 extern double   d_lastSampleRate;
+extern bool     d_lastCanRequestParameterValueChanges;
 
 // -----------------------------------------------------------------------
 // DSP callbacks
 
 typedef bool (*writeMidiFunc) (void* ptr, const MidiEvent& midiEvent);
+typedef bool (*requestParameterValueChangeFunc) (void* ptr, uint32_t index, float value);
 
+// -----------------------------------------------------------------------
+// Helpers
+
+struct PortGroupWithId : PortGroup {
+    uint32_t groupId;
+
+    PortGroupWithId()
+        : PortGroup(),
+          groupId(kPortGroupNone) {}
+};
+
+static void fillInPredefinedPortGroupData(const uint32_t groupId, PortGroup& portGroup)
+{
+    switch (groupId)
+    {
+    case kPortGroupNone:
+        portGroup.name.clear();
+        portGroup.symbol.clear();
+        break;
+    case kPortGroupMono:
+        portGroup.name = "Mono";
+        portGroup.symbol = "dpf_mono";
+        break;
+    case kPortGroupStereo:
+        portGroup.name = "Stereo";
+        portGroup.symbol = "dpf_stereo";
+        break;
+    }
+}
 // -----------------------------------------------------------------------
 // Plugin private data
 
@@ -50,6 +83,9 @@ struct Plugin::PrivateData {
     uint32_t   parameterCount;
     uint32_t   parameterOffset;
     Parameter* parameters;
+
+    uint32_t         portGroupCount;
+    PortGroupWithId* portGroups;
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
     uint32_t programCount;
@@ -73,9 +109,11 @@ struct Plugin::PrivateData {
     // Callbacks
     void*         callbacksPtr;
     writeMidiFunc writeMidiCallbackFunc;
+    requestParameterValueChangeFunc requestParameterValueChangeCallbackFunc;
 
     uint32_t bufferSize;
     double   sampleRate;
+    bool     canRequestParameterValueChanges;
 
     PrivateData() noexcept
         : isProcessing(false),
@@ -85,6 +123,8 @@ struct Plugin::PrivateData {
           parameterCount(0),
           parameterOffset(0),
           parameters(nullptr),
+          portGroupCount(0),
+          portGroups(nullptr),
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
           programCount(0),
           programNames(nullptr),
@@ -99,8 +139,10 @@ struct Plugin::PrivateData {
 #endif
           callbacksPtr(nullptr),
           writeMidiCallbackFunc(nullptr),
+          requestParameterValueChangeCallbackFunc(nullptr),
           bufferSize(d_lastBufferSize),
-          sampleRate(d_lastSampleRate)
+          sampleRate(d_lastSampleRate),
+          canRequestParameterValueChanges(d_lastCanRequestParameterValueChanges)
     {
         DISTRHO_SAFE_ASSERT(bufferSize != 0);
         DISTRHO_SAFE_ASSERT(d_isNotZero(sampleRate));
@@ -113,7 +155,7 @@ struct Plugin::PrivateData {
 #endif
 
 #ifdef DISTRHO_PLUGIN_TARGET_LV2
-# if (DISTRHO_PLUGIN_IS_SYNTH || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
+# if (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
         parameterOffset += 1;
 #  if DISTRHO_PLUGIN_WANT_STATE
         parameterOffset += 1;
@@ -136,6 +178,12 @@ struct Plugin::PrivateData {
         {
             delete[] parameters;
             parameters = nullptr;
+        }
+
+        if (portGroups != nullptr)
+        {
+            delete[] portGroups;
+            portGroups = nullptr;
         }
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -170,6 +218,16 @@ struct Plugin::PrivateData {
         return false;
     }
 #endif
+
+#if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+    bool requestParameterValueChangeCallback(const uint32_t index, const float value)
+    {
+        if (requestParameterValueChangeCallbackFunc != nullptr)
+            return requestParameterValueChangeCallbackFunc(callbacksPtr, index, value);
+
+        return false;
+    }
+#endif
 };
 
 // -----------------------------------------------------------------------
@@ -178,7 +236,9 @@ struct Plugin::PrivateData {
 class PluginExporter
 {
 public:
-    PluginExporter(void* const callbacksPtr, const writeMidiFunc writeMidiCall)
+    PluginExporter(void* const callbacksPtr,
+                   const writeMidiFunc writeMidiCall,
+                   const requestParameterValueChangeFunc requestParameterValueChangeCall)
         : fPlugin(createPlugin()),
           fData((fPlugin != nullptr) ? fPlugin->pData : nullptr),
           fIsActive(false)
@@ -198,10 +258,41 @@ public:
                 fPlugin->initAudioPort(false, i, fData->audioPorts[j]);
 # endif
         }
-#endif
+#endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
 
         for (uint32_t i=0, count=fData->parameterCount; i < count; ++i)
             fPlugin->initParameter(i, fData->parameters[i]);
+
+        {
+            std::set<uint32_t> portGroupIndices;
+
+#if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+            for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+                portGroupIndices.insert(fData->audioPorts[i].groupId);
+#endif
+            for (uint32_t i=0, count=fData->parameterCount; i < count; ++i)
+                portGroupIndices.insert(fData->parameters[i].groupId);
+
+            portGroupIndices.erase(kPortGroupNone);
+
+            if (const size_t portGroupSize = portGroupIndices.size())
+            {
+                fData->portGroups = new PortGroupWithId[portGroupSize];
+                fData->portGroupCount = portGroupSize;
+
+                uint32_t index = 0;
+                for (std::set<uint32_t>::iterator it = portGroupIndices.begin(); it != portGroupIndices.end(); ++it, ++index)
+                {
+                    PortGroupWithId& portGroup(fData->portGroups[index]);
+                    portGroup.groupId = *it;
+
+                    if (portGroup.groupId < portGroupSize)
+                        fPlugin->initPortGroup(portGroup.groupId, portGroup);
+                    else
+                        fillInPredefinedPortGroupData(portGroup.groupId, portGroup);
+                }
+            }
+        }
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
         for (uint32_t i=0, count=fData->programCount; i < count; ++i)
@@ -213,8 +304,9 @@ public:
             fPlugin->initState(i, fData->stateKeys[i], fData->stateDefValues[i]);
 #endif
 
-        fData->callbacksPtr          = callbacksPtr;
+        fData->callbacksPtr = callbacksPtr;
         fData->writeMidiCallbackFunc = writeMidiCall;
+        fData->requestParameterValueChangeCallbackFunc = requestParameterValueChangeCall;
     }
 
     ~PluginExporter()
@@ -424,6 +516,13 @@ public:
         return fData->parameters[index].midiCC;
     }
 
+    uint32_t getParameterGroupId(const uint32_t index) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, kPortGroupNone);
+
+        return fData->parameters[index].groupId;
+    }
+
     float getParameterValue(const uint32_t index) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
@@ -438,6 +537,42 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount,);
 
         fPlugin->setParameterValue(index, value);
+    }
+
+    uint32_t getPortGroupCount() const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
+
+        return fData->portGroupCount;
+    }
+
+    const PortGroupWithId& getPortGroupById(const uint32_t groupId) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && fData->portGroupCount != 0, sFallbackPortGroup);
+
+        for (uint32_t i=0; i < fData->portGroupCount; ++i)
+        {
+            const PortGroupWithId& portGroup(fData->portGroups[i]);
+
+            if (portGroup.groupId == groupId)
+                return portGroup;
+        }
+
+        return sFallbackPortGroup;
+    }
+
+    const PortGroupWithId& getPortGroupByIndex(const uint32_t index) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->portGroupCount, sFallbackPortGroup);
+
+        return fData->portGroups[index];
+    }
+
+    const String& getPortGroupSymbolForId(const uint32_t groupId) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, sFallbackString);
+
+        return getPortGroupById(groupId).symbol;
     }
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -485,6 +620,15 @@ public:
 
         return fData->stateDefValues[index];
     }
+
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+    bool isStateFile(const uint32_t index) const
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, false);
+
+        return fPlugin->isStateFile(index);
+    }
+# endif
 
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
     String getState(const char* key) const
@@ -667,9 +811,12 @@ private:
     static const AudioPort                  sFallbackAudioPort;
     static const ParameterRanges            sFallbackRanges;
     static const ParameterEnumerationValues sFallbackEnumValues;
+    static const PortGroupWithId            sFallbackPortGroup;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginExporter)
+#ifndef DISTRHO_PLUGIN_TARGET_VST3 /* there is no way around this for VST3 */
     DISTRHO_PREVENT_HEAP_ALLOCATION
+#endif
 };
 
 // -----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -23,6 +23,7 @@ START_NAMESPACE_DISTRHO
 
 uint32_t d_lastBufferSize = 0;
 double   d_lastSampleRate = 0.0;
+bool     d_lastCanRequestParameterValueChanges = false;
 
 /* ------------------------------------------------------------------------------------------------------------
  * Static fallback data, see DistrhoPluginInternal.hpp */
@@ -31,6 +32,7 @@ const String                     PluginExporter::sFallbackString;
 const AudioPort                  PluginExporter::sFallbackAudioPort;
 const ParameterRanges            PluginExporter::sFallbackRanges;
 const ParameterEnumerationValues PluginExporter::sFallbackEnumValues;
+const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin */
@@ -109,6 +111,18 @@ bool Plugin::writeMidiEvent(const MidiEvent& midiEvent) noexcept
 }
 #endif
 
+#if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+bool Plugin::canRequestParameterValueChanges() const noexcept
+{
+    return pData->canRequestParameterValueChanges;
+}
+
+bool Plugin::requestParameterValueChange(const uint32_t index, const float value) noexcept
+{
+    return pData->requestParameterValueChangeCallback(index, value);
+}
+#endif
+
 /* ------------------------------------------------------------------------------------------------------------
  * Init */
 
@@ -128,6 +142,11 @@ void Plugin::initAudioPort(bool input, uint32_t index, AudioPort& port)
         port.symbol  = input ? "audio_in_" : "audio_out_";
         port.symbol += String(index+1);
     }
+}
+
+void Plugin::initPortGroup(const uint32_t groupId, PortGroup& portGroup)
+{
+    fillInPredefinedPortGroupData(groupId, portGroup);
 }
 
 /* ------------------------------------------------------------------------------------------------------------

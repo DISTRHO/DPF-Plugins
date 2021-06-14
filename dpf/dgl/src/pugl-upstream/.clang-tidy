@@ -1,0 +1,4 @@
+Checks: >
+  *,
+FormatStyle: file
+WarningsAsErrors: '*'

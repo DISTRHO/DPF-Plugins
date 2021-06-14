@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -35,7 +35,7 @@ START_NAMESPACE_DISTRHO
  */
 
 /**
-   Audio port can be used as control voltage (LV2 only).
+   Audio port can be used as control voltage (LV2 and JACK standalone only).
  */
 static const uint32_t kAudioPortIsCV = 0x1;
 
@@ -43,6 +43,32 @@ static const uint32_t kAudioPortIsCV = 0x1;
    Audio port should be used as sidechan (LV2 only).
  */
 static const uint32_t kAudioPortIsSidechain = 0x2;
+
+/**
+   CV port has bipolar range (-1 to +1, or -5 to +5 if scaled).
+   This is merely a hint to tell the host what value range to expect.
+ */
+static const uint32_t kCVPortHasBipolarRange = 0x10;
+
+/**
+   CV port has negative unipolar range (0 to +1, or 0 to +10 if scaled).
+   This is merely a hint to tell the host what value range to expect.
+ */
+static const uint32_t kCVPortHasNegativeUnipolarRange = 0x20;
+
+/**
+   CV port has positive unipolar range (-1 to 0, or -10 to 0 if scaled).
+   This is merely a hint to tell the host what value range to expect.
+ */
+static const uint32_t kCVPortHasPositiveUnipolarRange = 0x40;
+
+/**
+   CV port has scaled range to match real values (-5 to +5v bipolar, +/-10 to 0v unipolar).
+   One range flag is required if this flag is set.
+
+   When enabled, this makes the port a mod:CVPort, compatible with the MOD Devices platform.
+ */
+static const uint32_t kCVPortHasScaledRange = 0x80;
 
 /** @} */
 
@@ -83,9 +109,12 @@ static const uint32_t kParameterIsLogarithmic = 0x08;
    Parameter is of output type.@n
    When unset, parameter is assumed to be of input type.
 
-   Parameter inputs are changed by the host and must not be changed by the plugin.@n
-   The only exception being when changing programs, see Plugin::loadProgram().@n
+   Parameter inputs are changed by the host and typically should not be changed by the plugin.@n
+   One exception is when changing programs, see Plugin::loadProgram().@n
+   The other exception is with parameter change requests, see Plugin::requestParameterValueChange().@n
    Outputs are changed by the plugin and never modified by the host.
+
+   If you are targetting VST2, make sure to order your parameters so that all inputs are before any outputs.
  */
 static const uint32_t kParameterIsOutput = 0x10;
 
@@ -109,7 +138,60 @@ static const uint32_t kParameterIsTrigger = 0x20 | kParameterIsBoolean;
  */
 
 /**
+   Parameter designation.@n
+   Allows a parameter to be specially designated for a task, like bypass.
+
+   Each designation is unique, there must be only one parameter that uses it.@n
+   The use of designated parameters is completely optional.
+
+   @note Designated parameters have strict ranges.
+   @see ParameterRanges::adjustForDesignation()
+ */
+enum ParameterDesignation {
+   /**
+     Null or unset designation.
+    */
+    kParameterDesignationNull = 0,
+
+   /**
+     Bypass designation.@n
+     When on (> 0.5f), it means the plugin must run in a bypassed state.
+    */
+    kParameterDesignationBypass = 1
+};
+
+/**
+   Predefined Port Groups Ids.
+
+   This enumeration provides a few commonly used groups for convenient use in plugins.
+   For preventing conflicts with user code, negative values are used here.
+   When rolling your own port groups, you MUST start their group ids from 0 and they MUST be sequential.
+
+   @see PortGroup
+ */
+enum PredefinedPortGroupsIds {
+   /**
+     Null or unset port group.
+    */
+    kPortGroupNone = (uint32_t)-1,
+
+   /**
+     A single channel audio group.
+    */
+    kPortGroupMono = (uint32_t)-2,
+
+   /**
+     A 2-channel discrete stereo audio group,
+     where the 1st audio port is the left channel and the 2nd port is the right channel.
+    */
+    kPortGroupStereo = (uint32_t)-3
+};
+
+/**
    Audio Port.
+
+   Can be used as CV port by specifying kAudioPortIsCV in hints,@n
+   but this is only supported in LV2 and JACK standalone formats.
  */
 struct AudioPort {
    /**
@@ -134,35 +216,23 @@ struct AudioPort {
     String symbol;
 
    /**
+      The group id that this audio/cv port belongs to.
+      No group is assigned by default.
+
+      You can use a group from PredefinedPortGroups or roll your own.@n
+      When rolling your own port groups, you MUST start their group ids from 0 and they MUST be sequential.
+      @see PortGroup, Plugin::initPortGroup
+    */
+    uint32_t groupId;
+
+   /**
       Default constructor for a regular audio port.
     */
     AudioPort() noexcept
         : hints(0x0),
           name(),
-          symbol() {}
-};
-
-/**
-   Parameter designation.@n
-   Allows a parameter to be specially designated for a task, like bypass.
-
-   Each designation is unique, there must be only one parameter that uses it.@n
-   The use of designated parameters is completely optional.
-
-   @note Designated parameters have strict ranges.
-   @see ParameterRanges::adjustForDesignation()
- */
-enum ParameterDesignation {
-   /**
-     Null or unset designation.
-    */
-    kParameterDesignationNull = 0,
-
-   /**
-     Bypass designation.@n
-     When on (> 0.5f), it means the plugin must run in a bypassed state.
-    */
-    kParameterDesignationBypass = 1
+          symbol(),
+          groupId(kPortGroupNone) {}
 };
 
 /**
@@ -189,7 +259,7 @@ struct ParameterRanges {
     float max;
 
    /**
-      Default constructor, using 0.0 as minimum, 1.0 as maximum and 0.0 as default.
+      Default constructor, using 0.0 as default, 0.0 as minimum, 1.0 as maximum.
     */
     ParameterRanges() noexcept
         : def(0.0f),
@@ -333,7 +403,7 @@ struct ParameterEnumerationValues {
 
    /**
       Array of @ParameterEnumerationValue items.@n
-      This pointer must be null or have been allocated on the heap with `new`.
+      This pointer must be null or have been allocated on the heap with `new ParameterEnumerationValue[count]`.
     */
     const ParameterEnumerationValue* values;
 
@@ -366,7 +436,7 @@ struct ParameterEnumerationValues {
         }
     }
 
-    DISTRHO_DECLARE_NON_COPY_STRUCT(ParameterEnumerationValues)
+    DISTRHO_DECLARE_NON_COPYABLE(ParameterEnumerationValues)
 };
 
 /**
@@ -440,6 +510,16 @@ struct Parameter {
     uint8_t midiCC;
 
    /**
+      The group id that this parameter belongs to.
+      No group is assigned by default.
+
+      You can use a group from PredefinedPortGroups or roll your own.@n
+      When rolling your own port groups, you MUST start their group ids from 0 and they MUST be sequential.
+      @see PortGroup, Plugin::initPortGroup
+    */
+    uint32_t groupId;
+
+   /**
       Default constructor for a null parameter.
     */
     Parameter() noexcept
@@ -451,7 +531,8 @@ struct Parameter {
           ranges(),
           enumValues(),
           designation(kParameterDesignationNull),
-          midiCC(0) {}
+          midiCC(0),
+          groupId(kPortGroupNone) {}
 
    /**
       Constructor using custom values.
@@ -465,7 +546,8 @@ struct Parameter {
           ranges(def, min, max),
           enumValues(),
           designation(kParameterDesignationNull),
-          midiCC(0) {}
+          midiCC(0),
+          groupId(kPortGroupNone) {}
 
    /**
       Initialize a parameter for a specific designation.
@@ -485,12 +567,47 @@ struct Parameter {
             symbol     = "dpf_bypass";
             unit       = "";
             midiCC     = 0;
+            groupId    = kPortGroupNone;
             ranges.def = 0.0f;
             ranges.min = 0.0f;
             ranges.max = 1.0f;
             break;
         }
     }
+};
+
+/**
+   Port Group.@n
+   Allows to group together audio/cv ports or parameters.
+
+   Each unique group MUST have an unique symbol and a name.
+   A group can be applied to both inputs and outputs (at the same time).
+   The same group cannot be used in audio ports and parameters.
+
+   An audio port group logically combines ports which should be considered part of the same stream.@n
+   For example, two audio ports in a group may form a stereo stream.
+
+   A parameter group provides meta-data to the host to indicate that some parameters belong together.
+
+   The use of port groups is completely optional.
+
+   @see Plugin::initPortGroup, AudioPort::group, Parameter::group
+ */
+struct PortGroup {
+   /**
+      The name of this port group.@n
+      A port group name can contain any character, but hosts might have a hard time with non-ascii ones.@n
+      The name doesn't have to be unique within a plugin instance, but it's recommended.
+    */
+    String name;
+
+   /**
+      The symbol of this port group.@n
+      A port group symbol is a short restricted name used as a machine and human readable identifier.@n
+      The first character must be one of _, a-z or A-Z and subsequent characters can be from _, a-z, A-Z and 0-9.
+      @note Port group symbols MUST be unique within a plugin instance.
+    */
+    String symbol;
 };
 
 /**
@@ -525,7 +642,7 @@ struct MidiEvent {
    The @a playing and @a frame values are always valid.@n
    BBT values are only valid when @a bbt.valid is true.
 
-   This struct is inspired by the JACK Transport API.
+   This struct is inspired by the [JACK Transport API](https://jackaudio.org/api/structjack__position__t.html).
  */
 struct TimePosition {
    /**
@@ -566,8 +683,9 @@ struct TimePosition {
           Current tick within beat.@n
           Should always be >= 0 and < @a ticksPerBeat.@n
           The first tick is tick '0'.
+          @note Fraction part of tick is only available on some plugin formats.
         */
-        int32_t tick;
+        double tick;
 
        /**
           Number of ticks that have elapsed between frame 0 and the first beat of the current measure.
@@ -742,6 +860,24 @@ public:
     bool writeMidiEvent(const MidiEvent& midiEvent) noexcept;
 #endif
 
+#if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+   /**
+      Check if parameter value change requests will work with the current plugin host.
+      @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
+      @see requestParameterValueChange(uint32_t, float)
+    */
+    bool canRequestParameterValueChanges() const noexcept;
+
+   /**
+      Request a parameter value change from the host.
+      If successful, this function will automatically trigger a parameter update on the UI side as well.
+      This function can fail, for example if the host is busy with the parameter for read-only automation.
+      Some hosts simply do not have this functionality, which can be verified with canRequestParameterValueChanges().
+      @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
+    */
+    bool requestParameterValueChange(uint32_t index, float value) noexcept;
+#endif
+
 protected:
    /* --------------------------------------------------------------------------------------------------------
     * Information */
@@ -809,6 +945,13 @@ protected:
     */
     virtual void initParameter(uint32_t index, Parameter& parameter) = 0;
 
+   /**
+      Initialize the port group @a groupId.@n
+      This function will be called once,
+      shortly after the plugin is created and all audio ports and parameters have been enumerated.
+    */
+    virtual void initPortGroup(uint32_t groupId, PortGroup& portGroup);
+
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
    /**
       Set the name of the program @a index.@n
@@ -825,6 +968,13 @@ protected:
       Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
     */
     virtual void initState(uint32_t index, String& stateKey, String& defaultStateValue) = 0;
+#endif
+
+#if DISTRHO_PLUGIN_WANT_STATEFILES
+   /**
+      TODO API under construction
+    */
+    virtual bool isStateFile(uint32_t index) = 0;
 #endif
 
    /* --------------------------------------------------------------------------------------------------------

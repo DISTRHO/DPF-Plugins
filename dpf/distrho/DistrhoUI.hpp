@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -20,23 +20,32 @@
 #include "extra/LeakDetector.hpp"
 #include "src/DistrhoPluginChecks.h"
 
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-# include "../dgl/Base.hpp"
-# include "extra/ExternalWindow.hpp"
-typedef DISTRHO_NAMESPACE::ExternalWindow UIWidget;
-#elif DISTRHO_UI_USE_NANOVG
-# include "../dgl/NanoVG.hpp"
-typedef DGL_NAMESPACE::NanoWidget UIWidget;
-#else
-# include "../dgl/Widget.hpp"
-typedef DGL_NAMESPACE::Widget UIWidget;
-#endif
-
 #ifdef DGL_CAIRO
 # include "Cairo.hpp"
 #endif
 #ifdef DGL_OPENGL
 # include "OpenGL.hpp"
+#endif
+#ifdef DGL_VULKAN
+# include "Vulkan.hpp"
+#endif
+
+#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+# include "../dgl/Base.hpp"
+# include "extra/ExternalWindow.hpp"
+typedef DISTRHO_NAMESPACE::ExternalWindow UIWidget;
+#elif DISTRHO_UI_USE_CUSTOM
+# include DISTRHO_UI_CUSTOM_INCLUDE_PATH
+typedef DISTRHO_UI_CUSTOM_WIDGET_TYPE UIWidget;
+#elif DISTRHO_UI_USE_CAIRO
+# include "../dgl/Cairo.hpp"
+typedef DGL_NAMESPACE::CairoTopLevelWidget UIWidget;
+#elif DISTRHO_UI_USE_NANOVG
+# include "../dgl/NanoVG.hpp"
+typedef DGL_NAMESPACE::NanoTopLevelWidget UIWidget;
+#else
+# include "../dgl/TopLevelWidget.hpp"
+typedef DGL_NAMESPACE::TopLevelWidget UIWidget;
 #endif
 
 START_NAMESPACE_DISTRHO
@@ -69,17 +78,43 @@ public:
     */
     virtual ~UI();
 
-#if DISTRHO_UI_USER_RESIZABLE && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-   /**
-      Set geometry constraints for the UI when resized by the user, and optionally scale UI automatically.
-      @see Window::setGeometryConstraints(uint,uint,bool)
-      @see Window::setScaling(double)
-    */
-    void setGeometryConstraints(uint minWidth, uint minHeight, bool keepAspectRatio, bool automaticallyScale = false);
-#endif
-
    /* --------------------------------------------------------------------------------------------------------
     * Host state */
+
+   /**
+      Check if this UI window is resizable (by the user or window manager).
+      There are situations where an UI supports resizing but the plugin host does not, so this could return false.
+
+      You might want to add a resize handle for such cases, so the user is still allowed to resize the window.
+      (programatically resizing a window is always possible, but the same is not true for the window manager)
+    */
+    bool isResizable() const noexcept;
+
+   /**
+      Get the color used for UI background (i.e. window color) in RGBA format.
+      Returns 0 by default, in case of error or lack of host support.
+
+      The following example code can be use to extract individual colors:
+      ```
+      const int red   = (bgColor >> 24) & 0xff;
+      const int green = (bgColor >> 16) & 0xff;
+      const int blue  = (bgColor >>  8) & 0xff;
+      ```
+    */
+    uint getBackgroundColor() const noexcept;
+
+   /**
+      Get the color used for UI foreground (i.e. text color) in RGBA format.
+      Returns 0xffffffff by default, in case of error or lack of host support.
+
+      The following example code can be use to extract individual colors:
+      ```
+      const int red   = (fgColor >> 24) & 0xff;
+      const int green = (fgColor >> 16) & 0xff;
+      const int blue  = (fgColor >>  8) & 0xff;
+      ```
+    */
+    uint getForegroundColor() const noexcept;
 
    /**
       Get the current sample rate used in plugin processing.
@@ -92,13 +127,13 @@ public:
 
       Touch/pressed-down event.
       Lets the host know the user is tweaking a parameter.
-      Required in some hosts to record automation.      
+      Required in some hosts to record automation.
     */
     void editParameter(uint32_t index, bool started);
 
    /**
       setParameterValue.
-      
+
       Change a parameter value in the Plugin.
     */
     void setParameterValue(uint32_t index, float value);
@@ -111,11 +146,23 @@ public:
     void setState(const char* key, const char* value);
 #endif
 
+#if DISTRHO_PLUGIN_WANT_STATEFILES
+   /**
+      Request a new file from the host, matching the properties of a state key.@n
+      This will use the native host file browser if available, otherwise a DPF built-in file browser is used.@n
+      Response will be sent asynchronously to stateChanged, with the matching key and the new file as the value.@n
+      It is not possible to know if the action was cancelled by the user.
+
+      @return Success if a file-browser was opened, otherwise false.
+      @note You cannot request more than one file at a time.
+    */
+    bool requestStateFile(const char* key);
+#endif
+
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
    /**
-      sendNote.
-      @TODO Document this.
-      @note Work in progress. Implemented for DSSI and LV2 formats.
+      Send a single MIDI note from the UI to the plugin DSP side.@n
+      A note with zero velocity will be sent as note-off (MIDI 0x80), otherwise note-on (MIDI 0x90).
     */
     void sendNote(uint8_t channel, uint8_t note, uint8_t velocity);
 #endif
@@ -199,25 +246,54 @@ protected:
     * UI Callbacks (optional) */
 
    /**
-      uiIdle.
-      @TODO Document this.
+      UI idle function, called to give idle time to the plugin UI directly from the host.
+      This is called right after OS event handling and Window idle events (within the same cycle).
+      There are no guarantees in terms of timing.
+      @see addIdleCallback(IdleCallback*, uint).
     */
     virtual void uiIdle() {}
 
+   /**
+      Windows focus function, called when the window gains or loses the keyboard focus.
+      This function is for plugin UIs to be able to override Window::onFocus(bool, CrossingMode).
+
+      The default implementation does nothing.
+    */
+    virtual void uiFocus(bool focus, DGL_NAMESPACE::CrossingMode mode);
+
+   /**
+      Window reshape function, called when the window is resized.
+      This function is for plugin UIs to be able to override Window::onReshape(uint, uint).
+
+      The plugin UI size will be set right after this function.
+      The default implementation sets up drawing context where necessary.
+
+      You should almost never need to override this function.
+      The most common exception is custom OpenGL setup, but only really needed for custom OpenGL drawing code.
+    */
+    virtual void uiReshape(uint width, uint height);
+
+   /**
+      Window scale factor function, called when the scale factor changes.
+      This function is for plugin UIs to be able to override Window::onScaleFactorChanged(double).
+
+      The default implementation does nothing.
+      WARNING function needs a proper name
+    */
+    virtual void uiScaleFactorChanged(double scaleFactor);
+
 # ifndef DGL_FILE_BROWSER_DISABLED
    /**
-      File browser selected function.
-      @see Window::fileBrowserSelected(const char*)
+      Window file selected function, called when a path is selected by the user, as triggered by openFileBrowser().
+      This function is for plugin UIs to be able to override Window::onFileSelected(const char*).
+
+      This action happens after the user confirms the action, so the file browser dialog will be closed at this point.
+      The default implementation does nothing.
+
+      If you need to use files as plugin state, please setup and use DISTRHO_PLUGIN_WANT_STATEFILES instead.
     */
     virtual void uiFileBrowserSelected(const char* filename);
 # endif
-
-   /**
-      OpenGL window reshape function, called when parent window is resized.
-      You can reimplement this function for a custom OpenGL state.
-      @see Window::onReshape(uint,uint)
-    */
-    virtual void uiReshape(uint width, uint height);
 
    /* --------------------------------------------------------------------------------------------------------
     * UI Resize Handling, internal */
@@ -234,17 +310,9 @@ protected:
 
 private:
     struct PrivateData;
-    PrivateData* const pData;
+    PrivateData* const uiData;
+    friend class PluginWindow;
     friend class UIExporter;
-    friend class UIExporterWindow;
-
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    // these should not be used
-    void setAbsoluteX(int) const noexcept {}
-    void setAbsoluteY(int) const noexcept {}
-    void setAbsolutePos(int, int) const noexcept {}
-    void setAbsolutePos(const DGL_NAMESPACE::Point<int>&) const noexcept {}
-#endif
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UI)
 };

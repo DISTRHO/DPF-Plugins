@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2016 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -93,11 +93,12 @@ struct OscData {
 
 // -----------------------------------------------------------------------
 
-class UIDssi
+class UIDssi : public DGL_NAMESPACE::IdleCallback
 {
 public:
-    UIDssi(const OscData& oscData, const char* const uiTitle)
-        : fUI(this, 0, nullptr, setParameterCallback, setStateCallback, sendNoteCallback, setSizeCallback),
+    UIDssi(const OscData& oscData, const char* const uiTitle, const double sampleRate)
+        : fUI(this, 0, sampleRate, nullptr,
+              setParameterCallback, setStateCallback, sendNoteCallback, nullptr, nullptr),
           fHostClosed(false),
           fOscData(oscData)
     {
@@ -110,17 +111,19 @@ public:
             fOscData.send_exiting();
     }
 
-    void exec()
+    void exec_start()
     {
-        for (;;)
-        {
-            fOscData.idle();
+        fUI.exec(this);
+    }
 
-            if (fHostClosed || ! fUI.idle())
-                break;
+    void idleCallback() override
+    {
+        fOscData.idle();
 
-            d_msleep(30);
-        }
+        if (fHostClosed)
+            return;
+
+        fUI.exec_idle();
     }
 
     // -------------------------------------------------------------------
@@ -205,11 +208,6 @@ protected:
     }
 #endif
 
-    void setSize(const uint width, const uint height)
-    {
-        fUI.setWindowSize(width, height);
-    }
-
 private:
     UIExporter fUI;
     bool fHostClosed;
@@ -238,11 +236,6 @@ private:
     }
 #endif
 
-    static void setSizeCallback(void* ptr, uint width, uint height)
-    {
-        uiPtr->setSize(width, height);
-    }
-
     #undef uiPtr
 };
 
@@ -251,16 +244,17 @@ private:
 static OscData     gOscData;
 static const char* gUiTitle = nullptr;
 static UIDssi*     globalUI = nullptr;
+static double      sampleRate = 0.0;
 
 static void initUiIfNeeded()
 {
     if (globalUI != nullptr)
         return;
 
-    if (d_lastUiSampleRate == 0.0)
-        d_lastUiSampleRate = 44100.0;
+    if (sampleRate == 0.0)
+        sampleRate = 44100.0;
 
-    globalUI = new UIDssi(gOscData, gUiTitle);
+    globalUI = new UIDssi(gOscData, gUiTitle, sampleRate);
 }
 
 // -----------------------------------------------------------------------
@@ -336,10 +330,8 @@ int osc_program_handler(const char*, const char*, lo_arg** argv, int, lo_message
 
 int osc_sample_rate_handler(const char*, const char*, lo_arg** argv, int, lo_message, void*)
 {
-    const int32_t sampleRate = argv[0]->i;
-    d_debug("osc_sample_rate_handler(%i)", sampleRate);
-
-    d_lastUiSampleRate = sampleRate;
+    sampleRate = argv[0]->i;
+    d_debug("osc_sample_rate_handler(%f)", sampleRate);
 
     if (globalUI != nullptr)
         globalUI->dssiui_samplerate(sampleRate);
@@ -393,7 +385,7 @@ int main(int argc, char* argv[])
 
         initUiIfNeeded();
         globalUI->dssiui_show(true);
-        globalUI->exec();
+        globalUI->exec_start();
 
         delete globalUI;
         globalUI = nullptr;
@@ -480,7 +472,7 @@ int main(int argc, char* argv[])
     {
         lo_server_recv(oscServer);
 
-        if (d_lastUiSampleRate != 0.0 || globalUI != nullptr)
+        if (sampleRate != 0.0 || globalUI != nullptr)
             break;
 
         d_msleep(50);
@@ -488,11 +480,11 @@ int main(int argc, char* argv[])
 
     int ret = 1;
 
-    if (d_lastUiSampleRate != 0.0 || globalUI != nullptr)
+    if (sampleRate != 0.0 || globalUI != nullptr)
     {
         initUiIfNeeded();
 
-        globalUI->exec();
+        globalUI->exec_start();
 
         delete globalUI;
         globalUI = nullptr;

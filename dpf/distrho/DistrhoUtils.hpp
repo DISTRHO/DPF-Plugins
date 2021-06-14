@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2018 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -33,6 +33,11 @@
 # include <stdint.h>
 #endif
 
+#if defined(DISTRHO_OS_WINDOWS) && defined(_MSC_VER)
+#include <basetsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #if defined(DISTRHO_OS_MAC) && ! defined(CARLA_OS_MAC) && ! defined(DISTRHO_PROPER_CPP11_SUPPORT)
 namespace std {
 inline float fmin(float __x, float __y)
@@ -50,13 +55,16 @@ inline float round(float __x)
 # define M_PI 3.14159265358979323846
 #endif
 
+#define DISTRHO_MACRO_AS_STRING_VALUE(MACRO) #MACRO
+#define DISTRHO_MACRO_AS_STRING(MACRO) DISTRHO_MACRO_AS_STRING_VALUE(MACRO)
+
 // -----------------------------------------------------------------------
 // misc functions
 
 /*
  * Return a 64-bit number from 4 8-bit numbers.
  */
-static inline
+static inline constexpr
 int64_t d_cconst(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d) noexcept
 {
     return (a << 24) | (b << 16) | (c << 8) | (d << 0);
@@ -65,7 +73,7 @@ int64_t d_cconst(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_
 /*
  * Return an hexadecimal representation of a MAJ.MIN.MICRO version number.
  */
-static inline
+static inline constexpr
 uint32_t d_version(const uint8_t major, const uint8_t minor, const uint8_t micro) noexcept
 {
     return uint32_t(major << 16) | uint32_t(minor << 8) | (micro << 0);
@@ -91,12 +99,12 @@ static inline
 void d_debug(const char* const fmt, ...) noexcept
 {
     try {
-        ::va_list args;
-        ::va_start(args, fmt);
+        va_list args;
+        va_start(args, fmt);
         std::fprintf(stdout, "\x1b[30;1m");
         std::vfprintf(stdout, fmt, args);
         std::fprintf(stdout, "\x1b[0m\n");
-        ::va_end(args);
+        va_end(args);
     } catch (...) {}
 }
 #endif
@@ -108,11 +116,11 @@ static inline
 void d_stdout(const char* const fmt, ...) noexcept
 {
     try {
-        ::va_list args;
-        ::va_start(args, fmt);
+        va_list args;
+        va_start(args, fmt);
         std::vfprintf(stdout, fmt, args);
         std::fprintf(stdout, "\n");
-        ::va_end(args);
+        va_end(args);
     } catch (...) {}
 }
 
@@ -123,11 +131,11 @@ static inline
 void d_stderr(const char* const fmt, ...) noexcept
 {
     try {
-        ::va_list args;
-        ::va_start(args, fmt);
+        va_list args;
+        va_start(args, fmt);
         std::vfprintf(stderr, fmt, args);
         std::fprintf(stderr, "\n");
-        ::va_end(args);
+        va_end(args);
     } catch (...) {}
 }
 
@@ -138,12 +146,12 @@ static inline
 void d_stderr2(const char* const fmt, ...) noexcept
 {
     try {
-        ::va_list args;
-        ::va_start(args, fmt);
+        va_list args;
+        va_start(args, fmt);
         std::fprintf(stderr, "\x1b[31m");
         std::vfprintf(stderr, fmt, args);
         std::fprintf(stderr, "\x1b[0m\n");
-        ::va_end(args);
+        va_end(args);
     } catch (...) {}
 }
 
@@ -194,6 +202,16 @@ void d_safe_assert_uint2(const char* const assertion, const char* const file,
                          const int line, const uint v1, const uint v2) noexcept
 {
     d_stderr2("assertion failure: \"%s\" in file %s, line %i, v1 %u, v2 %u", assertion, file, line, v1, v2);
+}
+
+/*
+ * Print a safe assertion error message, with a custom error message.
+ */
+static inline
+void d_custom_safe_assert(const char* const message, const char* const assertion, const char* const file,
+                          const int line) noexcept
+{
+    d_stderr2("assertion failure: %s, condition \"%s\" in file %s, line %i", message, assertion, file, line);
 }
 
 /*

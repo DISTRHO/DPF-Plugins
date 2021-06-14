@@ -1,0 +1,153 @@
+stages:
+  - build
+  - deploy
+
+.build_template: &build_definition
+  stage: build
+
+arm32_dbg:
+  <<: *build_definition
+  image: lv2plugin/debian-arm32
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/arm-linux-gnueabihf.ini -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+arm32_rel:
+  <<: *build_definition
+  image: lv2plugin/debian-arm32
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/arm-linux-gnueabihf.ini -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+arm64_dbg:
+  <<: *build_definition
+  image: lv2plugin/debian-arm64
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/aarch64-linux-gnu.ini -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+arm64_rel:
+  <<: *build_definition
+  image: lv2plugin/debian-arm64
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/aarch64-linux-gnu.ini -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+x64_dbg:
+  <<: *build_definition
+  image: lv2plugin/debian-x64
+  script:
+    - meson setup build -Dbuildtype=debug -Ddocs=enabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+  artifacts:
+    paths:
+      - build/doc
+
+x64_rel:
+  <<: *build_definition
+  image: lv2plugin/debian-x64
+  script:
+    - meson setup build -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+x64_static:
+  <<: *build_definition
+  image: lv2plugin/debian-x64
+  script:
+    - meson setup build -Ddefault_library=static -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+x64_sanitize:
+  <<: *build_definition
+  image: lv2plugin/debian-x64-clang
+  script:
+    - meson setup build -Db_lundef=false -Dbuildtype=plain -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+  variables:
+    CC: "clang"
+    CXX: "clang++"
+    CFLAGS: "-fno-sanitize-recover=all -fsanitize=address -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=unsigned-integer-overflow -fsanitize=implicit-conversion -fsanitize=local-bounds -fsanitize=nullability"
+    CXXFLAGS: "-fno-sanitize-recover=all -fsanitize=address -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=unsigned-integer-overflow -fsanitize=implicit-conversion -fsanitize=local-bounds -fsanitize=nullability"
+    LDFLAGS: "-fno-sanitize-recover=all -fsanitize=address -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=unsigned-integer-overflow -fsanitize=implicit-conversion -fsanitize=local-bounds -fsanitize=nullability"
+
+
+mingw32_dbg:
+  <<: *build_definition
+  image: lv2plugin/debian-mingw32
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/i686-w64-mingw32.ini -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+mingw32_rel:
+  <<: *build_definition
+  image: lv2plugin/debian-mingw32
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/i686-w64-mingw32.ini -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+mingw64_dbg:
+  <<: *build_definition
+  image: lv2plugin/debian-mingw64
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/x86_64-w64-mingw32.ini -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+mingw64_rel:
+  <<: *build_definition
+  image: lv2plugin/debian-mingw64
+  script:
+    - meson setup build --cross-file=/usr/share/meson/cross/x86_64-w64-mingw32.ini -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+mac_dbg:
+  <<: *build_definition
+  tags: [macos]
+  script:
+    - meson setup build -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+mac_rel:
+  <<: *build_definition
+  tags: [macos]
+  script:
+    - meson setup build -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+
+win_dbg:
+  <<: *build_definition
+  tags: [windows,meson]
+  script:
+    - meson setup build -Dbuildtype=debug -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+win_rel:
+  <<: *build_definition
+  tags: [windows,meson]
+  script:
+    - meson setup build -Dbuildtype=release -Ddocs=disabled -Dstrict=true -Dwerror=true
+    - ninja -C build
+
+pages:
+  stage: deploy
+  script:
+    - mkdir public
+    - mkdir public/c
+    - mkdir public/cpp
+    - mv build/doc/c/singlehtml/ public/c/singlehtml/
+    - mv build/doc/cpp/singlehtml/ public/cpp/singlehtml/
+    - mv build/doc/c/html/ public/c/html/
+    - mv build/doc/cpp/html/ public/cpp/html/
+  dependencies:
+    - x64_dbg
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
