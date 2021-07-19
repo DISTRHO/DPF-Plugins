@@ -38,6 +38,10 @@
 # define JACK_METADATA_PRETTY_NAME "http://jackaudio.org/metadata/pretty-name"
 #endif
 
+#ifndef JACK_METADATA_PORT_GROUP
+# define JACK_METADATA_PORT_GROUP "http://jackaudio.org/metadata/port-group"
+#endif
+
 #ifndef JACK_METADATA_SIGNAL_TYPE
 # define JACK_METADATA_SIGNAL_TYPE "http://jackaudio.org/metadata/signal-type"
 #endif
@@ -351,6 +355,12 @@ protected:
                 fTimePosition.bbt.bar  = pos.bar;
                 fTimePosition.bbt.beat = pos.beat;
                 fTimePosition.bbt.tick = pos.tick;
+#ifdef JACK_TICK_DOUBLE
+                if (pos.valid & JackTickDouble)
+                    fTimePosition.bbt.tick = pos.tick_double;
+                else
+#endif
+                    fTimePosition.bbt.tick = pos.tick;
                 fTimePosition.bbt.barStartTick = pos.bar_start_tick;
 
                 fTimePosition.bbt.beatsPerBar = pos.beats_per_bar;
@@ -586,6 +596,12 @@ private:
             char strBuf[0xff];
             snprintf(strBuf, sizeof(0xff)-1, "%u", index);
             jackbridge_set_property(fClient, uuid, JACK_METADATA_ORDER, strBuf, "http://www.w3.org/2001/XMLSchema#integer");
+        }
+
+        if (port.groupId != kPortGroupNone)
+        {
+            const PortGroupWithId& portGroup(fPlugin.getPortGroupById(port.groupId));
+            jackbridge_set_property(fClient, uuid, JACK_METADATA_PORT_GROUP, portGroup.name, "text/plain");
         }
 
         if (port.hints & kAudioPortIsCV)

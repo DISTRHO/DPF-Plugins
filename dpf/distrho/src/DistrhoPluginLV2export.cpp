@@ -430,9 +430,21 @@ void lv2_generate_ttl(const char* const basename)
                 if (port.hints & kAudioPortIsSidechain)
                     pluginString += "        lv2:portProperty lv2:isSideChain;\n";
 
-                if (port.groupId != kPortGroupNone)
+                switch (port.groupId)
+                {
+                case kPortGroupNone:
+                    break;
+                case kPortGroupMono:
+                    pluginString += "        pg:group pg:MonoGroup ;\n";
+                    break;
+                case kPortGroupStereo:
+                    pluginString += "        pg:group pg:StereoGroup ;\n";
+                    break;
+                default:
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
+                    break;
+                }
 
                 // set ranges
                 if (port.hints & kCVPortHasBipolarRange)
@@ -508,9 +520,21 @@ void lv2_generate_ttl(const char* const basename)
                 if (port.hints & kAudioPortIsSidechain)
                     pluginString += "        lv2:portProperty lv2:isSideChain;\n";
 
-                if (port.groupId != kPortGroupNone)
+                switch (port.groupId)
+                {
+                case kPortGroupNone:
+                    break;
+                case kPortGroupMono:
+                    pluginString += "        pg:group pg:MonoGroup ;\n";
+                    break;
+                case kPortGroupStereo:
+                    pluginString += "        pg:group pg:StereoGroup ;\n";
+                    break;
+                default:
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
+                    break;
+                }
 
                 // set ranges
                 if (port.hints & kCVPortHasBipolarRange)
@@ -731,7 +755,7 @@ void lv2_generate_ttl(const char* const basename)
                     // unit
                     const String& unit(plugin.getParameterUnit(i));
 
-                    if (unit.isNotEmpty() && ! unit.contains(" "))
+                    if (unit.isNotEmpty() && ! unit.contains(' '))
                     {
                         String lunit(unit);
                         lunit.toLower();
@@ -770,7 +794,10 @@ void lv2_generate_ttl(const char* const basename)
                             pluginString += "            a unit:Unit ;\n";
                             pluginString += "            rdfs:label  \"" + unit + "\" ;\n";
                             pluginString += "            unit:symbol \"" + unit + "\" ;\n";
-                            pluginString += "            unit:render \"%f " + unit + "\" ;\n";
+                            if (plugin.getParameterHints(i) & kParameterIsInteger)
+                                pluginString += "            unit:render \"%d " + unit + "\" ;\n";
+                            else
+                                pluginString += "            unit:render \"%f " + unit + "\" ;\n";
                             pluginString += "        ] ;\n";
                         }
                     }
@@ -779,7 +806,12 @@ void lv2_generate_ttl(const char* const basename)
                     const String& comment(plugin.getParameterDescription(i));
 
                     if (comment.isNotEmpty())
-                        pluginString += "        rdfs:comment \"\"\"" + comment + "\"\"\" ;\n";
+                    {
+                        if (comment.contains('"') || comment.contains('\n'))
+                            pluginString += "        rdfs:comment \"\"\"" + comment + "\"\"\" ;\n";
+                        else
+                            pluginString += "        rdfs:comment \"" + comment + "\" ;\n";
+                    }
 
                     // hints
                     const uint32_t hints(plugin.getParameterHints(i));
@@ -805,9 +837,22 @@ void lv2_generate_ttl(const char* const basename)
                     // group
                     const uint32_t groupId = plugin.getParameterGroupId(i);
 
-                    if (groupId != kPortGroupNone)
+                    switch (groupId)
+                    {
+                    case kPortGroupNone:
+                        break;
+                    case kPortGroupMono:
+                        pluginString += "        pg:group pg:MonoGroup ;\n";
+                        break;
+                    case kPortGroupStereo:
+                        pluginString += "        pg:group pg:StereoGroup ;\n";
+                        break;
+                    default:
                         pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                         + plugin.getPortGroupSymbolForId(groupId) + "> ;\n";
+                        break;
+                    }
+
                 } // ! designated
 
                 if (i+1 == count)
@@ -823,8 +868,8 @@ void lv2_generate_ttl(const char* const basename)
 
             if (comment.isNotEmpty())
             {
-                if (comment.contains('"'))
-                    pluginString += "    rdfs:comment \"" + comment + "\" ;\n\n";
+                if (comment.contains('"') || comment.contains('\n'))
+                    pluginString += "    rdfs:comment \"\"\"" + comment + "\"\"\" ;\n\n";
                 else
                     pluginString += "    rdfs:comment \"" + comment + "\" ;\n\n";
             }
@@ -902,6 +947,13 @@ void lv2_generate_ttl(const char* const basename)
                 const PortGroupWithId& portGroup(plugin.getPortGroupByIndex(i));
                 DISTRHO_SAFE_ASSERT_CONTINUE(portGroup.groupId != kPortGroupNone);
                 DISTRHO_SAFE_ASSERT_CONTINUE(portGroup.symbol.isNotEmpty());
+
+                switch (portGroup.groupId)
+                {
+                case kPortGroupMono:
+                case kPortGroupStereo:
+                    continue;
+                }
 
                 pluginString += "\n<" DISTRHO_PLUGIN_URI "#portGroup_" + portGroup.symbol + ">\n";
                 isInput = isOutput = false;

@@ -29,7 +29,7 @@ using DGL::Color;
 
 DistrhoUIMVerb::DistrhoUIMVerb()
     : UI(Art::backgroundWidth, Art::backgroundHeight),
-      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, GL_BGR)
+      fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR)
 {
     // text
     fNanoText.loadSharedResources();
@@ -122,6 +122,9 @@ DistrhoUIMVerb::DistrhoUIMVerb()
 
     // set initial values
     programLoaded(0);
+
+    // TODO auto-scale but non-resizable
+    // setGeometryConstraints(Art::backgroundWidth, Art::backgroundHeight, true, true);
 }
 
 DistrhoUIMVerb::~DistrhoUIMVerb()
@@ -225,7 +228,9 @@ void DistrhoUIMVerb::imageKnobValueChanged(ImageKnob* knob, float value)
 
 void DistrhoUIMVerb::onDisplay()
 {
-    fImgBackground.draw();
+    const GraphicsContext& context(getGraphicsContext());
+
+    fImgBackground.draw(context);
 
     // text display
     fNanoText.beginFrame(this);

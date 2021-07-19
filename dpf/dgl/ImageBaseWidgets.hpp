@@ -17,6 +17,7 @@
 #ifndef DGL_IMAGE_BASE_WIDGETS_HPP_INCLUDED
 #define DGL_IMAGE_BASE_WIDGETS_HPP_INCLUDED
 
+#include "EventHandlers.hpp"
 #include "StandaloneWindow.hpp"
 #include "SubWidget.hpp"
 
@@ -47,7 +48,8 @@ private:
 // --------------------------------------------------------------------------------------------------------------------
 
 template <class ImageType>
-class ImageBaseButton : public SubWidget
+class ImageBaseButton : public SubWidget,
+                        public ButtonEventHandler
 {
 public:
     class Callback
@@ -80,14 +82,10 @@ private:
 // --------------------------------------------------------------------------------------------------------------------
 
 template <class ImageType>
-class ImageBaseKnob : public SubWidget
+class ImageBaseKnob : public SubWidget,
+                      public KnobEventHandler
 {
 public:
-    enum Orientation {
-        Horizontal,
-        Vertical
-    };
-
     class Callback
     {
     public:
@@ -102,25 +100,16 @@ public:
     ImageBaseKnob& operator=(const ImageBaseKnob& imageKnob);
     ~ImageBaseKnob() override;
 
-    float getValue() const noexcept;
-
-    void setDefault(float def) noexcept;
-    void setRange(float min, float max) noexcept;
-    void setStep(float step) noexcept;
-    void setValue(float value, bool sendCallback = false) noexcept;
-    void setUsingLogScale(bool yesNo) noexcept;
-
     void setCallback(Callback* callback) noexcept;
-    void setOrientation(Orientation orientation) noexcept;
-    void setRotationAngle(int angle);
-
     void setImageLayerCount(uint count) noexcept;
+    void setRotationAngle(int angle);
+    bool setValue(float value, bool sendCallback = false) noexcept override;
 
 protected:
-     void onDisplay() override;
-     bool onMouse(const MouseEvent&) override;
-     bool onMotion(const MotionEvent&) override;
-     bool onScroll(const ScrollEvent&) override;
+    void onDisplay() override;
+    bool onMouse(const MouseEvent&) override;
+    bool onMotion(const MotionEvent&) override;
+    bool onScroll(const ScrollEvent&) override;
 
 private:
     struct PrivateData;

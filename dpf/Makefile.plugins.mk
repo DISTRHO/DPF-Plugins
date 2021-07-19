@@ -7,14 +7,12 @@
 # NOTE: NAME, FILES_DSP and FILES_UI must have been defined before including this file!
 
 
-ifeq ($(DPF_CUSTOM_PATH),)
+ifeq ($(DPF_PATH),)
 ifeq (,$(wildcard ../../Makefile.base.mk))
 DPF_PATH=../../dpf
 else
 DPF_PATH=../..
 endif
-else
-DPF_PATH = $(DPF_CUSTOM_PATH)
 endif
 
 include $(DPF_PATH)/Makefile.base.mk
@@ -22,31 +20,49 @@ include $(DPF_PATH)/Makefile.base.mk
 # ---------------------------------------------------------------------------------------------------------------------
 # Basic setup
 
-ifeq ($(DPF_CUSTOM_PATH),)
+ifeq ($(DPF_TARGET_DIR),)
 TARGET_DIR = ../../bin
+else
+TARGET_DIR = $(DPF_TARGET_DIR)
+endif
+ifeq ($(DPF_BUILD_DIR),)
 BUILD_DIR = ../../build/$(NAME)
 else
-ifeq ($(DPF_CUSTOM_TARGET_DIR),)
-$(error DPF_CUSTOM_TARGET_DIR is not set)
-else
-TARGET_DIR = $(DPF_CUSTOM_TARGET_DIR)
-endif
-ifeq ($(DPF_CUSTOM_BUILD_DIR),)
-$(error DPF_CUSTOM_BUILD_DIR is not set)
-else
-BUILD_DIR = $(DPF_CUSTOM_BUILD_DIR)
-endif
+BUILD_DIR = $(DPF_BUILD_DIR)
 endif
 
 BUILD_C_FLAGS   += -I.
 BUILD_CXX_FLAGS += -I. -I$(DPF_PATH)/distrho -I$(DPF_PATH)/dgl
 
+ifeq ($(HAVE_ALSA),true)
+BASE_FLAGS += -DHAVE_ALSA
+endif
+
 ifeq ($(HAVE_LIBLO),true)
 BASE_FLAGS += -DHAVE_LIBLO
 endif
 
-ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
-JACK_LIBS = -ldl
+ifeq ($(HAVE_PULSEAUDIO),true)
+BASE_FLAGS += -DHAVE_PULSEAUDIO
+endif
+
+ifeq ($(MACOS),true)
+JACK_LIBS  += -framework CoreAudio -framework CoreFoundation
+else ifeq ($(WINDOWS),true)
+JACK_LIBS  += -lksuser -lmfplat -lmfuuid -lole32 -lwinmm -lwmcodecdspuuid
+else ifneq ($(HAIKU),true)
+JACK_LIBS   = -ldl
+ifeq ($(HAVE_ALSA),true)
+JACK_FLAGS += $(ALSA_FLAGS)
+JACK_LIBS  += $(ALSA_LIBS)
+endif
+ifeq ($(HAVE_PULSEAUDIO),true)
+JACK_FLAGS += $(PULSEAUDIO_FLAGS)
+JACK_LIBS  += $(PULSEAUDIO_LIBS)
+endif
+ifeq ($(HAVE_RTAUDIO),true)
+JACK_LIBS  += -lpthread
+endif # !HAIKU
 endif
 
 # backwards compat
@@ -257,7 +273,7 @@ $(BUILD_DIR)/DistrhoUI_macOS_%.mm.o: $(DPF_PATH)/distrho/DistrhoUI_macOS.mm
 $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoPluginMain.cpp (JACK)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_JACK -c -o $@
+	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_JACK $(JACK_FLAGS) -c -o $@
 
 $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
 	-@mkdir -p $(BUILD_DIR)

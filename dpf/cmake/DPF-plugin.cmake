@@ -187,6 +187,13 @@ function(dpf__build_jack NAME DGL_LIBRARY)
   if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
     target_link_libraries("${NAME}-jack" PRIVATE "dl")
   endif()
+
+  # for RtAudio native fallback
+  if(APPLE)
+    find_library(APPLE_COREAUDIO_FRAMEWORK "CoreAudio")
+    find_library(APPLE_COREFOUNDATION_FRAMEWORK "CoreFoundation")
+    target_link_libraries("${NAME}-jack" PRIVATE "${APPLE_COREAUDIO_FRAMEWORK}" "${APPLE_COREFOUNDATION_FRAMEWORK}")
+  endif()
 endfunction()
 
 # dpf__build_ladspa
@@ -326,6 +333,7 @@ function(dpf__add_dgl_cairo)
     "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
@@ -386,6 +394,7 @@ function(dpf__add_dgl_opengl)
     "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"

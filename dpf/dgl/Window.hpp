@@ -87,14 +87,14 @@ public:
             /** Whether to show list of places (bookmarks) */
             ButtonState showPlaces;
 
-            /** Constuctor for default values */
+            /** Constructor for default values */
             Buttons()
                 : listAllFiles(kButtonVisibleChecked),
                   showHidden(kButtonVisibleUnchecked),
                   showPlaces(kButtonVisibleUnchecked) {}
         } buttons;
 
-        /** Constuctor for default values */
+        /** Constructor for default values */
         FileBrowserOptions()
             : startDir(nullptr),
               title(nullptr),
@@ -103,6 +103,43 @@ public:
               buttons() {}
     };
 #endif // DGL_FILE_BROWSER_DISABLED
+
+   /**
+      Window graphics context as a scoped struct.
+      This class gives graphics context drawing time to a window's widgets.
+      Typically used for allowing OpenGL drawing operations during a window + widget constructor.
+
+      Unless you are subclassing the Window or StandaloneWindow classes, you do not need to care.
+      In such cases you will need to use this struct as a way to get a valid OpenGL context.
+      For example in a standalone application:
+      ```
+      int main()
+      {
+          Application app;
+          Window win(app);
+          ScopedPointer<MyCustomTopLevelWidget> widget;
+          {
+              const ScopedGraphicsContext sgc(win);
+              widget = new MyCustomTopLevelWidget(win);
+          }
+          app.exec();
+          return 0;
+      }
+      ```
+
+      This struct is necessary because we cannot automatically make the window leave the OpenGL context in custom code.
+      We must always cleanly enter and leave the OpenGL context.
+      In order to avoid messing up the global host context, this class is used around widget creation.
+    */
+    class ScopedGraphicsContext
+    {
+        Window& window;
+    public:
+        explicit ScopedGraphicsContext(Window& window);
+        ~ScopedGraphicsContext();
+        DISTRHO_DECLARE_NON_COPYABLE(ScopedGraphicsContext)
+        DISTRHO_PREVENT_HEAP_ALLOCATION
+    };
 
    /**
       Constructor for a regular, standalone window.
@@ -362,9 +399,6 @@ public:
     DISTRHO_DEPRECATED_BY("runAsModal(bool)")
     inline void exec(bool blockWait = false) { runAsModal(blockWait); }
 
-    // TESTING, DO NOT USE
-    void leaveContext();
-
 protected:
    /**
       A function called when the window is attempted to be closed.
@@ -414,6 +448,7 @@ private:
     struct PrivateData;
     PrivateData* const pData;
     friend class Application;
+    friend class PluginWindow;
     friend class TopLevelWidget;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window);
@@ -422,16 +457,5 @@ private:
 // -----------------------------------------------------------------------
 
 END_NAMESPACE_DGL
-
-/* TODO
- * add eventcrossing/enter-leave event
- */
-#if 0
-protected:
-    bool handlePluginKeyboard(const bool press, const uint key);
-    bool handlePluginSpecial(const bool press, const Key key);
-#endif
-
-// -----------------------------------------------------------------------
 
 #endif // DGL_WINDOW_HPP_INCLUDED

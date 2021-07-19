@@ -1063,7 +1063,7 @@ public:
             fTimePosition.bbt.valid = ((vstTimeInfo->flags & kVstTempoValid) != 0 || (vstTimeInfo->flags & kVstTimeSigValid) != 0);
 
             // ticksPerBeat is not possible with VST
-            fTimePosition.bbt.ticksPerBeat = 960.0;
+            fTimePosition.bbt.ticksPerBeat = 1920.0;
 
             if (vstTimeInfo->flags & kVstTempoValid)
                 fTimePosition.bbt.beatsPerMinute = vstTimeInfo->tempo;
@@ -1099,7 +1099,9 @@ public:
                 fTimePosition.bbt.beatType    = 4.0f;
             }
 
-            fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*fTimePosition.bbt.beatsPerBar*(fTimePosition.bbt.bar-1);
+            fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
+                                             fTimePosition.bbt.beatsPerBar*
+                                             (fTimePosition.bbt.bar-1);
 
             fPlugin.setTimePosition(fTimePosition);
         }
@@ -1448,7 +1450,9 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
                 memset(properties, 0, sizeof(VstParameterProperties));
 
                 // full name
-                DISTRHO_NAMESPACE::strncpy(properties->label, plugin.getParameterName(index), VestigeMaxLabelLen);
+                DISTRHO_NAMESPACE::strncpy(properties->label,
+                                           plugin.getParameterName(index),
+                                           sizeof(properties->label));
 
                 // short name
                 const String& shortName(plugin.getParameterShortName(index));
@@ -1456,7 +1460,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
                 if (shortName.isNotEmpty())
                     DISTRHO_NAMESPACE::strncpy(properties->shortLabel,
                                                plugin.getParameterShortName(index),
-                                               VestigeMaxShortLabelLen);
+                                               sizeof(properties->shortLabel));
 
                 // parameter hints
                 const uint32_t hints = plugin.getParameterHints(index);
@@ -1480,6 +1484,34 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
                 if (hints & kParameterIsLogarithmic)
                 {
                     properties->flags |= kVstParameterCanRamp;
+                }
+
+                // parameter group (category in vst)
+                const uint32_t groupId = plugin.getParameterGroupId(index);
+
+                if (groupId != kPortGroupNone)
+                {
+                    // we can't use groupId directly, so use the index array where this group is stored in
+                    for (uint32_t i=0, count=plugin.getPortGroupCount(); i < count; ++i)
+                    {
+                        const PortGroupWithId& portGroup(plugin.getPortGroupByIndex(i));
+
+                        if (portGroup.groupId == groupId)
+                        {
+                            properties->category = i + 1;
+                            DISTRHO_NAMESPACE::strncpy(properties->categoryLabel,
+                                                       portGroup.name.buffer(),
+                                                       sizeof(properties->categoryLabel));
+                            break;
+                        }
+                    }
+
+                    if (properties->category != 0)
+                    {
+                        for (uint32_t i=0, count=plugin.getParameterCount(); i < count; ++i)
+                            if (plugin.getParameterGroupId(i) == groupId)
+                                ++properties->numParametersInCategory;
+                    }
                 }
 
                 return 1;

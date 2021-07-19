@@ -44,6 +44,9 @@ struct Window::PrivateData : IdleCallback {
     /** Pugl view instance. */
     PuglView* const view;
 
+    /** Pugl view instance of the transient parent window. */
+    PuglView* const transientParentView;
+
     /** Reserved space for graphics context. */
     mutable uint8_t graphicsContext[sizeof(void*)];
 
@@ -160,9 +163,6 @@ struct Window::PrivateData : IdleCallback {
     void startModal();
     void stopModal();
     void runAsModal(bool blockWait);
-
-    // TESTING
-    void leaveContext();
 
     // pugl events
     void onPuglConfigure(double width, double height);
