@@ -36,9 +36,11 @@
 #include "../../extra/LibraryUtils.hpp"
 
 // in case JACK fails, we fallback to RtAudio's native API
-#include "RtAudioBridge.hpp"
-#ifdef RTAUDIO_API_TYPE
-# include "rtaudio/RtAudio.cpp"
+#ifdef DISTRHO_PROPER_CPP11_SUPPORT
+# include "RtAudioBridge.hpp"
+# ifdef RTAUDIO_API_TYPE
+#  include "rtaudio/RtAudio.cpp"
+# endif
 #endif
 
 // -----------------------------------------------------------------------------
@@ -422,6 +424,7 @@ struct JackBridge {
 # else
         const char* const filename("libjack.so.0");
 # endif
+        USE_NAMESPACE_DISTRHO
 
         lib = lib_open(filename);
 
@@ -561,6 +564,8 @@ struct JackBridge {
 
     ~JackBridge() noexcept
     {
+        USE_NAMESPACE_DISTRHO
+
         if (lib != nullptr)
         {
             lib_close(lib);

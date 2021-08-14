@@ -24,7 +24,7 @@ namespace Art = DistrhoArtworkPingPongPan;
 // -----------------------------------------------------------------------
 
 DistrhoUIPingPongPan::DistrhoUIPingPongPan()
-    : UI(Art::backgroundWidth, Art::backgroundHeight),
+    : UI(Art::backgroundWidth, Art::backgroundHeight, true),
       fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fAboutWindow(this)
 {

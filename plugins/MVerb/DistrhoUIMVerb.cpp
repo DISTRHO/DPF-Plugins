@@ -1,7 +1,7 @@
 /*
  * DISTRHO MVerb, a DPF'ied MVerb.
  * Copyright (c) 2010 Martin Eastwood
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -28,7 +28,7 @@ using DGL::Color;
 // -----------------------------------------------------------------------
 
 DistrhoUIMVerb::DistrhoUIMVerb()
-    : UI(Art::backgroundWidth, Art::backgroundHeight),
+    : UI(Art::backgroundWidth, Art::backgroundHeight, true),
       fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR)
 {
     // text
@@ -122,9 +122,6 @@ DistrhoUIMVerb::DistrhoUIMVerb()
 
     // set initial values
     programLoaded(0);
-
-    // TODO auto-scale but non-resizable
-    // setGeometryConstraints(Art::backgroundWidth, Art::backgroundHeight, true, true);
 }
 
 DistrhoUIMVerb::~DistrhoUIMVerb()

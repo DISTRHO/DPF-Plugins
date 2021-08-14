@@ -209,6 +209,7 @@ function(dpf__build_ladspa NAME)
   target_link_libraries("${NAME}-ladspa" PRIVATE "${NAME}-dsp")
   set_target_properties("${NAME}-ladspa" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/ladspa/$<0:>"
     OUTPUT_NAME "${NAME}-ladspa"
     PREFIX "")
 endfunction()
@@ -236,6 +237,7 @@ function(dpf__build_dssi NAME DGL_LIBRARY)
   target_link_libraries("${NAME}-dssi" PRIVATE "${NAME}-dsp")
   set_target_properties("${NAME}-dssi" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/dssi/$<0:>"
     OUTPUT_NAME "${NAME}-dssi"
     PREFIX "")
 
@@ -265,6 +267,7 @@ function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
   target_link_libraries("${NAME}-lv2" PRIVATE "${NAME}-dsp")
   set_target_properties("${NAME}-lv2" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.lv2/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/lv2/$<0:>"
     OUTPUT_NAME "${NAME}_dsp"
     PREFIX "")
 
@@ -280,6 +283,7 @@ function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
       target_link_libraries("${NAME}-lv2-ui" PRIVATE "${NAME}-ui")
       set_target_properties("${NAME}-lv2-ui" PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.lv2/$<0:>"
+        ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/lv2/$<0:>"
         OUTPUT_NAME "${NAME}_ui"
         PREFIX "")
     endif()
@@ -310,6 +314,7 @@ function(dpf__build_vst2 NAME DGL_LIBRARY)
   target_link_libraries("${NAME}-vst2" PRIVATE "${NAME}-dsp" "${NAME}-ui")
   set_target_properties("${NAME}-vst2" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/vst2/$<0:>"
     OUTPUT_NAME "${NAME}-vst2"
     PREFIX "")
 endfunction()
@@ -363,7 +368,7 @@ function(dpf__add_dgl_cairo)
   target_link_libraries(dgl-cairo PRIVATE dgl-system-libs)
 
   add_library(dgl-cairo-definitions INTERFACE)
-  target_compile_definitions(dgl-cairo-definitions INTERFACE "DGL_CAIRO" "HAVE_CAIRO")
+  target_compile_definitions(dgl-cairo-definitions INTERFACE "DGL_CAIRO" "HAVE_CAIRO" "HAVE_DGL")
 
   target_include_directories(dgl-cairo PUBLIC ${CAIRO_INCLUDE_DIRS})
   if(MINGW)
@@ -429,7 +434,7 @@ function(dpf__add_dgl_opengl)
   target_link_libraries(dgl-opengl PRIVATE dgl-system-libs)
 
   add_library(dgl-opengl-definitions INTERFACE)
-  target_compile_definitions(dgl-opengl-definitions INTERFACE "DGL_OPENGL" "HAVE_OPENGL")
+  target_compile_definitions(dgl-opengl-definitions INTERFACE "DGL_OPENGL" "HAVE_OPENGL" "HAVE_DGL")
 
   target_include_directories(dgl-opengl PUBLIC "${OPENGL_INCLUDE_DIR}")
   target_link_libraries(dgl-opengl PRIVATE dgl-opengl-definitions "${OPENGL_gl_LIBRARY}")

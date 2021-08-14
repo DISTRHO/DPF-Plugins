@@ -110,6 +110,10 @@ START_NAMESPACE_DGL
 #  define PuglWrapperView DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglWrapperView)
 #  define PuglWindow      DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglWindow)
 # endif
+# ifndef __MAC_10_9
+#  define NSModalResponseOK NSOKButton
+typedef NSUInteger NSEventSubtype;
+# endif
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Wdeprecated-declarations"
 # import "pugl-upstream/src/mac.m"
@@ -194,12 +198,34 @@ const char* puglGetWindowTitle(const PuglView* const view)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
+// get global scale factor
+
+double puglGetDesktopScaleFactor(const PuglView* const view)
+{
+#if defined(DISTRHO_OS_MAC)
+    if (NSWindow* const window = view->impl->window ? view->impl->window
+                                                    : [view->impl->wrapperView window])
+        return [window screen].backingScaleFactor;
+    return [NSScreen mainScreen].backingScaleFactor;
+#else
+    return 1.0;
+
+    // unused
+    (void)view;
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------
 // bring view window into the foreground, aka "raise" window
 
-void puglRaiseWindow(PuglView* view)
+void puglRaiseWindow(PuglView* const view)
 {
-#if defined(DISTRHO_OS_HAIKU) || defined(DISTRHO_OS_MAC)
+#if defined(DISTRHO_OS_HAIKU)
     // nothing here yet
+#elif defined(DISTRHO_OS_MAC)
+    if (NSWindow* const window = view->impl->window ? view->impl->window
+                                                    : [view->impl->wrapperView window])
+        [window orderFrontRegardless];
 #elif defined(DISTRHO_OS_WINDOWS)
     SetForegroundWindow(view->impl->hwnd);
     SetActiveWindow(view->impl->hwnd);
@@ -276,9 +302,30 @@ PuglStatus puglSetWindowSize(PuglView* const view, const uint width, const uint 
     view->defaultHeight = height;
 
 #if defined(DISTRHO_OS_HAIKU) || defined(DISTRHO_OS_MAC)
-    // keep upstream behaviour
+    // replace the 2 views setFrame with setFrameSize
     const PuglRect frame = { view->frame.x, view->frame.y, (double)width, (double)height };
-    return puglSetFrame(view, frame);
+    PuglInternals* const impl = view->impl;
+
+    // Update view frame to exactly the requested frame in Pugl coordinates
+    view->frame = frame;
+
+    const NSRect framePx = rectToNsRect(frame);
+    const NSRect framePt = nsRectToPoints(view, framePx);
+    if (impl->window)
+    {
+        // Resize window to fit new content rect
+        const NSRect screenPt = rectToScreen(viewScreen(view), framePt);
+        const NSRect winFrame = [impl->window frameRectForContentRect:screenPt];
+
+        [impl->window setFrame:winFrame display:NO];
+    }
+
+    // Resize views
+    const NSSize sizePx = NSMakeSize(frame.width, frame.height);
+    const NSSize sizePt = [impl->drawView convertSizeFromBacking:sizePx];
+
+    [impl->wrapperView setFrameSize:(impl->window ? sizePt : framePt.size)];
+    [impl->drawView setFrameSize:sizePt];
 #elif defined(DISTRHO_OS_WINDOWS)
     // matches upstream pugl, except we add SWP_NOMOVE flag
     if (view->impl->hwnd)
@@ -391,6 +438,15 @@ bool puglMacOSFilePanelOpen(PuglView* const view,
 
     return true;
 }
+
+// --------------------------------------------------------------------------------------------------------------------
+// macOS specific, allow standalone window to gain focus
+
+void puglMacOSActivateApp()
+{
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    [NSApp activateIgnoringOtherApps:YES];
+}
 #endif
 
 #ifdef DISTRHO_OS_WINDOWS
@@ -450,6 +506,28 @@ void puglWin32SetWindowResizable(PuglView* const view, const bool resizable)
 #endif
 
 #ifdef HAVE_X11
+// --------------------------------------------------------------------------------------------------------------------
+// X11 specific, safer way to grab focus
+
+PuglStatus puglX11GrabFocus(PuglView* const view)
+{
+    PuglInternals* const impl = view->impl;
+
+    XWindowAttributes wa;
+    std::memset(&wa, 0, sizeof(wa));
+
+    DISTRHO_SAFE_ASSERT_RETURN(XGetWindowAttributes(impl->display, impl->win, &wa), PUGL_UNKNOWN_ERROR);
+
+    if (wa.map_state == IsViewable)
+    {
+        XRaiseWindow(impl->display, impl->win);
+        XSetInputFocus(impl->display, impl->win, RevertToPointerRoot, CurrentTime);
+        XSync(impl->display, False);
+    }
+
+    return PUGL_SUCCESS;
+}
+
 // --------------------------------------------------------------------------------------------------------------------
 // X11 specific, setup event loop filter for sofd file dialog
 

@@ -24,7 +24,7 @@ namespace Art = DistrhoArtwork3BandSplitter;
 // -----------------------------------------------------------------------
 
 DistrhoUI3BandSplitter::DistrhoUI3BandSplitter()
-    : UI(Art::backgroundWidth, Art::backgroundHeight),
+    : UI(Art::backgroundWidth, Art::backgroundHeight, true),
       fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fAboutWindow(this)
 {

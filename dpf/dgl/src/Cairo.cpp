@@ -726,21 +726,21 @@ void SubWidget::PrivateData::display(const uint width, const uint height, const 
     cairo_matrix_t matrix;
     cairo_get_matrix(handle, &matrix);
 
-    if (needsFullViewportForDrawing || (absolutePos.isZero() && self->getSize() == Size<uint>(width, height)))
-    {
-        // full viewport size
-        cairo_translate(handle, 0, 0);
-    }
-    else if (needsViewportScaling)
+    if (needsViewportScaling)
     {
         // limit viewport to widget bounds
         // NOTE only used for nanovg for now, which is not relevant here
+    }
+    else if (needsFullViewportForDrawing || (absolutePos.isZero() && self->getSize() == Size<uint>(width, height)))
+    {
+        // full viewport size
         cairo_translate(handle, 0, 0);
+        cairo_scale(handle, autoScaleFactor, autoScaleFactor);
     }
     else
     {
         // set viewport pos
-        cairo_translate(handle, absolutePos.getX(), absolutePos.getY());
+        cairo_translate(handle, absolutePos.getX() * autoScaleFactor, absolutePos.getY() * autoScaleFactor);
 
         // then cut the outer bounds
         cairo_rectangle(handle,
@@ -751,6 +751,9 @@ void SubWidget::PrivateData::display(const uint width, const uint height, const 
 
         cairo_clip(handle);
         needsResetClip = true;
+
+        // set viewport scaling
+        cairo_scale(handle, autoScaleFactor, autoScaleFactor);
     }
 
     // display widget
@@ -771,23 +774,33 @@ void TopLevelWidget::PrivateData::display()
     if (! selfw->pData->visible)
         return;
 
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(self->getGraphicsContext()).handle;
+
     const Size<uint> size(window.getSize());
     const uint width  = size.getWidth();
     const uint height = size.getHeight();
 
     const double autoScaleFactor = window.pData->autoScaleFactor;
 
-    // FIXME anything needed here?
-#if 0
+    cairo_matrix_t matrix;
+    cairo_get_matrix(handle, &matrix);
+
     // full viewport size
     if (window.pData->autoScaling)
-        glViewport(0, -(height * autoScaleFactor - height), width * autoScaleFactor, height * autoScaleFactor);
+    {
+        cairo_translate(handle, 0, 0);
+        cairo_scale(handle, autoScaleFactor, autoScaleFactor);
+    }
     else
-        glViewport(0, 0, width, height);
-#endif
+    {
+        cairo_translate(handle, 0, 0);
+        cairo_scale(handle, 1.0, 1.0);
+    }
 
     // main widget drawing
     self->onDisplay();
+
+    cairo_set_matrix(handle, &matrix);
 
     // now draw subwidgets if there are any
     selfw->pData->displaySubWidgets(width, height, autoScaleFactor);

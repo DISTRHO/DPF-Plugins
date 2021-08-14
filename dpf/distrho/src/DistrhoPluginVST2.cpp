@@ -22,6 +22,11 @@
 # define DISTRHO_PLUGIN_HAS_UI 0
 #endif
 
+#if DISTRHO_PLUGIN_HAS_UI && ! defined(HAVE_DGL)
+# undef DISTRHO_PLUGIN_HAS_UI
+# define DISTRHO_PLUGIN_HAS_UI 0
+#endif
+
 #if DISTRHO_PLUGIN_HAS_UI
 # include "DistrhoUIInternal.hpp"
 # include "../extra/RingBuffer.hpp"
@@ -127,7 +132,7 @@ struct ParameterAndNotesHelper
 # endif
 #endif
     {
-#ifndef DISTRHO_PROPER_CPP11_SUPPORT
+#if DISTRHO_PLUGIN_HAS_UI && DISTRHO_PLUGIN_WANT_MIDI_INPUT && ! defined(DISTRHO_PROPER_CPP11_SUPPORT)
         std::memset(&notesRingBuffer, 0, sizeof(notesRingBuffer));
 #endif
     }
@@ -184,7 +189,8 @@ public:
               nullptr, // TODO file request
               nullptr,
               plugin->getInstancePointer(),
-              scaleFactor)
+              scaleFactor),
+          fHasScaleFactor(d_isNotZero(scaleFactor))
 # if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         , fKeyboardModifiers(0)
 # endif
@@ -223,9 +229,19 @@ public:
         return fUI.getHeight();
     }
 
+    double getScaleFactor() const
+    {
+        return fUI.getScaleFactor();
+    }
+
     void setSampleRate(const double newSampleRate)
     {
         fUI.setSampleRate(newSampleRate, true);
+    }
+
+    void notifyScaleFactorChanged(const double scaleFactor)
+    {
+        fUI.notifyScaleFactorChanged(scaleFactor);
     }
 
     // -------------------------------------------------------------------
@@ -382,9 +398,15 @@ protected:
         hostCallback(audioMasterAutomate, index, 0, nullptr, perValue);
     }
 
-    void setSize(const uint width, const uint height)
+    void setSize(uint width, uint height)
     {
-        // fUI.setWindowSize(width, height);
+        // figure out scale factor ourselves if the host doesn't support it
+        if (! fHasScaleFactor)
+        {
+            const double scaleFactor = fUI.getScaleFactor();
+            width /= scaleFactor;
+            height /= scaleFactor;
+        }
         hostCallback(audioMasterSizeWindow, width, height);
     }
 
@@ -416,6 +438,7 @@ private:
 
     // Plugin UI
     UIExporter fUI;
+    const bool fHasScaleFactor;
 # if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     uint16_t fKeyboardModifiers;
 # endif
@@ -494,7 +517,7 @@ public:
         fVstRect.left    = 0;
         fVstRect.bottom  = 0;
         fVstRect.right   = 0;
-        fLastScaleFactor = 1.0f;
+        fLastScaleFactor = 0.0f;
 
         if (parameterCount != 0)
         {
@@ -665,6 +688,13 @@ public:
             {
                 fVstRect.right  = fVstUI->getWidth();
                 fVstRect.bottom = fVstUI->getHeight();
+                // figure out scale factor ourselves if the host doesn't support it
+                if (fLastScaleFactor == 0.0f)
+                {
+                    const double scaleFactor = fVstUI->getScaleFactor();
+                    fVstRect.right /= scaleFactor;
+                    fVstRect.bottom /= scaleFactor;
+                }
             }
             else
             {
@@ -673,6 +703,13 @@ public:
                                  fPlugin.getInstancePointer(), fLastScaleFactor);
                 fVstRect.right  = tmpUI.getWidth();
                 fVstRect.bottom = tmpUI.getHeight();
+                // figure out scale factor ourselves if the host doesn't support it
+                if (fLastScaleFactor == 0.0f)
+                {
+                    const double scaleFactor = tmpUI.getScaleFactor();
+                    fVstRect.right /= scaleFactor;
+                    fVstRect.bottom /= scaleFactor;
+                }
                 tmpUI.quit();
             }
             *(ERect**)ptr = &fVstRect;
@@ -993,7 +1030,15 @@ public:
         case effVendorSpecific:
 #if DISTRHO_PLUGIN_HAS_UI
             if (index == CCONST('P', 'r', 'e', 'S') && value == CCONST('A', 'e', 'C', 's'))
+            {
+                if (d_isEqual(fLastScaleFactor, opt))
+                    break;
+
                 fLastScaleFactor = opt;
+
+                if (fVstUI != nullptr)
+                    fVstUI->notifyScaleFactorChanged(opt);
+            }
 #endif
             break;
 

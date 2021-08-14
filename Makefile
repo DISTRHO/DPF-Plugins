@@ -138,7 +138,6 @@ endif # HAVE_CAIRO_OR_OPENGL
 endif # MACOS
 	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
 
-ifeq ($(HAVE_JACK),true)
 	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/3BandEQ$(APP_EXT)          $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/3BandSplitter$(APP_EXT)    $(DESTDIR)$(PREFIX)/bin/
@@ -158,7 +157,6 @@ ifeq ($(HAVE_PROJM),true)
 	install -m 755 bin/ProM$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 endif # HAVE_PROJM
 endif # HAVE_OPENGL
-endif # HAVE_JACK
 
 # --------------------------------------------------------------
 

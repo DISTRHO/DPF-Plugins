@@ -156,12 +156,16 @@ void Window::setSize(uint width, uint height)
 
     if (pData->isEmbed)
     {
-        // handle geometry constraints here
-        if (width < pData->minWidth)
-            width = pData->minWidth;
+        const double scaleFactor = pData->scaleFactor;
+        const uint minWidth = static_cast<uint>(pData->minWidth * scaleFactor + 0.5);
+        const uint minHeight = static_cast<uint>(pData->minHeight * scaleFactor + 0.5);
 
-        if (height < pData->minHeight)
-            height = pData->minHeight;
+        // handle geometry constraints here
+        if (width < minWidth)
+            width = minWidth;
+
+        if (height < minHeight)
+            height = minHeight;
 
         if (pData->keepAspectRatio)
         {
@@ -265,12 +269,21 @@ void Window::repaint() noexcept
 
 void Window::repaint(const Rectangle<uint>& rect) noexcept
 {
-    const PuglRect prect = {
+    PuglRect prect = {
         static_cast<double>(rect.getX()),
         static_cast<double>(rect.getY()),
         static_cast<double>(rect.getWidth()),
         static_cast<double>(rect.getHeight()),
     };
+    if (pData->autoScaling)
+    {
+        const double autoScaleFactor = pData->autoScaleFactor;
+
+        prect.x *= autoScaleFactor;
+        prect.y *= autoScaleFactor;
+        prect.width *= autoScaleFactor;
+        prect.height *= autoScaleFactor;
+    }
     puglPostRedisplayRect(pData->view, prect);
 }
 
@@ -286,12 +299,6 @@ void Window::setGeometryConstraints(const uint minimumWidth,
 {
     DISTRHO_SAFE_ASSERT_RETURN(minimumWidth > 0,);
     DISTRHO_SAFE_ASSERT_RETURN(minimumHeight > 0,);
-
-    if (pData->isEmbed) {
-        // nothing to do here
-    } else if (! isResizable()) {
-        setResizable(true);
-    }
 
     pData->minWidth = minimumWidth;
     pData->minHeight = minimumHeight;

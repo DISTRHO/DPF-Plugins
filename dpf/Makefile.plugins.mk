@@ -75,7 +75,9 @@ ifeq ($(LINUX),true)
 VST3_FILENAME = $(TARGET_PROCESSOR)-linux/$(NAME).so
 endif
 ifeq ($(MACOS),true)
+ifneq ($(MACOS_OLD),true)
 VST3_FILENAME = MacOS/$(NAME)
+endif
 endif
 ifeq ($(WINDOWS),true)
 VST3_FILENAME = $(TARGET_PROCESSOR)-win/$(NAME).vst3
@@ -140,7 +142,7 @@ endif
 
 ifeq ($(UI_TYPE),cairo)
 ifeq ($(HAVE_CAIRO),true)
-DGL_FLAGS += -DDGL_CAIRO
+DGL_FLAGS += -DDGL_CAIRO -DHAVE_DGL
 DGL_FLAGS += $(CAIRO_FLAGS)
 DGL_LIBS  += $(CAIRO_LIBS)
 DGL_LIB    = $(DPF_PATH)/build/libdgl-cairo.a
@@ -152,7 +154,7 @@ endif
 
 ifeq ($(UI_TYPE),opengl)
 ifeq ($(HAVE_OPENGL),true)
-DGL_FLAGS += -DDGL_OPENGL
+DGL_FLAGS += -DDGL_OPENGL -DHAVE_DGL
 DGL_FLAGS += $(OPENGL_FLAGS)
 DGL_LIBS  += $(OPENGL_LIBS)
 DGL_LIB    = $(DPF_PATH)/build/libdgl-opengl.a
@@ -164,7 +166,7 @@ endif
 
 ifeq ($(UI_TYPE),vulkan)
 ifeq ($(HAVE_VULKAN),true)
-DGL_FLAGS += -DDGL_VULKAN
+DGL_FLAGS += -DDGL_VULKAN -DHAVE_DGL
 DGL_FLAGS += $(VULKAN_FLAGS)
 DGL_LIBS  += $(VULKAN_LIBS)
 DGL_LIB    = $(DPF_PATH)/build/libdgl-vulkan.a
@@ -328,7 +330,11 @@ lv2: $(lv2)
 lv2_dsp: $(lv2_dsp)
 lv2_sep: $(lv2_dsp) $(lv2_ui)
 
+ifeq ($(HAVE_DGL),true)
 $(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
+else
+$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
+endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin for $(NAME)"
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_LV2) $(SYMBOLS_LV2UI)  -o $@

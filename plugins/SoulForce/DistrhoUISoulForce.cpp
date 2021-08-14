@@ -1,7 +1,7 @@
 /*
  * DISTRHO SoulForce, a DPF'ied SoulForce.
  * Copyright (C) 2006 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,7 @@ namespace Art = DistrhoArtworkSoulForce;
 // -----------------------------------------------------------------------
 
 DistrhoUISoulForce::DistrhoUISoulForce()
-    : UI(Art::backgroundWidth, Art::backgroundHeight),
+    : UI(Art::backgroundWidth, Art::backgroundHeight, true),
       fImgBackground(Art::backgroundData, Art::backgroundWidth, Art::backgroundHeight, kImageFormatBGR),
       fImgLedOff(Art::led_offData, Art::led_offWidth, Art::led_offHeight, kImageFormatBGR),
       fImgLedOn(Art::led_onData, Art::led_onWidth, Art::led_onHeight, kImageFormatBGR),

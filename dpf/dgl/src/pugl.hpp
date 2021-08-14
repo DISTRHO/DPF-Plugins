@@ -20,9 +20,14 @@
 #include "../Base.hpp"
 
 /* we will include all header files used in pugl in their C++ friendly form, then pugl stuff in custom namespace */
-#include <cstdbool>
 #include <cstddef>
-#include <cstdint>
+#ifdef DISTRHO_PROPER_CPP11_SUPPORT
+# include <cstdbool>
+# include <cstdint>
+#else
+# include <stdbool.h>
+# include <stdint.h>
+#endif
 
 #define PUGL_API
 #define PUGL_DISABLE_DEPRECATED
@@ -62,6 +67,10 @@ puglGetTransientParent(const PuglView* view);
 PUGL_API const char*
 puglGetWindowTitle(const PuglView* view);
 
+// get global scale factor
+PUGL_API double
+puglGetDesktopScaleFactor(const PuglView* view);
+
 // bring view window into the foreground, aka "raise" window
 PUGL_API void
 puglRaiseWindow(PuglView* view);
@@ -90,6 +99,10 @@ puglFallbackOnResize(PuglView* view);
 // macOS specific, setup file browser dialog
 typedef void (*openPanelCallback)(PuglView* view, const char* path);
 bool puglMacOSFilePanelOpen(PuglView* view, const char* startDir, const char* title, uint flags, openPanelCallback callback);
+
+// macOS specific, allow standalone window to gain focus
+PUGL_API void
+puglMacOSActivateApp();
 #endif
 
 #ifdef DISTRHO_OS_WINDOWS
@@ -107,6 +120,10 @@ puglWin32SetWindowResizable(PuglView* view, bool resizable);
 #endif
 
 #ifdef HAVE_X11
+// X11 specific, safer way to grab focus
+PUGL_API PuglStatus
+puglX11GrabFocus(PuglView* view);
+
 // X11 specific, setup event loop filter for sofd file dialog
 PUGL_API void
 sofdFileDialogSetup(PuglWorld* world);
