@@ -408,46 +408,6 @@ void puglMacOSActivateApp()
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// macOS specific, add another view's window as child
-
-PuglStatus
-puglMacOSAddChildWindow(PuglView* view, PuglView* child)
-{
-    if (NSWindow* const viewWindow = view->impl->window ? view->impl->window
-                                                        : [view->impl->wrapperView window])
-    {
-        if (NSWindow* const childWindow = child->impl->window ? child->impl->window
-                                                              : [child->impl->wrapperView window])
-        {
-            [viewWindow addChildWindow:childWindow ordered:NSWindowAbove];
-            return PUGL_SUCCESS;
-        }
-    }
-
-    return PUGL_FAILURE;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// macOS specific, remove another view's window as child
-
-PuglStatus
-puglMacOSRemoveChildWindow(PuglView* view, PuglView* child)
-{
-    if (NSWindow* const viewWindow = view->impl->window ? view->impl->window
-                                                        : [view->impl->wrapperView window])
-    {
-        if (NSWindow* const childWindow = child->impl->window ? child->impl->window
-                                                              : [child->impl->wrapperView window])
-        {
-            [viewWindow removeChildWindow:childWindow];
-            return PUGL_SUCCESS;
-        }
-    }
-
-    return PUGL_FAILURE;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
 // macOS specific, setup file browser dialog
 
 bool puglMacOSFilePanelOpen(PuglView* const view,

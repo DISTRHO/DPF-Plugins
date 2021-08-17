@@ -100,14 +100,6 @@ puglFallbackOnResize(PuglView* view);
 PUGL_API void
 puglMacOSActivateApp();
 
-// macOS specific, add another view's window as child
-PUGL_API PuglStatus
-puglMacOSAddChildWindow(PuglView* view, PuglView* child);
-
-// macOS specific, remove another view's window as child
-PUGL_API PuglStatus
-puglMacOSRemoveChildWindow(PuglView* view, PuglView* child);
-
 // macOS specific, setup file browser dialog
 typedef void (*openPanelCallback)(PuglView* view, const char* path);
 bool puglMacOSFilePanelOpen(PuglView* view, const char* startDir, const char* title, uint flags, openPanelCallback callback);

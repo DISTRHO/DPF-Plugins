@@ -560,10 +560,6 @@ void Window::PrivateData::startModal()
     modal.parent->show();
     show();
 
-#ifdef DISTRHO_OS_MAC
-    puglMacOSAddChildWindow(modal.parent->view, view);
-#endif
-
     DGL_DBG("Ok\n");
 }
 
@@ -579,10 +575,6 @@ void Window::PrivateData::stopModal()
         return;
     if (modal.parent->modal.child != this)
         return;
-
-#ifdef DISTRHO_OS_MAC
-    puglMacOSRemoveChildWindow(modal.parent->view, view);
-#endif
 
     // stop parent from giving focus to us, so it behaves like normal
     modal.parent->modal.child = nullptr;
