@@ -167,6 +167,7 @@ jobs:
         submodules: recursive
     - name: Set up dependencies
       run: |
+        sudo apt-get update -qq
         sudo apt-get install -yq binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64 wine-stable
     - name: Build win64 cross-compiled
       env:
