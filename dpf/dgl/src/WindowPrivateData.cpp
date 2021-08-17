@@ -190,7 +190,7 @@ Window::PrivateData::~PrivateData()
     if (isEmbed)
     {
 #ifdef HAVE_X11
-        sofdFileDialogClose(view);
+        sofdFileDialogClose();
 #endif
         puglHide(view);
         appData->oneWindowClosed();
@@ -349,7 +349,7 @@ void Window::PrivateData::hide()
         stopModal();
 
 #ifdef HAVE_X11
-    sofdFileDialogClose(view);
+    sofdFileDialogClose();
 #endif
     puglHide(view);
 
@@ -400,12 +400,8 @@ void Window::PrivateData::idleCallback()
     }
 # endif
 # ifdef HAVE_X11
-    char* path;
-    if (sofdFileDialogGetPath(&path))
-    {
-        self->onFileSelected(path);
-        sofdFileDialogFree(path);
-    }
+    if (sofdFileDialogIdle(view))
+        self->onFileSelected(sofdFileDialogGetPath());
 # endif
 #endif
 }
@@ -549,7 +545,7 @@ bool Window::PrivateData::openFileBrowser(const Window::FileBrowserOptions& opti
 # ifdef HAVE_X11
     uint flags = 0x0;
     // TODO flags
-    return sofdFileDialogShow(view, startDir, title, flags, options.width, options.height);
+    return sofdFileDialogShow(view, startDir, title, flags, autoScaling ? autoScaleFactor : scaleFactor);
 # endif
 
     return false;

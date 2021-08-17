@@ -29,8 +29,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef bool (*PuglX11EventFilter)(Display*, XEvent*);
-
 typedef struct {
   Atom CLIPBOARD;
   Atom UTF8_STRING;
@@ -59,7 +57,6 @@ struct PuglWorldInternalsImpl {
   int          syncEventBase;
   bool         syncSupported;
   bool         dispatchingEvents;
-  PuglX11EventFilter eventFilter;
 };
 
 struct PuglInternalsImpl {
@@ -79,8 +76,5 @@ struct PuglInternalsImpl {
 PUGL_API
 PuglStatus
 puglX11Configure(PuglView* view);
-
-PuglStatus
-puglX11SetEventFilter(PuglWorld* world, PuglX11EventFilter filter);
 
 #endif // PUGL_DETAIL_X11_H
