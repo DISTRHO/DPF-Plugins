@@ -19,10 +19,6 @@
 
 #include "DistrhoUIPrivateData.hpp"
 
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-# include "../extra/Sleep.hpp"
-#endif
-
 START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
@@ -70,10 +66,8 @@ public:
 
         uiData->bgColor = bgColor;
         uiData->fgColor = fgColor;
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         uiData->scaleFactor = scaleFactor;
         uiData->winId = winId;
-#endif
 
         uiData->callbacksPtr            = callbacksPtr;
         uiData->editParamCallbackFunc   = editParamCall;
@@ -197,45 +191,13 @@ public:
 
     // -------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    void exec(DGL_NAMESPACE::IdleCallback* const cb)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->setVisible(true);
-        cb->idleCallback();
-
-        while (ui->isRunning())
-        {
-            d_msleep(10);
-            cb->idleCallback();
-        }
-    }
-
-    bool idle()
-    {
-        return true;
-    }
-
-    void focus()
-    {
-    }
-
-    void quit()
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->setVisible(false);
-        ui->terminateAndWaitForProcess();
-    }
-#else
-# if DISTRHO_UI_IS_STANDALONE
+#if DISTRHO_UI_IS_STANDALONE
     void exec(DGL_NAMESPACE::IdleCallback* const cb)
     {
         DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
 
         uiData->window->show();
+        uiData->window->focus();
         uiData->app.addIdleCallback(cb);
         uiData->app.exec();
     }
@@ -246,16 +208,16 @@ public:
 
         ui->uiIdle();
     }
-# else
+#else
     bool plugin_idle()
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr, false);
 
         uiData->app.idle();
         ui->uiIdle();
-        return ! uiData->app.isQuiting();
+        return ! uiData->app.isQuitting();
     }
-# endif
+#endif
 
     void focus()
     {
@@ -269,50 +231,22 @@ public:
         if (uiData->app.isStandalone())
             uiData->app.quit();
     }
-#endif
 
     // -------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    void setWindowTitle(const char* const uiTitle)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->setTitle(uiTitle);
-    }
-
-    void setWindowSize(const uint width, const uint height)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->setSize(width, height);
-    }
-
-    void setWindowTransientWinId(const uintptr_t winId)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->setTransientWinId(winId);
-    }
-
-    bool setWindowVisible(const bool yesNo)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr, false);
-
-        ui->setVisible(yesNo);
-
-        return ui->isRunning();
-    }
-#else
     void setWindowTitle(const char* const uiTitle)
     {
         uiData->window->setTitle(uiTitle);
     }
 
-    void setWindowTransientWinId(const uintptr_t /*winId*/)
+    void setWindowTransientWinId(const uintptr_t winId)
     {
-#if 0 /* TODO */
+#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+        ui->setTransientWindowId(winId);
+#elif 0 /* TODO */
         glWindow.setTransientWinId(winId);
+#else
+        (void)winId;
 #endif
     }
 
@@ -320,9 +254,10 @@ public:
     {
         uiData->window->setVisible(yesNo);
 
-        return ! uiData->app.isQuiting();
+        return ! uiData->app.isQuitting();
     }
 
+#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     bool handlePluginKeyboard(const bool press, const uint key, const uint16_t mods)
     {
         // TODO also trigger Character input event

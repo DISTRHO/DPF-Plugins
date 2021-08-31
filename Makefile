@@ -15,10 +15,6 @@ DESTDIR ?=
 
 # --------------------------------------------------------------
 
-HAVE_PROJM = $(shell pkg-config --exists libprojectM && echo true)
-
-# --------------------------------------------------------------
-
 ifneq ($(CROSS_COMPILING),true)
 CAN_GENERATE_TTL = true
 else ifneq ($(EXE_WRAPPER),)
@@ -60,10 +56,8 @@ ifeq ($(HAVE_OPENGL),true)
 	# glBars (needs OpenGL)
 	$(MAKE) all -C plugins/glBars
 
-ifeq ($(HAVE_PROJM),true)
 	# ProM (needs OpenGL + ProjectM)
 	$(MAKE) all -C plugins/ProM
-endif # HAVE_PROJM
 endif # HAVE_OPENGL
 
 gen: plugins dpf/utils/lv2_ttl_generator
@@ -153,9 +147,6 @@ endif # MACOS
 	install -m 755 bin/MaPitchshift$(APP_EXT)     $(DESTDIR)$(PREFIX)/bin/
 ifeq ($(HAVE_OPENGL),true)
 	install -m 755 bin/glBars$(APP_EXT)           $(DESTDIR)$(PREFIX)/bin/
-ifeq ($(HAVE_PROJM),true)
-	install -m 755 bin/ProM$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
-endif # HAVE_PROJM
 endif # HAVE_OPENGL
 
 # --------------------------------------------------------------

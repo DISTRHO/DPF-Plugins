@@ -62,6 +62,7 @@
 # include <X11/X.h>
 # include <X11/Xatom.h>
 # include <X11/Xlib.h>
+# include <X11/Xresource.h>
 # include <X11/Xutil.h>
 # include <X11/keysym.h>
 # ifdef HAVE_XCURSOR
@@ -112,7 +113,6 @@ START_NAMESPACE_DGL
 # endif
 # ifndef __MAC_10_9
 #  define NSModalResponseOK NSOKButton
-typedef NSUInteger NSEventSubtype;
 # endif
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -207,12 +207,59 @@ double puglGetDesktopScaleFactor(const PuglView* const view)
                                                     : [view->impl->wrapperView window])
         return [window screen].backingScaleFactor;
     return [NSScreen mainScreen].backingScaleFactor;
-#else
-    return 1.0;
+#elif defined(DISTRHO_OS_WINDOWS)
+    if (const HMODULE Shcore = LoadLibraryA("Shcore.dll"))
+    {
+        typedef HRESULT(WINAPI* PFN_GetProcessDpiAwareness)(HANDLE, DWORD*);
+        typedef HRESULT(WINAPI* PFN_GetScaleFactorForMonitor)(HMONITOR, DWORD*);
 
+        const PFN_GetProcessDpiAwareness GetProcessDpiAwareness
+            = (PFN_GetProcessDpiAwareness)GetProcAddress(Shcore, "GetProcessDpiAwareness");
+        const PFN_GetScaleFactorForMonitor GetScaleFactorForMonitor
+            = (PFN_GetScaleFactorForMonitor)GetProcAddress(Shcore, "GetScaleFactorForMonitor");
+
+        DWORD dpiAware = 0;
+        if (GetProcessDpiAwareness && GetScaleFactorForMonitor
+            && GetProcessDpiAwareness(NULL, &dpiAware) == 0 && dpiAware != 0)
+        {
+            const HMONITOR hMon = MonitorFromWindow(view->impl->hwnd, MONITOR_DEFAULTTOPRIMARY);
+
+            DWORD scaleFactor = 0;
+            if (GetScaleFactorForMonitor(hMon, &scaleFactor) == 0 && scaleFactor != 0)
+            {
+                FreeLibrary(Shcore);
+                return static_cast<double>(scaleFactor) / 100.0;
+            }
+        }
+
+        FreeLibrary(Shcore);
+    }
+#elif defined(HAVE_X11)
+    XrmInitialize();
+
+    if (char* const rms = XResourceManagerString(view->world->impl->display))
+    {
+        if (const XrmDatabase sdb = XrmGetStringDatabase(rms))
+        {
+            char* type = nullptr;
+            XrmValue ret;
+
+            if (XrmGetResource(sdb, "Xft.dpi", "String", &type, &ret)
+                && ret.addr != nullptr
+                && type != nullptr
+                && std::strncmp("String", type, 6) == 0)
+            {
+                if (const double dpi = std::atof(ret.addr))
+                    return dpi / 96;
+            }
+        }
+    }
+#else
     // unused
     (void)view;
 #endif
+
+    return 1.0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -596,7 +643,7 @@ bool sofdFileDialogShow(PuglView* const view,
     x_fib_cfg_buttons(2, options.buttons.showPlaces-1);
     */
 
-    return (x_fib_show(sofd_display, view->impl->win, 0, 0, scaleFactor) == 0);
+    return (x_fib_show(sofd_display, view->impl->win, 0, 0, scaleFactor + 0.5) == 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------

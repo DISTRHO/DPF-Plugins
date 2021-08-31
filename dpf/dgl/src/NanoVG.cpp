@@ -54,6 +54,15 @@ DGL_EXT(PFNGLUNIFORM4FVPROC,               glUniform4fv)
 DGL_EXT(PFNGLUSEPROGRAMPROC,               glUseProgram)
 DGL_EXT(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer)
 DGL_EXT(PFNGLBLENDFUNCSEPARATEPROC,        glBlendFuncSeparate)
+# ifdef DGL_USE_OPENGL3
+DGL_EXT(PFNGLBINDBUFFERRANGEPROC,          glBindBufferRange)
+DGL_EXT(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray)
+DGL_EXT(PFNGLDELETEVERTEXARRAYSPROC,       glDeleteVertexArrays)
+DGL_EXT(PFNGLGENERATEMIPMAPPROC,           glGenerateMipmap)
+DGL_EXT(PFNGLGETUNIFORMBLOCKINDEXPROC,     glGetUniformBlockIndex)
+DGL_EXT(PFNGLGENVERTEXARRAYSPROC,          glGenVertexArrays)
+DGL_EXT(PFNGLUNIFORMBLOCKBINDINGPROC,      glUniformBlockBinding)
+# endif
 # undef DGL_EXT
 #endif
 
@@ -61,7 +70,18 @@ DGL_EXT(PFNGLBLENDFUNCSEPARATEPROC,        glBlendFuncSeparate)
 // Include NanoVG OpenGL implementation
 
 //#define STB_IMAGE_STATIC
-#define NANOVG_GL2_IMPLEMENTATION
+#ifdef DGL_USE_OPENGL3
+# define NANOVG_GL3_IMPLEMENTATION
+#else
+# define NANOVG_GL2_IMPLEMENTATION
+#endif
+
+#if defined(DISTRHO_OS_MAC) && defined(NANOVG_GL3_IMPLEMENTATION)
+# define glBindVertexArray glBindVertexArrayAPPLE
+# define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+# define glGenVertexArrays glGenVertexArraysAPPLE
+#endif
+
 #include "nanovg/nanovg_gl.h"
 
 #if defined(NANOVG_GL2)
@@ -125,6 +145,15 @@ DGL_EXT(PFNGLUNIFORM4FVPROC,               glUniform4fv)
 DGL_EXT(PFNGLUSEPROGRAMPROC,               glUseProgram)
 DGL_EXT(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer)
 DGL_EXT(PFNGLBLENDFUNCSEPARATEPROC,        glBlendFuncSeparate)
+# ifdef DGL_USE_OPENGL3
+DGL_EXT(PFNGLBINDBUFFERRANGEPROC,          glBindBufferRange)
+DGL_EXT(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray)
+DGL_EXT(PFNGLDELETEVERTEXARRAYSPROC,       glDeleteVertexArrays)
+DGL_EXT(PFNGLGENERATEMIPMAPPROC,           glGenerateMipmap)
+DGL_EXT(PFNGLGETUNIFORMBLOCKINDEXPROC,     glGetUniformBlockIndex)
+DGL_EXT(PFNGLGENVERTEXARRAYSPROC,          glGenVertexArrays)
+DGL_EXT(PFNGLUNIFORMBLOCKBINDINGPROC,      glUniformBlockBinding)
+# endif
 # undef DGL_EXT
     needsInit = false;
 # if defined(__GNUC__) && (__GNUC__ >= 9)
@@ -269,12 +298,12 @@ NanoVG::~NanoVG()
 
 void NanoVG::beginFrame(const uint width, const uint height, const float scaleFactor)
 {
-    if (fContext == nullptr) return;
     DISTRHO_SAFE_ASSERT_RETURN(scaleFactor > 0.0f,);
     DISTRHO_SAFE_ASSERT_RETURN(! fInFrame,);
     fInFrame = true;
 
-    nvgBeginFrame(fContext, static_cast<int>(width), static_cast<int>(height), scaleFactor);
+    if (fContext != nullptr)
+        nvgBeginFrame(fContext, static_cast<int>(width), static_cast<int>(height), scaleFactor);
 }
 
 void NanoVG::beginFrame(Widget* const widget)

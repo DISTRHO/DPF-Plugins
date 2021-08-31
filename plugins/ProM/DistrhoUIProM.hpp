@@ -1,6 +1,6 @@
 /*
  * DISTRHO ProM Plugin
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,6 +18,7 @@
 #define DISTRHO_UI_PROM_HPP_INCLUDED
 
 #include "DistrhoUI.hpp"
+#include "ResizeHandle.hpp"
 
 class projectM;
 
@@ -52,6 +53,7 @@ protected:
 
 private:
     ScopedPointer<projectM> fPM;
+    ResizeHandle fResizeHandle;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistrhoUIProM)
 };

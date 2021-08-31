@@ -16,7 +16,7 @@ cd repos
 git clone --depth 1 --recursive -b develop git://github.com/DISTRHO/DPF
 
 for PLUGIN in ${PLUGINS[@]}; do
-  git clone --depth 1 git://github.com/DISTRHO/$PLUGIN
+  git clone --depth 1 --recursive git://github.com/DISTRHO/$PLUGIN
 done
 
 cd ..

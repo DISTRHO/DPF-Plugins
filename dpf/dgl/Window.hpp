@@ -70,10 +70,6 @@ public:
         const char* startDir;
         /** File browser dialog window title, uses "FileBrowser" if null */
         const char* title;
-        /** File browser dialog window width */
-        uint width;
-        /** File browser dialog window height */
-        uint height;
         // TODO file filter
 
        /**
@@ -98,8 +94,6 @@ public:
         FileBrowserOptions()
             : startDir(nullptr),
               title(nullptr),
-              width(0),
-              height(0),
               buttons() {}
     };
 #endif // DGL_FILE_BROWSER_DISABLED
@@ -128,17 +122,17 @@ public:
       ```
 
       This struct is necessary because we cannot automatically make the window leave the OpenGL context in custom code.
-      We must always cleanly enter and leave the OpenGL context.
-      In order to avoid messing up the global host context, this class is used around widget creation.
+      And we must always cleanly enter and leave the OpenGL context.
+      So in order to avoid messing up the global host context, this class is used around widget creation.
     */
-    class ScopedGraphicsContext
+    struct ScopedGraphicsContext
     {
-        Window& window;
-    public:
         explicit ScopedGraphicsContext(Window& window);
         ~ScopedGraphicsContext();
         DISTRHO_DECLARE_NON_COPYABLE(ScopedGraphicsContext)
         DISTRHO_PREVENT_HEAP_ALLOCATION
+    private:
+        Window& window;
     };
 
    /**
@@ -190,7 +184,7 @@ public:
     bool isVisible() const noexcept;
 
    /**
-      Set windows visible (or not) according to @a visible.
+      Set window visible (or not) according to @a visible.
       Only valid for standalones, embed windows are always visible.
       @see isVisible(), hide(), show()
     */
@@ -452,6 +446,15 @@ private:
     friend class Application;
     friend class PluginWindow;
     friend class TopLevelWidget;
+
+   /** @internal */
+    explicit Window(Application& app,
+                    uintptr_t parentWindowHandle,
+                    uint width,
+                    uint height,
+                    double scaleFactor,
+                    bool resizable,
+                    bool doPostInit);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window);
 };

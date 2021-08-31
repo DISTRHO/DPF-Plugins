@@ -57,11 +57,15 @@ void DistrhoPluginProM::setParameterValue(uint32_t, float)
 
 void DistrhoPluginProM::run(const float** inputs, float** outputs, uint32_t frames)
 {
-    const float* in  = inputs[0];
-    float*       out = outputs[0];
+    const float* in1  = inputs[0];
+    const float* in2  = inputs[1];
+    float*       out1 = outputs[0];
+    float*       out2 = outputs[1];
 
-    if (out != in)
-        std::memcpy(out, in, sizeof(float)*frames);
+    if (out1 != in1)
+        std::memcpy(out1, in1, sizeof(float)*frames);
+    if (out2 != in2)
+        std::memcpy(out2, in2, sizeof(float)*frames);
 
     const MutexLocker csm(fMutex);
 
@@ -69,7 +73,7 @@ void DistrhoPluginProM::run(const float** inputs, float** outputs, uint32_t fram
         return;
 
     if (PCM* const pcm = const_cast<PCM*>(fPM->pcm()))
-        pcm->addPCMfloat(in, frames);
+        pcm->addPCMfloat(in1, frames);
 }
 
 // -----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 /*
  * DISTRHO ProM Plugin
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,8 +22,9 @@
 #define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/ProM"
 
 #define DISTRHO_PLUGIN_HAS_UI        1
-#define DISTRHO_PLUGIN_NUM_INPUTS    1
-#define DISTRHO_PLUGIN_NUM_OUTPUTS   1
+#define DISTRHO_PLUGIN_NUM_INPUTS    2
+#define DISTRHO_PLUGIN_NUM_OUTPUTS   2
+#define DISTRHO_UI_USER_RESIZABLE    1
 
 // required by projectM
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1

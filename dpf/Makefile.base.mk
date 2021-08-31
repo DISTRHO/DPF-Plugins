@@ -9,6 +9,13 @@ CC  ?= gcc
 CXX ?= g++
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Protect against multiple inclusion
+
+ifneq ($(DPF_MAKEFILE_BASE_INCLUDED),true)
+
+DPF_MAKEFILE_BASE_INCLUDED = true
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Auto-detect OS if not defined
 
 TARGET_MACHINE := $(shell $(CC) -dumpmachine)
@@ -227,7 +234,9 @@ endif
 # Check for required libraries
 
 HAVE_CAIRO  = $(shell $(PKG_CONFIG) --exists cairo && echo true)
-HAVE_VULKAN = $(shell $(PKG_CONFIG) --exists vulkan && echo true)
+
+# Vulkan is not supported yet
+# HAVE_VULKAN = $(shell $(PKG_CONFIG) --exists vulkan && echo true)
 
 ifeq ($(MACOS_OR_WINDOWS),true)
 HAVE_OPENGL = true
@@ -483,5 +492,10 @@ features:
 	$(call print_available,HAVE_XCURSOR)
 	$(call print_available,HAVE_XEXT)
 	$(call print_available,HAVE_XRANDR)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Protect against multiple inclusion
+
+endif # DPF_MAKEFILE_BASE_INCLUDED
 
 # ---------------------------------------------------------------------------------------------------------------------
