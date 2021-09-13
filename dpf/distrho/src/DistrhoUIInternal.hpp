@@ -91,6 +91,7 @@ public:
         g_nextScaleFactor = 0.0;
         g_nextBundlePath  = nullptr;
 #else
+        // Leave context called in the PluginWindow constructor, see DistrhoUIPrivateData.hpp
         uiData->window->leaveContext();
 #endif
         UI::PrivateData::s_nextPrivateData = nullptr;
@@ -106,6 +107,7 @@ public:
 
     ~UIExporter()
     {
+        quit();
         delete ui;
         delete uiData;
     }
@@ -227,9 +229,7 @@ public:
     void quit()
     {
         uiData->window->close();
-
-        if (uiData->app.isStandalone())
-            uiData->app.quit();
+        uiData->app.quit();
     }
 
     // -------------------------------------------------------------------

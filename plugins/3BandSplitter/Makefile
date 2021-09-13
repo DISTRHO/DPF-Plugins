@@ -30,7 +30,7 @@ include ../../dpf/Makefile.plugins.mk
 
 TARGETS += jack
 TARGETS += ladspa
-TARGETS += vst
+TARGETS += vst2
 
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 ifeq ($(HAVE_LIBLO),true)

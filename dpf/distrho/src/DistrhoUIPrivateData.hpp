@@ -52,14 +52,14 @@ START_NAMESPACE_DGL
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 struct PluginApplication
 {
-    IdleCallback* idleCallback;
+    DGL_NAMESPACE::IdleCallback* idleCallback;
     UI* ui;
 
     explicit PluginApplication()
         : idleCallback(nullptr),
           ui(nullptr) {}
 
-    void addIdleCallback(IdleCallback* const cb)
+    void addIdleCallback(DGL_NAMESPACE::IdleCallback* const cb)
     {
         DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(idleCallback == nullptr,);
@@ -185,6 +185,11 @@ public:
 
         initializing = false;
         puglBackendLeave(pData->view);
+    }
+
+    void setIgnoreIdleCallbacks(const bool ignore = true)
+    {
+        pData->ignoreIdleCallbacks = ignore;
     }
 
 protected:

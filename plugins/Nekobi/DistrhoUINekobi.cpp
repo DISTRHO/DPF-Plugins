@@ -129,6 +129,11 @@ DistrhoUINekobi::DistrhoUINekobi()
     addIdleCallback(this, 120);
 }
 
+DistrhoUINekobi::~DistrhoUINekobi()
+{
+    removeIdleCallback(this);
+}
+
 // -----------------------------------------------------------------------
 // DSP Callbacks
 

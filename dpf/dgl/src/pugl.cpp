@@ -159,9 +159,9 @@ START_NAMESPACE_DGL
 // --------------------------------------------------------------------------------------------------------------------
 // expose backend enter
 
-void puglBackendEnter(PuglView* const view)
+bool puglBackendEnter(PuglView* const view)
 {
-    view->backend->enter(view, NULL);
+    return view->backend->enter(view, NULL) == PUGL_SUCCESS;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -213,10 +213,17 @@ double puglGetDesktopScaleFactor(const PuglView* const view)
         typedef HRESULT(WINAPI* PFN_GetProcessDpiAwareness)(HANDLE, DWORD*);
         typedef HRESULT(WINAPI* PFN_GetScaleFactorForMonitor)(HMONITOR, DWORD*);
 
+# if defined(__GNUC__) && (__GNUC__ >= 9)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wcast-function-type"
+# endif
         const PFN_GetProcessDpiAwareness GetProcessDpiAwareness
             = (PFN_GetProcessDpiAwareness)GetProcAddress(Shcore, "GetProcessDpiAwareness");
         const PFN_GetScaleFactorForMonitor GetScaleFactorForMonitor
             = (PFN_GetScaleFactorForMonitor)GetProcAddress(Shcore, "GetScaleFactorForMonitor");
+# if defined(__GNUC__) && (__GNUC__ >= 9)
+#  pragma GCC diagnostic pop
+# endif
 
         DWORD dpiAware = 0;
         if (GetProcessDpiAwareness && GetScaleFactorForMonitor
@@ -495,6 +502,33 @@ puglMacOSRemoveChildWindow(PuglView* const view, PuglView* const child)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
+// macOS specific, center view based on parent coordinates (if there is one)
+
+void puglMacOSShowCentered(PuglView* const view)
+{
+    if (puglShow(view) != PUGL_SUCCESS)
+        return;
+
+    if (view->transientParent != 0)
+    {
+        NSWindow* const transientWindow = [(NSView*)view->transientParent window];
+        DISTRHO_SAFE_ASSERT_RETURN(transientWindow != nullptr,);
+
+        const NSRect ourFrame       = [view->impl->window frame];
+        const NSRect transientFrame = [transientWindow frame];
+
+        const int x = transientFrame.origin.x + transientFrame.size.width / 2 - ourFrame.size.width / 2;
+        const int y = transientFrame.origin.y + transientFrame.size.height / 2  + ourFrame.size.height / 2;
+
+        [view->impl->window setFrameTopLeftPoint:NSMakePoint(x, y)];
+    }
+    else
+    {
+        [view->impl->window center];
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------
 // macOS specific, setup file browser dialog
 
 bool puglMacOSFilePanelOpen(PuglView* const view,
@@ -505,12 +539,17 @@ bool puglMacOSFilePanelOpen(PuglView* const view,
 
     NSOpenPanel* const panel = [NSOpenPanel openPanel];
 
-    // TODO flags
+    [panel setAllowsMultipleSelection:NO];
     [panel setCanChooseFiles:YES];
     [panel setCanChooseDirectories:NO];
-    [panel setAllowsMultipleSelection:NO];
-
     [panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+
+    // TODO file filter using allowedContentTypes: [UTType]
+
+    if (flags & 0x001)
+        [panel setAllowsOtherFileTypes:YES];
+    if (flags & 0x010)
+        [panel setShowsHiddenFiles:YES];
 
     NSString* titleString = [[NSString alloc]
         initWithBytes:title
@@ -552,7 +591,7 @@ void puglWin32RestoreWindow(PuglView* const view)
 // --------------------------------------------------------------------------------------------------------------------
 // win32 specific, center view based on parent coordinates (if there is one)
 
-void puglWin32ShowWindowCentered(PuglView* const view)
+void puglWin32ShowCentered(PuglView* const view)
 {
     PuglInternals* impl = view->impl;
     DISTRHO_SAFE_ASSERT_RETURN(impl->hwnd != nullptr,);
@@ -596,9 +635,9 @@ void puglWin32SetWindowResizable(PuglView* const view, const bool resizable)
 // --------------------------------------------------------------------------------------------------------------------
 // X11 specific, safer way to grab focus
 
-PuglStatus puglX11GrabFocus(PuglView* const view)
+PuglStatus puglX11GrabFocus(const PuglView* const view)
 {
-    PuglInternals* const impl = view->impl;
+    const PuglInternals* const impl = view->impl;
 
     XWindowAttributes wa;
     std::memset(&wa, 0, sizeof(wa));
@@ -613,6 +652,29 @@ PuglStatus puglX11GrabFocus(PuglView* const view)
     }
 
     return PUGL_SUCCESS;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// X11 specific, set dialog window type and pid hints
+
+void puglX11SetWindowTypeAndPID(const PuglView* const view)
+{
+    const PuglInternals* const impl = view->impl;
+
+    const pid_t pid = getpid();
+    const Atom _nwp = XInternAtom(impl->display, "_NET_WM_PID", False);
+    XChangeProperty(impl->display, impl->win, _nwp, XA_CARDINAL, 32, PropModeReplace, (const uchar*)&pid, 1);
+
+    const Atom _wt = XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE", False);
+
+    // Setting the window to both dialog and normal will produce a decorated floating dialog
+    // Order is important: DIALOG needs to come before NORMAL
+    const Atom _wts[2] = {
+        XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_DIALOG", False),
+        XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_NORMAL", False)
+    };
+
+    XChangeProperty(impl->display, impl->win, _wt, XA_ATOM, 32, PropModeReplace, (const uchar*)&_wts, 2);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -637,11 +699,9 @@ bool sofdFileDialogShow(PuglView* const view,
     DISTRHO_SAFE_ASSERT_RETURN(x_fib_configure(0, startDir) == 0, false);
     DISTRHO_SAFE_ASSERT_RETURN(x_fib_configure(1, title) == 0, false);
 
-    /*
-    x_fib_cfg_buttons(3, options.buttons.listAllFiles-1);
-    x_fib_cfg_buttons(1, options.buttons.showHidden-1);
-    x_fib_cfg_buttons(2, options.buttons.showPlaces-1);
-    */
+    x_fib_cfg_buttons(3, flags & 0x001 ? 1 : flags & 0x002 ? 0 : -1);
+    x_fib_cfg_buttons(1, flags & 0x010 ? 1 : flags & 0x020 ? 0 : -1);
+    x_fib_cfg_buttons(2, flags & 0x100 ? 1 : flags & 0x200 ? 0 : -1);
 
     return (x_fib_show(sofd_display, view->impl->win, 0, 0, scaleFactor + 0.5) == 0);
 }

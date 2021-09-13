@@ -94,6 +94,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s)
       minWidth(0),
       minHeight(0),
       keepAspectRatio(false),
+      ignoreIdleCallbacks(false),
 #ifdef DISTRHO_OS_WINDOWS
       win32SelectedFile(nullptr),
 #endif
@@ -118,12 +119,12 @@ Window::PrivateData::PrivateData(Application& a, Window* const s, PrivateData* c
       minWidth(0),
       minHeight(0),
       keepAspectRatio(false),
+      ignoreIdleCallbacks(false),
 #ifdef DISTRHO_OS_WINDOWS
       win32SelectedFile(nullptr),
 #endif
       modal(ppData)
 {
-    puglBackendLeave(transientParentView);
     puglSetTransientFor(view, puglGetNativeWindow(transientParentView));
 
     initPre(DEFAULT_WIDTH, DEFAULT_HEIGHT, false);
@@ -147,6 +148,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       minWidth(0),
       minHeight(0),
       keepAspectRatio(false),
+      ignoreIdleCallbacks(false),
 #ifdef DISTRHO_OS_WINDOWS
       win32SelectedFile(nullptr),
 #endif
@@ -177,6 +179,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       minWidth(0),
       minHeight(0),
       keepAspectRatio(false),
+      ignoreIdleCallbacks(false),
 #ifdef DISTRHO_OS_WINDOWS
       win32SelectedFile(nullptr),
 #endif
@@ -266,10 +269,6 @@ bool Window::PrivateData::initPost()
         puglShow(view);
     }
 
-    // give context back to transient parent window
-    if (transientParentView != nullptr)
-        puglBackendEnter(transientParentView);
-
     return true;
 }
 
@@ -317,8 +316,10 @@ void Window::PrivateData::show()
         PuglRect rect = puglGetFrame(view);
         puglSetWindowSize(view, static_cast<uint>(rect.width), static_cast<uint>(rect.height));
 
-#ifdef DISTRHO_OS_WINDOWS
-        puglWin32ShowWindowCentered(view);
+#if defined(DISTRHO_OS_WINDOWS)
+        puglWin32ShowCentered(view);
+#elif defined(DISTRHO_OS_MAC)
+        puglMacOSShowCentered(view);
 #else
         puglShow(view);
 #endif
@@ -419,6 +420,9 @@ void Window::PrivateData::idleCallback()
 
 bool Window::PrivateData::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
 {
+    if (ignoreIdleCallbacks)
+        return false;
+
     if (timerFrequencyInMs == 0)
     {
         appData->idleCallbacks.push_back(callback);
@@ -430,6 +434,9 @@ bool Window::PrivateData::addIdleCallback(IdleCallback* const callback, const ui
 
 bool Window::PrivateData::removeIdleCallback(IdleCallback* const callback)
 {
+    if (ignoreIdleCallbacks)
+        return false;
+
     if (std::find(appData->idleCallbacks.begin(),
                   appData->idleCallbacks.end(), callback) != appData->idleCallbacks.end())
     {
@@ -459,19 +466,19 @@ bool Window::PrivateData::openFileBrowser(const Window::FileBrowserOptions& opti
     if (startDir.isEmpty())
     {
         // TESTING verify this whole thing...
-#ifdef DISTRHO_OS_WINDOWS
+# ifdef DISTRHO_OS_WINDOWS
         if (char* const cwd = _getcwd(nullptr, 0))
         {
             startDir = cwd;
             std::free(cwd);
         }
-#else
+# else
         if (char* const cwd = getcwd(nullptr, 0))
         {
             startDir = cwd;
             std::free(cwd);
         }
-#endif
+# endif
     }
 
     DISTRHO_SAFE_ASSERT_RETURN(startDir.isNotEmpty(), false);
@@ -497,7 +504,22 @@ bool Window::PrivateData::openFileBrowser(const Window::FileBrowserOptions& opti
 
 # ifdef DISTRHO_OS_MAC
     uint flags = 0x0;
-    // TODO flags
+
+    if (options.buttons.listAllFiles == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x001;
+    else if (options.buttons.listAllFiles == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x002;
+
+    if (options.buttons.showHidden == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x010;
+    else if (options.buttons.showHidden == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x020;
+
+    if (options.buttons.showPlaces == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x100;
+    else if (options.buttons.showPlaces == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x200;
+
     return puglMacOSFilePanelOpen(view, startDir, title, flags, openPanelCallback);
 # endif
 
@@ -529,6 +551,13 @@ bool Window::PrivateData::openFileBrowser(const Window::FileBrowserOptions& opti
     ofn.lpstrFile = fileNameW.data();
     ofn.nMaxFile = (DWORD)fileNameW.size();
 
+    // flags
+    ofn.Flags = OFN_PATHMUSTEXIST;
+    if (options.buttons.showHidden == FileBrowserOptions::kButtonVisibleChecked)
+        ofn.Flags |= OFN_FORCESHOWHIDDEN;
+    if (options.buttons.showPlaces == FileBrowserOptions::kButtonInvisible)
+        ofn.FlagsEx |= OFN_EX_NOPLACESBAR;
+
     // TODO synchronous only, can't do better with WinAPI native dialogs.
     // threading might work, if someone is motivated to risk it.
     if (GetOpenFileNameW(&ofn))
@@ -552,7 +581,22 @@ bool Window::PrivateData::openFileBrowser(const Window::FileBrowserOptions& opti
 
 # ifdef HAVE_X11
     uint flags = 0x0;
-    // TODO flags
+
+    if (options.buttons.listAllFiles == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x001;
+    else if (options.buttons.listAllFiles == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x002;
+
+    if (options.buttons.showHidden == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x010;
+    else if (options.buttons.showHidden == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x020;
+
+    if (options.buttons.showPlaces == FileBrowserOptions::kButtonVisibleChecked)
+        flags |= 0x100;
+    else if (options.buttons.showPlaces == FileBrowserOptions::kButtonVisibleUnchecked)
+        flags |= 0x200;
+
     return sofdFileDialogShow(view, startDir, title, flags, autoScaling ? autoScaleFactor : scaleFactor);
 # endif
 
@@ -872,9 +916,9 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
 
     ///< View created, a #PuglEventCreate
     case PUGL_CREATE:
-#ifdef DGL_PUGL_USING_X11
+#ifdef HAVE_X11
         if (! pData->isEmbed)
-            puglExtraSetWindowTypeAndPID(view);
+            puglX11SetWindowTypeAndPID(view);
 #endif
         break;
 

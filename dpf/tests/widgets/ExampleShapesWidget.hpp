@@ -21,8 +21,8 @@
 // DGL Stuff
 
 #include "../../dgl/Color.hpp"
+#include "../../dgl/StandaloneWindow.hpp"
 #include "../../dgl/SubWidget.hpp"
-#include "../../dgl/TopLevelWidget.hpp"
 
 START_NAMESPACE_DGL
 
@@ -40,23 +40,14 @@ class ExampleShapesWidget : public BaseWidget
 public:
     static constexpr const char* const kExampleWidgetName = "Shapes";
 
-    explicit ExampleShapesWidget(Widget* const parentWidget)
-        : BaseWidget(parentWidget)
-    {
-        this->setSize(300, 300);
-    }
+    // SubWidget
+    explicit ExampleShapesWidget(Widget* const parent);
 
-    explicit ExampleShapesWidget(Window& windowToMapTo)
-        : BaseWidget(windowToMapTo)
-    {
-        this->setSize(300, 300);
-    }
+    // TopLevelWidget
+    explicit ExampleShapesWidget(Window& windowToMapTo);
 
-    explicit ExampleShapesWidget(Application& app)
-        : BaseWidget(app)
-    {
-        this->setSize(300, 300);
-    }
+    // StandaloneWindow
+    explicit ExampleShapesWidget(Application& app);
 
 protected:
     void onDisplay() override
@@ -103,6 +94,31 @@ protected:
         cir = Circle<int>(width/2, height*2/3, height/6, 300);
     }
 };
+
+// SubWidget
+template<> inline
+ExampleShapesWidget<SubWidget>::ExampleShapesWidget(Widget* const parentWidget)
+    : SubWidget(parentWidget)
+{
+    setSize(300, 300);
+}
+
+// TopLevelWidget
+template<> inline
+ExampleShapesWidget<TopLevelWidget>::ExampleShapesWidget(Window& windowToMapTo)
+    : TopLevelWidget(windowToMapTo)
+{
+    setSize(300, 300);
+}
+
+// StandaloneWindow
+template<> inline
+ExampleShapesWidget<StandaloneWindow>::ExampleShapesWidget(Application& app)
+    : StandaloneWindow(app)
+{
+    setSize(300, 300);
+    done();
+}
 
 typedef ExampleShapesWidget<SubWidget> ExampleShapesSubWidget;
 typedef ExampleShapesWidget<TopLevelWidget> ExampleShapesTopLevelWidget;

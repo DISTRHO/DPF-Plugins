@@ -49,6 +49,8 @@ class TopLevelWidget;
  */
 class Window
 {
+   struct PrivateData;
+
 public:
 #ifndef DGL_FILE_BROWSER_DISABLED
    /**
@@ -59,6 +61,7 @@ public:
        /**
           File browser button state.
           This allows to customize the behaviour of the file browse dialog buttons.
+          Note these are merely hints, not all systems support them.
         */
         enum ButtonState {
             kButtonInvisible,
@@ -87,7 +90,7 @@ public:
             Buttons()
                 : listAllFiles(kButtonVisibleChecked),
                   showHidden(kButtonVisibleUnchecked),
-                  showPlaces(kButtonVisibleUnchecked) {}
+                  showPlaces(kButtonVisibleChecked) {}
         } buttons;
 
         /** Constructor for default values */
@@ -113,7 +116,7 @@ public:
           Window win(app);
           ScopedPointer<MyCustomTopLevelWidget> widget;
           {
-              const ScopedGraphicsContext sgc(win);
+              const Window::ScopedGraphicsContext sgc(win);
               widget = new MyCustomTopLevelWidget(win);
           }
           app.exec();
@@ -127,12 +130,25 @@ public:
     */
     struct ScopedGraphicsContext
     {
+        /** Constructor that will make the @a window graphics context the current one */
         explicit ScopedGraphicsContext(Window& window);
+
+        /** Overloaded constructor, gives back context to its transient parent when done */
+        explicit ScopedGraphicsContext(Window& window, Window& transientParentWindow);
+
+        /** Desstructor for clearing current context, if not done yet */
         ~ScopedGraphicsContext();
+
+        /** Early context clearing, useful for standalone windows not created by you. */
+        void done();
+
         DISTRHO_DECLARE_NON_COPYABLE(ScopedGraphicsContext)
         DISTRHO_PREVENT_HEAP_ALLOCATION
+
     private:
         Window& window;
+        Window::PrivateData* ppData;
+        bool active;
     };
 
    /**
@@ -441,7 +457,6 @@ protected:
 #endif
 
 private:
-    struct PrivateData;
     PrivateData* const pData;
     friend class Application;
     friend class PluginWindow;

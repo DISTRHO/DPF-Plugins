@@ -48,7 +48,7 @@ USE_NAMESPACE_DGL
 PUGL_BEGIN_DECLS
 
 // expose backend enter
-PUGL_API void
+PUGL_API bool
 puglBackendEnter(PuglView* view);
 
 // expose backend leave
@@ -108,6 +108,10 @@ puglMacOSAddChildWindow(PuglView* view, PuglView* child);
 PUGL_API PuglStatus
 puglMacOSRemoveChildWindow(PuglView* view, PuglView* child);
 
+// macOS specific, center view based on parent coordinates (if there is one)
+PUGL_API void
+puglMacOSShowCentered(PuglView* view);
+
 // macOS specific, setup file browser dialog
 typedef void (*openPanelCallback)(PuglView* view, const char* path);
 bool puglMacOSFilePanelOpen(PuglView* view, const char* startDir, const char* title, uint flags, openPanelCallback callback);
@@ -120,7 +124,7 @@ puglWin32RestoreWindow(PuglView* view);
 
 // win32 specific, center view based on parent coordinates (if there is one)
 PUGL_API void
-puglWin32ShowWindowCentered(PuglView* view);
+puglWin32ShowCentered(PuglView* view);
 
 // win32 specific, set or unset WS_SIZEBOX style flag
 PUGL_API void
@@ -130,7 +134,11 @@ puglWin32SetWindowResizable(PuglView* view, bool resizable);
 #ifdef HAVE_X11
 // X11 specific, safer way to grab focus
 PUGL_API PuglStatus
-puglX11GrabFocus(PuglView* view);
+puglX11GrabFocus(const PuglView* view);
+
+// X11 specific, set dialog window type and pid hints
+PUGL_API void
+puglX11SetWindowTypeAndPID(const PuglView* view);
 
 // X11 specific, show file dialog via sofd
 PUGL_API bool
