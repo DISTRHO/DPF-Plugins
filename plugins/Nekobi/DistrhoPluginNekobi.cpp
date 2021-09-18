@@ -135,7 +135,6 @@ DistrhoPluginNekobi::DistrhoPluginNekobi()
     fParams.decay  = 75.0f;
     fParams.accent = 25.0f;
     fParams.volume = 75.0f;
-    fParams.bypass = false;
 
     // Internal stuff
     fSynth.waveform  = 0.0f;
@@ -251,9 +250,6 @@ void DistrhoPluginNekobi::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.max = 100.0f;
         parameter.midiCC = 7; //Volume
         break;
-    case paramBypass:
-        parameter.initDesignation(kParameterDesignationBypass);
-        break;
     }
 }
 
@@ -280,8 +276,6 @@ float DistrhoPluginNekobi::getParameterValue(uint32_t index) const
         return fParams.accent;
     case paramVolume:
         return fParams.volume;
-    case paramBypass:
-        return fParams.bypass ? 1.0f : 0.0f;
     }
 
     return 0.0f;
@@ -331,14 +325,6 @@ void DistrhoPluginNekobi::setParameterValue(uint32_t index, float value)
         fSynth.volume = value/100.0f;
         DISTRHO_SAFE_ASSERT(fSynth.volume >= 0.0f && fSynth.volume <= 1.0f);
         break;
-    case paramBypass: {
-        const bool bypass = (value > 0.5f);
-        if (fParams.bypass != bypass)
-        {
-            fParams.bypass = bypass;
-            nekobee_synth_all_voices_off(&fSynth);
-        }
-    }   break;
     }
 }
 
@@ -373,10 +359,6 @@ void DistrhoPluginNekobi::run(const float**, float** outputs, uint32_t frames, c
         std::memset(out, 0, sizeof(float)*frames);
         return;
     }
-
-    // ignore midi input if bypassed
-    if (fParams.bypass)
-        midiEventCount = 0;
 
     while (framesDone < frames)
     {

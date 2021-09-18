@@ -817,9 +817,14 @@ int nvgCreateImageMem(NVGcontext* ctx, int imageFlags, unsigned char* data, int 
 	return image;
 }
 
+int nvgCreateImageRaw(NVGcontext* ctx, int w, int h, int imageFlags, NVGtexture format, const unsigned char* data)
+{
+	return ctx->params.renderCreateTexture(ctx->params.userPtr, format, w, h, imageFlags, data);
+}
+
 int nvgCreateImageRGBA(NVGcontext* ctx, int w, int h, int imageFlags, const unsigned char* data)
 {
-	return ctx->params.renderCreateTexture(ctx->params.userPtr, NVG_TEXTURE_RGBA, w, h, imageFlags, data);
+	return nvgCreateImageRaw(ctx, w, h, imageFlags, NVG_TEXTURE_RGBA, data);
 }
 
 void nvgUpdateImage(NVGcontext* ctx, int image, const unsigned char* data)

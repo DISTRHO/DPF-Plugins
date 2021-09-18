@@ -74,8 +74,8 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
         parameter.name       = "X";
         parameter.symbol     = "x";
         parameter.unit       = "";
-        parameter.ranges.def = -4.0f;
-        parameter.ranges.min = 0.0f;
+        parameter.ranges.def = 0.0f;
+        parameter.ranges.min = -4.0f;
         parameter.ranges.max = 4.0f;
         break;
 

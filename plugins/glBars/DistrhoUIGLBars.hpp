@@ -53,6 +53,7 @@ protected:
     bool onKeyboard(const KeyboardEvent&) override;
 
 private:
+    bool fInitialized;
     glBarsState fState;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistrhoUIGLBars)

@@ -96,6 +96,9 @@ DistrhoUIProM::DistrhoUIProM()
 
 DistrhoUIProM::~DistrhoUIProM()
 {
+    if (fPM == nullptr)
+        return;
+
     if (DistrhoPluginProM* const dspPtr = (DistrhoPluginProM*)getPluginInstancePointer())
     {
         const MutexLocker csm(dspPtr->fMutex);

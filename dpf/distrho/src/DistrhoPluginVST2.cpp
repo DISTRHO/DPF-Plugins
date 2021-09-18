@@ -44,6 +44,7 @@
 #include <clocale>
 #include <map>
 #include <string>
+#include <vector>
 
 #if VESTIGE_HEADER
 # include "vestige/vestige.h"
@@ -1635,6 +1636,20 @@ static void vst_processReplacingCallback(AEffect* effect, float** inputs, float*
 #undef validPlugin
 #undef vstObjectPtr
 
+static struct Cleanup {
+    std::vector<AEffect*> effects;
+
+    ~Cleanup()
+    {
+        for (std::vector<AEffect*>::iterator it = effects.begin(), end = effects.end(); it != end; ++it)
+        {
+            AEffect* const effect = *it;
+            delete (VstObject*)effect->object;
+            delete effect;
+        }
+    }
+} sCleanup;
+
 // -----------------------------------------------------------------------
 
 END_NAMESPACE_DISTRHO
@@ -1714,12 +1729,13 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
     effect->processReplacing = vst_processReplacingCallback;
 
     // pointers
-    VstObject* const obj(new VstObject());
+    VstObject* const obj = new VstObject();
     obj->audioMaster = audioMaster;
     obj->plugin      = nullptr;
 
     // done
     effect->object = obj;
+    sCleanup.effects.push_back(effect);
 
     return effect;
 }

@@ -42,7 +42,6 @@ public:
         paramDecay,
         paramAccent,
         paramVolume,
-        paramBypass,
         paramCount
     };
 
@@ -118,7 +117,6 @@ private:
         float decay;
         float accent;
         float volume;
-        bool bypass;
     } fParams;
 
     nekobee_synth_t fSynth;

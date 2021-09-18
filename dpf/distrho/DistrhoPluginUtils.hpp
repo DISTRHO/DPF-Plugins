@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -44,11 +44,11 @@ START_NAMESPACE_DISTRHO
 
    Some important notes when using this class:
     1. MidiEvent::frame retains its original value, but it is useless, do not use it.
-    2. The class variables names are be the same as the default ones in the run function.
+    2. The class variable names are the same as the default ones in the run function.
        Keep that in mind and try to avoid typos. :)
  */
-class AudioMidiSyncHelper {
-public:
+struct AudioMidiSyncHelper
+{
     /** Parameters from the run function, adjusted for event sync */
     float* outputs[DISTRHO_PLUGIN_NUM_OUTPUTS];
     uint32_t frames;

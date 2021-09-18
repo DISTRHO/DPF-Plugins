@@ -26,13 +26,17 @@ START_NAMESPACE_DISTRHO
 // -----------------------------------------------------------------------
 
 DistrhoUIGLBars::DistrhoUIGLBars()
-    : UI(512, 512)
+    : UI(512, 512),
+      fInitialized(false)
 {
     setGeometryConstraints(256, 256, true);
 }
 
 DistrhoUIGLBars::~DistrhoUIGLBars()
 {
+    if (! fInitialized)
+        return;
+
     if (DistrhoPluginGLBars* const dspPtr = (DistrhoPluginGLBars*)getPluginInstancePointer())
     {
         const MutexLocker csm(dspPtr->fMutex);
@@ -80,6 +84,8 @@ void DistrhoUIGLBars::uiIdle()
     {
         if (dspPtr->fState != nullptr)
             return;
+
+        fInitialized = true;
 
         const MutexLocker csm(dspPtr->fMutex);
         dspPtr->fState = &fState;

@@ -332,6 +332,7 @@ void lv2_generate_ttl(const char* const basename)
         pluginString += "@prefix doap:  <http://usefulinc.com/ns/doap#> .\n";
         pluginString += "@prefix foaf:  <http://xmlns.com/foaf/0.1/> .\n";
         pluginString += "@prefix lv2:   <" LV2_CORE_PREFIX "> .\n";
+        pluginString += "@prefix midi:  <" LV2_MIDI_PREFIX "> .\n";
         pluginString += "@prefix mod:   <http://moddevices.com/ns/mod#> .\n";
         pluginString += "@prefix opts:  <" LV2_OPTIONS_PREFIX "> .\n";
         pluginString += "@prefix pg:    <" LV2_PORT_GROUPS_PREFIX "> .\n";
@@ -341,6 +342,7 @@ void lv2_generate_ttl(const char* const basename)
 #if DISTRHO_LV2_USE_EVENTS_IN || DISTRHO_LV2_USE_EVENTS_OUT
         pluginString += "@prefix rsz:   <" LV2_RESIZE_PORT_PREFIX "> .\n";
 #endif
+        pluginString += "@prefix spdx:  <http://spdx.org/rdf/terms#> .\n";
 #if DISTRHO_PLUGIN_HAS_UI
         pluginString += "@prefix ui:    <" LV2_UI_PREFIX "> .\n";
 #endif
@@ -368,11 +370,11 @@ void lv2_generate_ttl(const char* const basename)
         // plugin
         pluginString += "<" DISTRHO_PLUGIN_URI ">\n";
 #ifdef DISTRHO_PLUGIN_LV2_CATEGORY
-        pluginString += "    a " DISTRHO_PLUGIN_LV2_CATEGORY ", lv2:Plugin ;\n";
+        pluginString += "    a " DISTRHO_PLUGIN_LV2_CATEGORY ", lv2:Plugin, doap:Project ;\n";
 #elif DISTRHO_PLUGIN_IS_SYNTH
-        pluginString += "    a lv2:InstrumentPlugin, lv2:Plugin ;\n";
+        pluginString += "    a lv2:InstrumentPlugin, lv2:Plugin, doap:Project ;\n";
 #else
-        pluginString += "    a lv2:Plugin ;\n";
+        pluginString += "    a lv2:Plugin, doap:Project ;\n";
 #endif
         pluginString += "\n";
 
@@ -594,10 +596,13 @@ void lv2_generate_ttl(const char* const basename)
             pluginString += "        rsz:minimumSize " + String(DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE) + " ;\n";
             pluginString += "        atom:bufferType atom:Sequence ;\n";
 # if (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI)
-            pluginString += "        atom:supports <" LV2_ATOM__String "> ;\n";
+            pluginString += "        atom:supports atom:String ;\n";
 # endif
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-            pluginString += "        atom:supports <" LV2_MIDI__MidiEvent "> ;\n";
+            pluginString += "        atom:supports midi:MidiEvent ;\n";
+# endif
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+            pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
 # endif
 # if DISTRHO_PLUGIN_WANT_TIMEPOS
             pluginString += "        atom:supports <" LV2_TIME__Position "> ;\n";
@@ -615,10 +620,13 @@ void lv2_generate_ttl(const char* const basename)
             pluginString += "        rsz:minimumSize " + String(DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE) + " ;\n";
             pluginString += "        atom:bufferType atom:Sequence ;\n";
 # if (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI)
-            pluginString += "        atom:supports <" LV2_ATOM__String "> ;\n";
+            pluginString += "        atom:supports atom:String ;\n";
 # endif
 # if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-            pluginString += "        atom:supports <" LV2_MIDI__MidiEvent "> ;\n";
+            pluginString += "        atom:supports midi:MidiEvent ;\n";
+# endif
+# if DISTRHO_PLUGIN_WANT_STATEFILES
+            pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
 # endif
             pluginString += "    ] ;\n\n";
             ++portIndex;
@@ -746,10 +754,20 @@ void lv2_generate_ttl(const char* const basename)
                             }
 
                             if (j+1 == enumValues.count)
-                                pluginString += "        ] ;\n\n";
+                                pluginString += "        ] ;\n";
                             else
                                 pluginString += "        ] ,\n";
                         }
+                    }
+
+                    // MIDI CC binding
+                    if (const uint8_t midiCC = plugin.getParameterMidiCC(i))
+                    {
+                        char midiCCBuf[7];
+                        snprintf(midiCCBuf, sizeof(midiCCBuf), "B0%02x00", midiCC);
+                        pluginString += "        midi:binding \"";
+                        pluginString += midiCCBuf;
+                        pluginString += "\"^^midi:MidiEvent ;\n";
                     }
 
                     // unit
@@ -814,7 +832,7 @@ void lv2_generate_ttl(const char* const basename)
                     }
 
                     // hints
-                    const uint32_t hints(plugin.getParameterHints(i));
+                    const uint32_t hints = plugin.getParameterHints(i);
 
                     if (hints & kParameterIsBoolean)
                     {
@@ -831,8 +849,6 @@ void lv2_generate_ttl(const char* const basename)
                         pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__expensive "> ,\n";
                         pluginString += "                         <" LV2_KXSTUDIO_PROPERTIES__NonAutomable "> ;\n";
                     }
-
-                    // TODO midiCC
 
                     // group
                     const uint32_t groupId = plugin.getParameterGroupId(i);
@@ -895,13 +911,154 @@ void lv2_generate_ttl(const char* const basename)
         {
             const String license(plugin.getLicense());
 
-            // TODO always convert to URL, do best-guess based on known licenses
+            // Using URL as license
             if (license.contains("://"))
+            {
                 pluginString += "    doap:license <" +  license + "> ;\n\n";
+            }
+            // String contaning quotes, use as-is
             else if (license.contains('"'))
+            {
                 pluginString += "    doap:license \"\"\"" +  license + "\"\"\" ;\n\n";
+            }
+            // Regular license string, convert to URL as much as we can
             else
-                pluginString += "    doap:license \"" +  license + "\" ;\n\n";
+            {
+                const String uplicense(license.asUpper());
+
+                // for reference, see https://spdx.org/licenses/
+
+                // common licenses
+                /**/ if (uplicense == "AGPL-1.0-ONLY" ||
+                         uplicense == "AGPL1" ||
+                         uplicense == "AGPLV1")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/AGPL-1.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "AGPL-1.0-OR-LATER" ||
+                         uplicense == "AGPL1+" ||
+                         uplicense == "AGPLV1+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/AGPL-1.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "AGPL-3.0-ONLY" ||
+                         uplicense == "AGPL3" ||
+                         uplicense == "AGPLV3")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/AGPL-3.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "AGPL-3.0-OR-LATER" ||
+                         uplicense == "AGPL3+" ||
+                         uplicense == "AGPLV3+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/AGPL-3.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "APACHE-2.0" ||
+                         uplicense == "APACHE2" ||
+                         uplicense == "APACHE-2")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/Apache-2.0.html> ;\n\n";
+                }
+                else if (uplicense == "BSD-2-CLAUSE" ||
+                         uplicense == "BSD2" ||
+                         uplicense == "BSD-2")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/BSD-2-Clause.html> ;\n\n";
+                }
+                else if (uplicense == "BSD-3-CLAUSE" ||
+                         uplicense == "BSD3" ||
+                         uplicense == "BSD-3")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/BSD-3-Clause.html> ;\n\n";
+                }
+                else if (uplicense == "GPL-2.0-ONLY" ||
+                         uplicense == "GPL2" ||
+                         uplicense == "GPLV2")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/GPL-2.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "GPL-2.0-OR-LATER" ||
+                         uplicense == "GPL2+" ||
+                         uplicense == "GPLV2+" ||
+                         uplicense == "GPL V2+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/GPL-2.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "GPL-3.0-ONLY" ||
+                         uplicense == "GPL3" ||
+                         uplicense == "GPLV3")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/GPL-3.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "GPL-3.0-OR-LATER" ||
+                         uplicense == "GPL3+" ||
+                         uplicense == "GPLV3+" ||
+                         uplicense == "GPL V3+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/GPL-3.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "ISC")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/ISC.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-2.0-ONLY" ||
+                         uplicense == "LGPL2" ||
+                         uplicense == "LGPLV2")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-2.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-2.0-OR-LATER" ||
+                         uplicense == "LGPL2+" ||
+                         uplicense == "LGPLV2+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-2.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-2.1-ONLY" ||
+                         uplicense == "LGPL2.1" ||
+                         uplicense == "LGPLV2.1")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-2.1-only.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-2.1-OR-LATER" ||
+                         uplicense == "LGPL2.1+" ||
+                         uplicense == "LGPLV2.1+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-2.1-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-3.0-ONLY" ||
+                         uplicense == "LGPL3" ||
+                         uplicense == "LGPLV3")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-2.0-only.html> ;\n\n";
+                }
+                else if (uplicense == "LGPL-3.0-OR-LATER" ||
+                         uplicense == "LGPL3+" ||
+                         uplicense == "LGPLV3+")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/LGPL-3.0-or-later.html> ;\n\n";
+                }
+                else if (uplicense == "MIT")
+                {
+                    pluginString += "    doap:license <http://spdx.org/licenses/MIT.html> ;\n\n";
+                }
+
+                // generic fallbacks
+                else if (uplicense.startsWith("GPL"))
+                {
+                    pluginString += "    doap:license <https://opensource.org/licenses/gpl-license> ;\n\n";
+                }
+                else if (uplicense.startsWith("LGPL"))
+                {
+                    pluginString += "    doap:license <https://opensource.org/licenses/lgpl-license> ;\n\n";
+                }
+
+                // unknown or not handled yet, log a warning
+                else
+                {
+                    d_stderr("Unknown license string '%s'", license.buffer());
+                    pluginString += "    doap:license \"" +  license + "\" ;\n\n";
+                }
+            }
         }
 
         // developer
@@ -1037,7 +1194,10 @@ void lv2_generate_ttl(const char* const basename)
         presetsString += "@prefix lv2:   <" LV2_CORE_PREFIX "> .\n";
         presetsString += "@prefix pset:  <" LV2_PRESETS_PREFIX "> .\n";
 # if DISTRHO_PLUGIN_WANT_STATE
+        presetsString += "@prefix owl:   <http://www.w3.org/2002/07/owl#> .\n";
+        presetsString += "@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .\n";
         presetsString += "@prefix state: <" LV2_STATE_PREFIX "> .\n";
+        presetsString += "@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n";
 # endif
         presetsString += "\n";
 
@@ -1045,7 +1205,12 @@ void lv2_generate_ttl(const char* const basename)
         const uint32_t numPrograms   = plugin.getProgramCount();
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
         const uint32_t numStates     = plugin.getStateCount();
+        const bool     valid         = numParameters != 0 || numStates != 0;
+# else
+        const bool     valid         = numParameters != 0;
 # endif
+
+        DISTRHO_CUSTOM_SAFE_ASSERT_RETURN("Programs require parameters or full state", valid, presetsFile.close());
 
         const String presetSeparator(std::strstr(DISTRHO_PLUGIN_URI, "#") != nullptr ? ":" : "#");
 
@@ -1054,6 +1219,22 @@ void lv2_generate_ttl(const char* const basename)
 
         String presetString;
 
+# if DISTRHO_PLUGIN_WANT_FULL_STATE
+        for (uint32_t i=0; i<numStates; ++i)
+        {
+#  if DISTRHO_PLUGIN_WANT_STATEFILES
+            if (plugin.isStateFile(i))
+                continue;
+#  endif
+            presetString  = "<" DISTRHO_PLUGIN_LV2_STATE_PREFIX + plugin.getStateKey(i) + ">\n";
+            presetString += "    a owl:DatatypeProperty ;\n";
+            presetString += "    rdfs:label \"Plugin state key-value string pair\" ;\n";
+            presetString += "    rdfs:domain state:State ;\n";
+            presetString += "    rdfs:range xsd:string .\n\n";
+            presetsString += presetString;
+        }
+# endif
+
         for (uint32_t i=0; i<numPrograms; ++i)
         {
             std::snprintf(strBuf, 0xff, "%03i", i+1);
@@ -1061,17 +1242,6 @@ void lv2_generate_ttl(const char* const basename)
             plugin.loadProgram(i);
 
             presetString = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-            if (numParameters == 0 && numStates == 0)
-#else
-            if (numParameters == 0)
-#endif
-            {
-                presetString += "    .";
-                presetsString += presetString;
-                continue;
-            }
 
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
             presetString += "    state:state [\n";
