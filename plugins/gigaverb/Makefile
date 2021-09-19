@@ -29,13 +29,10 @@ BUILD_CXX_FLAGS += -Wno-unused-parameter
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-ifeq ($(HAVE_JACK),true)
 TARGETS += jack
-endif
-
 TARGETS += ladspa
 TARGETS += lv2_dsp
-TARGETS += vst
+TARGETS += vst2
 
 all: $(TARGETS)
 

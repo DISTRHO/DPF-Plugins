@@ -221,6 +221,7 @@ void genlib_data_release(t_genlib_data *b) {
 		genlib_sysmem_freeptr(self->info.data);
 		self->info.data = 0;
 	}
+	genlib_sysmem_freeptr(self);
 }
 
 long genlib_data_getcursor(t_genlib_data *b) {
