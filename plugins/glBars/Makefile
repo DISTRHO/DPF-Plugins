@@ -33,7 +33,8 @@ LINK_FLAGS += -lpthread
 
 TARGETS += jack
 TARGETS += lv2
-TARGETS += vst
+TARGETS += vst2
+TARGETS += vst3
 
 all: $(TARGETS)
 

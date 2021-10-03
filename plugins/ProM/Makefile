@@ -196,7 +196,8 @@ LINK_FLAGS += -lpthread
 # Enable all possible plugin types
 
 TARGETS += lv2
-TARGETS += vst
+TARGETS += vst2
+TARGETS += vst3
 
 all: $(TARGETS)
 

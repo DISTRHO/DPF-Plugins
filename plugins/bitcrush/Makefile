@@ -33,6 +33,7 @@ TARGETS += jack
 TARGETS += ladspa
 TARGETS += lv2_dsp
 TARGETS += vst2
+TARGETS += vst3
 
 all: $(TARGETS)
 
