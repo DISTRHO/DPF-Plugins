@@ -44,6 +44,14 @@ typedef bool (*requestParameterValueChangeFunc) (void* ptr, uint32_t index, floa
 // -----------------------------------------------------------------------
 // Helpers
 
+struct AudioPortWithBusId : AudioPort {
+    uint32_t busId;
+
+    AudioPortWithBusId()
+        : AudioPort(),
+          busId(0) {}
+};
+
 struct PortGroupWithId : PortGroup {
     uint32_t groupId;
 
@@ -78,7 +86,7 @@ struct Plugin::PrivateData {
     bool isProcessing;
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    AudioPort* audioPorts;
+    AudioPortWithBusId* audioPorts;
 #endif
 
     uint32_t   parameterCount;
@@ -160,6 +168,15 @@ struct Plugin::PrivateData {
         parameterOffset += 1;
 # endif
 # if (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
+        parameterOffset += 1;
+# endif
+#endif
+
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
+# if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+        parameterOffset += 130 * 16; // all MIDI CCs plus aftertouch and pitchbend
+# endif
+# if DISTRHO_PLUGIN_WANT_PROGRAMS
         parameterOffset += 1;
 # endif
 #endif
@@ -247,30 +264,26 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr,);
 
-        /* Verify that virtual functions are overriden if parameters, programs or states are in use.
+#if defined(DPF_RUNTIME_TESTING) && defined(__GNUC__) && !defined(__clang__)
+        /* Run-time testing build.
+         * Verify that virtual functions are overriden if parameters, programs or states are in use.
          * This does not work on all compilers, but we use it purely as informational check anyway. */
-#if defined(__GNUC__) && !defined(__clang__)
-# ifdef DPF_ABORT_ON_ERROR
-#  define DPF_ABORT abort();
-# else
-#  define DPF_ABORT
-# endif
         if (fData->parameterCount != 0)
         {
             if ((void*)(fPlugin->*(&Plugin::initParameter)) == (void*)&Plugin::initParameter)
             {
                 d_stderr2("DPF warning: Plugins with parameters must implement `initParameter`");
-                DPF_ABORT
+                abort();
             }
             if ((void*)(fPlugin->*(&Plugin::getParameterValue)) == (void*)&Plugin::getParameterValue)
             {
                 d_stderr2("DPF warning: Plugins with parameters must implement `getParameterValue`");
-                DPF_ABORT
+                abort();
             }
             if ((void*)(fPlugin->*(&Plugin::setParameterValue)) == (void*)&Plugin::setParameterValue)
             {
                 d_stderr2("DPF warning: Plugins with parameters must implement `setParameterValue`");
-                DPF_ABORT
+                abort();
             }
         }
 
@@ -280,12 +293,12 @@ public:
             if ((void*)(fPlugin->*(&Plugin::initProgramName)) == (void*)&Plugin::initProgramName)
             {
                 d_stderr2("DPF warning: Plugins with programs must implement `initProgramName`");
-                DPF_ABORT
+                abort();
             }
             if ((void*)(fPlugin->*(&Plugin::loadProgram)) == (void*)&Plugin::loadProgram)
             {
                 d_stderr2("DPF warning: Plugins with programs must implement `loadProgram`");
-                DPF_ABORT
+                abort();
             }
         }
 # endif
@@ -296,13 +309,13 @@ public:
             if ((void*)(fPlugin->*(&Plugin::initState)) == (void*)&Plugin::initState)
             {
                 d_stderr2("DPF warning: Plugins with state must implement `initState`");
-                DPF_ABORT
+                abort();
             }
 
             if ((void*)(fPlugin->*(&Plugin::setState)) == (void*)&Plugin::setState)
             {
                 d_stderr2("DPF warning: Plugins with state must implement `setState`");
-                DPF_ABORT
+                abort();
             }
         }
 # endif
@@ -313,17 +326,15 @@ public:
             if ((void*)(fPlugin->*(&Plugin::getState)) == (void*)&Plugin::getState)
             {
                 d_stderr2("DPF warning: Plugins with full state must implement `getState`");
-                DPF_ABORT
+                abort();
             }
         }
         else
         {
             d_stderr2("DPF warning: Plugins with full state must have at least 1 state");
-            DPF_ABORT
+            abort();
         }
 # endif
-
-# undef DPF_ABORT
 #endif
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -469,7 +480,7 @@ public:
 #endif
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    const AudioPort& getAudioPort(const bool input, const uint32_t index) const noexcept
+    AudioPortWithBusId& getAudioPort(const bool input, const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, sFallbackAudioPort);
 
@@ -487,6 +498,11 @@ public:
         }
 
         return fData->audioPorts[index + (input ? 0 : DISTRHO_PLUGIN_NUM_INPUTS)];
+    }
+
+    uint32_t getAudioPortHints(const bool input, const uint32_t index) const noexcept
+    {
+        return getAudioPort(input, index).hints;
     }
 #endif
 
@@ -526,6 +542,11 @@ public:
     bool isParameterOutput(const uint32_t index) const noexcept
     {
         return (getParameterHints(index) & kParameterIsOutput) != 0x0;
+    }
+
+    bool isParameterTrigger(const uint32_t index) const noexcept
+    {
+        return (getParameterHints(index) & kParameterIsTrigger) == kParameterIsTrigger;
     }
 
     bool isParameterOutputOrTrigger(const uint32_t index) const noexcept
@@ -601,6 +622,14 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, kPortGroupNone);
 
         return fData->parameters[index].groupId;
+    }
+
+    float getParameterDefault(const uint32_t index) const
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0.0f);
+
+        return fData->parameters[index].ranges.def;
     }
 
     float getParameterValue(const uint32_t index) const
@@ -888,7 +917,7 @@ private:
     // Static fallback data, see DistrhoPlugin.cpp
 
     static const String                     sFallbackString;
-    static const AudioPort                  sFallbackAudioPort;
+    static /* */ AudioPortWithBusId         sFallbackAudioPort;
     static const ParameterRanges            sFallbackRanges;
     static const ParameterEnumerationValues sFallbackEnumValues;
     static const PortGroupWithId            sFallbackPortGroup;

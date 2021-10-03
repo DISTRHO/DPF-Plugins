@@ -33,7 +33,6 @@ endif
 
 BUILD_C_FLAGS   += -I.
 BUILD_CXX_FLAGS += -I. -I$(DPF_PATH)/distrho -I$(DPF_PATH)/dgl
-BUILD_CXX_FLAGS += -Wno-pmf-conversions
 
 ifeq ($(HAVE_ALSA),true)
 BASE_FLAGS += -DHAVE_ALSA
@@ -128,7 +127,7 @@ SYMBOLS_LV2UI  = $(DPF_PATH)/utils/symbols/lv2-ui.def
 SYMBOLS_LV2    = $(DPF_PATH)/utils/symbols/lv2.def
 SYMBOLS_VST2   = $(DPF_PATH)/utils/symbols/vst2.def
 SYMBOLS_VST3   = $(DPF_PATH)/utils/symbols/vst3.def
-else
+else ifneq ($(DEBUG),true)
 SYMBOLS_LADSPA = -Wl,--version-script=$(DPF_PATH)/utils/symbols/ladspa.version
 SYMBOLS_DSSI   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/dssi.version
 SYMBOLS_LV2DSP = -Wl,--version-script=$(DPF_PATH)/utils/symbols/lv2-dsp.version
@@ -223,6 +222,13 @@ endif
 
 # TODO split dsp and ui object build flags
 BASE_FLAGS += $(DGL_FLAGS)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Runtime test build
+
+ifeq ($(DPF_RUNTIME_TESTING),true)
+BUILD_CXX_FLAGS += -DDPF_RUNTIME_TESTING -Wno-pmf-conversions
+endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # all needs to be first
@@ -386,7 +392,11 @@ endif
 
 vst3: $(vst3)
 
+ifeq ($(HAVE_DGL),true)
+$(vst3): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.o $(DGL_LIB)
+else
 $(vst3): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o
+endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating VST3 plugin for $(NAME)"
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST3) -o $@

@@ -157,10 +157,10 @@ public:
     explicit Window(Application& app);
 
    /**
-      Constructor for a modal window, by having another window as its parent.
+      Constructor for a modal window, by having another window as its transient parent.
       The Application instance must be the same between the 2 windows.
     */
-    explicit Window(Application& app, Window& parent);
+    explicit Window(Application& app, Window& transientParentWindow);
 
    /**
       Constructor for an embed Window without known size,
@@ -369,7 +369,7 @@ public:
 
       This function does not block the event loop.
     */
-    bool openFileBrowser(const FileBrowserOptions& options);
+    bool openFileBrowser(const FileBrowserOptions& options = FileBrowserOptions());
 #endif
 
    /**

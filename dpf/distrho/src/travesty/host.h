@@ -14,25 +14,36 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#if defined(__APPLE__)
-# if defined(__clang__)
-#  pragma clang diagnostic push
-#  pragma clang diagnostic ignored "-Wpragma-pack"
-# elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#  pragma GCC diagnostic ignored "-Wpragma-pack"
-# endif
+#pragma once
+
+#include "message.h"
+
+#include "align_push.h"
+
+/**
+ * connection point
+ */
+
+struct v3_host_application {
+	struct v3_funknown;
+
+	v3_result (V3_API* get_name)(void* self, v3_str_128 name); // wtf?
+	v3_result (V3_API* create_instance)(void* self, v3_tuid cid, v3_tuid iid, void** obj);
+};
+
+static constexpr const v3_tuid v3_host_application_iid =
+	V3_ID(0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5);
+
+#ifdef __cplusplus
+
+/**
+ * C++ variants
+ */
+
+struct v3_host_application_cpp : v3_funknown {
+    v3_host_application app;
+};
+
 #endif
 
-#if defined(__APPLE__) || defined(_WIN32)
-# pragma pack(pop)
-#endif
-
-#if defined(__APPLE__)
-# if defined(__clang__)
-#  pragma clang diagnostic pop
-# elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
-#  pragma GCC diagnostic pop
-# endif
-#endif
+#include "align_pop.h"

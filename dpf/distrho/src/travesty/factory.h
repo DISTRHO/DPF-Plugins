@@ -1,5 +1,5 @@
 /*
- * travesty, pure C interface to steinberg VST3 SDK
+ * travesty, pure C VST3-compatible interface
  * Copyright (C) 2021 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
@@ -26,12 +26,12 @@ struct v3_factory_info {
 	char vendor[64];
 	char url[256];
 	char email[128];
-	int32_t flags;
+	int32_t flags; // set to 0x10 (unicode)
 };
 
 struct v3_class_info {
 	v3_tuid class_id;
-	int32_t cardinality; // set to 0x7FFFFFFF
+	int32_t cardinality; // set to 0x7FFFFFFF (many instances)
 	char category[32];
 	char name[64];
 };
@@ -39,31 +39,29 @@ struct v3_class_info {
 struct v3_plugin_factory {
 	struct v3_funknown;
 
-	V3_API v3_result (*get_factory_info)
-		(void *self, struct v3_factory_info *);
-
-	V3_API int32_t (*num_classes)(void *self);
-
-	V3_API v3_result (*get_class_info)
-		(void *self, int32_t idx, struct v3_class_info *);
-
-	V3_API v3_result (*create_instance)
-		(void *self, const v3_tuid class_id, const v3_tuid iid, void **instance);
+	v3_result (V3_API *get_factory_info)(void* self, struct v3_factory_info*);
+	int32_t (V3_API *num_classes)(void* self);
+	v3_result (V3_API *get_class_info)(void* self, int32_t idx, struct v3_class_info*);
+	v3_result (V3_API *create_instance)(void* self, const v3_tuid class_id, const v3_tuid iid, void** instance);
 };
 
-static const v3_tuid v3_plugin_factory_iid =
+static constexpr const v3_tuid v3_plugin_factory_iid =
 	V3_ID(0x7A4D811C, 0x52114A1F, 0xAED9D2EE, 0x0B43BF9F);
 
 /**
  * plugin factory v2
  */
 
+enum {
+	V3_DISTRIBUTABLE = 1 << 0,
+	V3_SIMPLE_MODE   = 1 << 1
+};
+
 struct v3_class_info_2 {
 	v3_tuid class_id;
 	int32_t cardinality; // set to 0x7FFFFFFF
 	char category[32];
 	char name[64];
-
 	uint32_t class_flags;
 	char sub_categories[128];
 	char vendor[64];
@@ -74,11 +72,10 @@ struct v3_class_info_2 {
 struct v3_plugin_factory_2 {
 	struct v3_plugin_factory;
 
-	V3_API v3_result (*get_class_info_2)
-		(void *self, int32_t idx, struct v3_class_info_2 *);
+	v3_result (V3_API *get_class_info_2)(void* self, int32_t idx, struct v3_class_info_2*);
 };
 
-static const v3_tuid v3_plugin_factory_2_iid =
+static constexpr const v3_tuid v3_plugin_factory_2_iid =
 	V3_ID(0x0007B650, 0xF24B4C0B, 0xA464EDB9, 0xF00B2ABB);
 
 /**
@@ -93,7 +90,6 @@ struct v3_class_info_3 {
 	int32_t cardinality; // set to 0x7FFFFFFF
 	char category[32];
 	int16_t name[64];
-
 	uint32_t class_flags;
 	char sub_categories[128];
 	int16_t vendor[64];
@@ -104,12 +100,23 @@ struct v3_class_info_3 {
 struct v3_plugin_factory_3 {
 	struct v3_plugin_factory_2;
 
-	V3_API v3_result (*get_class_info_utf16)
-		(void *self, int32_t idx, struct v3_class_info_3 *);
-
-	V3_API v3_result (*set_host_context)
-		(void *self, struct v3_funknown *host);
+	v3_result (V3_API *get_class_info_utf16)(void* self, int32_t idx, struct v3_class_info_3*);
+	v3_result (V3_API *set_host_context)(void* self, struct v3_funknown** host);
 };
 
-static const v3_tuid v3_plugin_factory_3_iid =
+static constexpr const v3_tuid v3_plugin_factory_3_iid =
 	V3_ID(0x4555A2AB, 0xC1234E57, 0x9B122910, 0x36878931);
+
+#ifdef __cplusplus
+
+/**
+ * C++ variants
+ */
+
+struct v3_plugin_factory_cpp : v3_funknown {
+	v3_plugin_factory   v1;
+	v3_plugin_factory_2 v2;
+	v3_plugin_factory_3 v3;
+};
+
+#endif

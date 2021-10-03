@@ -91,7 +91,7 @@ public:
         g_nextScaleFactor = 0.0;
         g_nextBundlePath  = nullptr;
 #else
-        // Leave context called in the PluginWindow constructor, see DistrhoUIPrivateData.hpp
+        // enter context called in the PluginWindow constructor, see DistrhoUIPrivateData.hpp
         uiData->window->leaveContext();
 #endif
         UI::PrivateData::s_nextPrivateData = nullptr;
@@ -234,6 +234,28 @@ public:
 
     // -------------------------------------------------------------------
 
+#if defined(DISTRHO_PLUGIN_TARGET_VST3) && (defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS))
+    void addIdleCallbackForVST3(IdleCallback* const cb, const uint timerFrequencyInMs)
+    {
+        uiData->window->addIdleCallback(cb, timerFrequencyInMs);
+    }
+
+    void removeIdleCallbackForVST3(IdleCallback* const cb)
+    {
+        uiData->window->removeIdleCallback(cb);
+    }
+
+    void idleForVST3()
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
+
+        uiData->app.triggerIdleCallbacks();
+        ui->uiIdle();
+    }
+#endif
+
+    // -------------------------------------------------------------------
+
     void setWindowTitle(const char* const uiTitle)
     {
         uiData->window->setTitle(uiTitle);
@@ -258,23 +280,25 @@ public:
     }
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    bool handlePluginKeyboard(const bool press, const uint key, const uint16_t mods)
+    bool handlePluginKeyboardVST2(const bool press, const uint key, const uint16_t mods)
     {
-        // TODO also trigger Character input event
         DGL_NAMESPACE::Widget::KeyboardEvent ev;
+        ev.mod   = mods;
         ev.press = press;
-        ev.key = key;
-        ev.mod = mods;
-        return ui->onKeyboard(ev);
-    }
+        ev.key   = key;
 
-    bool handlePluginSpecial(const bool press, const DGL_NAMESPACE::Key key, const uint16_t mods)
-    {
-        DGL_NAMESPACE::Widget::SpecialEvent ev;
-        ev.press = press;
-        ev.key = key;
-        ev.mod = mods;
-        return ui->onSpecial(ev);
+        const bool ret = ui->onKeyboard(ev);
+
+        DGL_NAMESPACE::Widget::CharacterInputEvent cev;
+        cev.mod       = mods;
+        cev.character = key;
+
+        // if shift modifier is on, convert a-z -> A-Z for character input
+        if (key >= 'a' && key <= 'z' && (mods & DGL_NAMESPACE::kModifierShift) != 0)
+            cev.character -= 'a' - 'A';
+
+        ui->onCharacterInput(cev);
+        return ret;
     }
 #endif
 
@@ -286,6 +310,15 @@ public:
 
         ui->uiScaleFactorChanged(scaleFactor);
     }
+
+#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+    void notifyFocusChanged(const bool focus)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
+
+        ui->uiFocus(focus, DGL_NAMESPACE::kCrossingNormal);
+    }
+#endif
 
     void setSampleRate(const double sampleRate, const bool doCallback = false)
     {

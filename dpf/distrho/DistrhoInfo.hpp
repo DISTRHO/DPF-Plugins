@@ -107,13 +107,6 @@ START_NAMESPACE_DISTRHO
       }
 
      /* ----------------------------------------------------------------------------------------
-      * This example has no parameters, so skip parameter stuff */
-
-      void  initParameter(uint32_t, Parameter&) override {}
-      float getParameterValue(uint32_t) const   override { return 0.0f; }
-      void  setParameterValue(uint32_t, float)  override {}
-
-     /* ----------------------------------------------------------------------------------------
       * Audio/MIDI Processing */
 
      /**
@@ -508,6 +501,20 @@ START_NAMESPACE_DISTRHO
 #define DISTRHO_PLUGIN_IS_SYNTH 1
 
 /**
+   Request the minimum buffer size for the input and output event ports.@n
+   Currently only used in LV2, with a default value of 2048 if unset.
+ */
+#define DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE 2048
+
+/**
+   Whether the plugin has an LV2 modgui.
+
+   This will simply add a "rdfs:seeAlso <modgui.ttl>" on the LV2 manifest.@n
+   It is up to you to create this file.
+ */
+#define DISTRHO_PLUGIN_USES_MODGUI 0
+
+/**
    Enable direct access between the %UI and plugin code.
    @see UI::getPluginInstancePointer()
    @note DO NOT USE THIS UNLESS STRICTLY NECESSARY!!
@@ -612,6 +619,158 @@ START_NAMESPACE_DISTRHO
    By default this is set to @ref DISTRHO_PLUGIN_URI with "#UI" as suffix.
  */
 #define DISTRHO_UI_URI DISTRHO_PLUGIN_URI "#UI"
+
+/**
+   Custom LV2 category for the plugin.@n
+   This can be one of the following values:
+
+      - lv2:Plugin
+      - lv2:AllpassPlugin
+      - lv2:AmplifierPlugin
+      - lv2:AnalyserPlugin
+      - lv2:BandpassPlugin
+      - lv2:ChorusPlugin
+      - lv2:CombPlugin
+      - lv2:CompressorPlugin
+      - lv2:ConstantPlugin
+      - lv2:ConverterPlugin
+      - lv2:DelayPlugin
+      - lv2:DistortionPlugin
+      - lv2:DynamicsPlugin
+      - lv2:EQPlugin
+      - lv2:EnvelopePlugin
+      - lv2:ExpanderPlugin
+      - lv2:FilterPlugin
+      - lv2:FlangerPlugin
+      - lv2:FunctionPlugin
+      - lv2:GatePlugin
+      - lv2:GeneratorPlugin
+      - lv2:HighpassPlugin
+      - lv2:InstrumentPlugin
+      - lv2:LimiterPlugin
+      - lv2:LowpassPlugin
+      - lv2:MIDIPlugin
+      - lv2:MixerPlugin
+      - lv2:ModulatorPlugin
+      - lv2:MultiEQPlugin
+      - lv2:OscillatorPlugin
+      - lv2:ParaEQPlugin
+      - lv2:PhaserPlugin
+      - lv2:PitchPlugin
+      - lv2:ReverbPlugin
+      - lv2:SimulatorPlugin
+      - lv2:SpatialPlugin
+      - lv2:SpectralPlugin
+      - lv2:UtilityPlugin
+      - lv2:WaveshaperPlugin
+
+   See http://lv2plug.in/ns/lv2core for more information.
+ */
+#define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:Plugin"
+
+/**
+   Custom VST3 categories for the plugin.@n
+   This is a list of categories, separated by a @c |.
+
+   Each effect category can be one of the following values:
+
+      - Fx
+      - Fx|Ambisonics
+      - Fx|Analyzer
+      - Fx|Delay
+      - Fx|Distortion
+      - Fx|Dynamics
+      - Fx|EQ
+      - Fx|Filter
+      - Fx|Instrument
+      - Fx|Instrument|External
+      - Fx|Spatial
+      - Fx|Generator
+      - Fx|Mastering
+      - Fx|Modulation
+      - Fx|Network
+      - Fx|Pitch Shift
+      - Fx|Restoration
+      - Fx|Reverb
+      - Fx|Surround
+      - Fx|Tools
+
+   Each instrument category can be one of the following values:
+
+      - Instrument
+      - Instrument|Drum
+      - Instrument|External
+      - Instrument|Piano
+      - Instrument|Sampler
+      - Instrument|Synth
+      - Instrument|Synth|Sampler
+
+   @note DPF will automatically set Mono and Stereo categories when appropriate.
+ */
+#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx"
+
+/** @} */
+
+/* ------------------------------------------------------------------------------------------------------------
+ * Plugin Macros */
+
+/**
+   @defgroup ExtraPluginMacros Extra Plugin Macros
+
+   C Macros to customize DPF behaviour.
+
+   These are macros that do not set plugin features or information, but instead change DPF internals.
+   They are all optional.
+
+   Unless stated otherwise, values are assumed to be a simple/empty define.
+   @{
+ */
+
+/**
+   Whether to enable runtime plugin tests.@n
+   This will check, during initialization of the plugin, if parameters, programs and states are setup properly.@n
+   Useful to enable as part of CI, can safely be skipped.@n
+   Under DPF makefiles this can be enabled by using `make DPF_RUNTIME_TESTING=true`.
+
+   @note Some checks are only available with the GCC compiler,
+         for detecting if a virtual function has been reimplemented.
+ */
+#define DPF_RUNTIME_TESTING
+
+/**
+   Whether to show parameter outputs in the VST2 plugins.@n
+   This is disabled (unset) by default, as the VST2 format has no notion of read-only parameters.
+ */
+#define DPF_VST_SHOW_PARAMETER_OUTPUTS
+
+/**
+   Disable all file browser related code.@n
+   Must be set as compiler macro when building DGL. (e.g. `CXXFLAGS="-DDGL_FILE_BROWSER_DISABLED"`)
+ */
+#define DGL_FILE_BROWSER_DISABLED
+
+/**
+   Disable resource files, like internally used fonts.@n
+   Must be set as compiler macro when building DGL. (e.g. `CXXFLAGS="-DDGL_NO_SHARED_RESOURCES"`)
+ */
+#define DGL_NO_SHARED_RESOURCES
+
+/**
+   Whether to use OpenGL3 instead of the default OpenGL2 compatility profile.
+   Under DPF makefiles this can be enabled by using `make USE_OPENGL3=true` on the dgl build step.
+
+   @note This is experimental and incomplete, contributions are welcome and appreciated.
+ */
+#define DGL_USE_OPENGL3
+
+/**
+   Whether to use the GPLv2+ vestige header instead of the official Steinberg VST2 SDK.@n
+   This is a boolean, and enabled (set to 1) by default.@n
+   Set this to 0 in order to create non-GPL binaries.
+   (but then at your own discretion in regards to Steinberg licensing)@n
+   When set to 0, DPF will import the VST2 definitions from `"vst/aeffectx.h"` (not shipped with DPF).
+ */
+#define VESTIGE_HEADER 1
 
 /** @} */
 

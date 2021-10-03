@@ -22,7 +22,7 @@
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # include "../extra/Sleep.hpp"
 #else
-# include "../../dgl/Application.hpp"
+# include "../../dgl/src/ApplicationPrivateData.hpp"
 # include "../../dgl/src/WindowPrivateData.hpp"
 # include "../../dgl/src/pugl.hpp"
 #endif
@@ -33,7 +33,13 @@
 # define DISTRHO_UI_IS_STANDALONE 0
 #endif
 
-#if defined(DISTRHO_PLUGIN_TARGET_VST2) || defined(DISTRHO_PLUGIN_TARGET_VST3)
+#if defined(DISTRHO_PLUGIN_TARGET_VST2)
+# undef DISTRHO_UI_USER_RESIZABLE
+# define DISTRHO_UI_USER_RESIZABLE 0
+#endif
+
+// TODO figure out how to detect host support
+#if defined(DISTRHO_PLUGIN_TARGET_VST3)
 # undef DISTRHO_UI_USER_RESIZABLE
 # define DISTRHO_UI_USER_RESIZABLE 0
 #endif
@@ -92,6 +98,7 @@ struct PluginApplication
     // these are not needed
     void idle() {}
     void quit() {}
+    void triggerIdleCallbacks() {}
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginApplication)
 };
@@ -111,6 +118,11 @@ public:
             "-" DISTRHO_PLUGIN_NAME
         );
         setClassName(className);
+    }
+
+    void triggerIdleCallbacks()
+    {
+        pData->triggerIdleCallbacks();
     }
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginApplication)
@@ -323,6 +335,15 @@ struct UI::PrivateData {
         parameterOffset += 1;
 # endif
 # if (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
+        parameterOffset += 1;
+# endif
+#endif
+
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
+# if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+        parameterOffset += 130 * 16; // all MIDI CCs plus aftertouch and pitchbend
+# endif
+# if DISTRHO_PLUGIN_WANT_PROGRAMS
         parameterOffset += 1;
 # endif
 #endif
