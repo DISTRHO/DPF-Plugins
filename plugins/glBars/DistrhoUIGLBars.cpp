@@ -3,7 +3,7 @@
  * Copyright (C) 1998-2000  Peter Alm, Mikael Alm, Olle Hallnas, Thomas Nilsson and 4Front Technologies
  * Copyright (C) 2000 Christian Zander <phoenix@minion.de>
  * Copyright (C) 2015 Nedko Arnaudov
- * Copyright (C) 2016-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2016-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -27,9 +27,14 @@ START_NAMESPACE_DISTRHO
 
 DistrhoUIGLBars::DistrhoUIGLBars()
     : UI(512, 512),
-      fInitialized(false)
+      fInitialized(false),
+      fResizeHandle(this)
 {
     setGeometryConstraints(256, 256, true);
+
+    // no need to show resize handle if window is user-resizable
+    if (isResizable())
+        fResizeHandle.hide();
 }
 
 DistrhoUIGLBars::~DistrhoUIGLBars()
@@ -98,36 +103,6 @@ void DistrhoUIGLBars::uiIdle()
 void DistrhoUIGLBars::onDisplay()
 {
     fState.Render();
-}
-
-bool DistrhoUIGLBars::onKeyboard(const KeyboardEvent& ev)
-{
-    if (ev.press && (ev.key == '1' || ev.key == '+' || ev.key == '-'))
-    {
-        if (ev.key == '1')
-        {
-            if (getWidth() != 512 || getHeight() != 512)
-                setSize(512, 512);
-        }
-        else if (ev.key == '+')
-        {
-            /**/ if (getWidth() < 1100 && getHeight() < 1100)
-                setSize(std::min(getWidth()+100, 1100U), std::min(getHeight()+100, 1100U));
-            else if (getWidth() != 1100 || getHeight() != 1100)
-                    setSize(1100, 1100);
-        }
-        else if (ev.key == '-')
-        {
-            /**/ if (getWidth() > 100 && getHeight() > 100)
-                setSize(std::max(getWidth()-100, 100U), std::max(getHeight()-100, 100U));
-            else if (getWidth() != 100 || getHeight() != 100)
-                setSize(100, 100);
-        }
-
-        return true;
-    }
-
-    return true;
 }
 
 // -----------------------------------------------------------------------

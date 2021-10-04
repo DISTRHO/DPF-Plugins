@@ -310,9 +310,9 @@ ScopedUTF16String::ScopedUTF16String(const char* const s) noexcept
     : str(nullptr)
 {
     const size_t len = strlen(s);
-    str = (int16_t*)malloc(sizeof(int16_t) * len);
+    str = (int16_t*)malloc(sizeof(int16_t) * (len + 1));
     DISTRHO_SAFE_ASSERT_RETURN(str != nullptr,);
-    strncpy_utf16(str, s, len);
+    strncpy_utf16(str, s, len + 1);
 }
 
 ScopedUTF16String::~ScopedUTF16String() noexcept
@@ -1402,11 +1402,11 @@ public:
     v3_result getParameterInfo(int32_t rindex, v3_param_info* const info) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(rindex >= 0, V3_INVALID_ARG);
+        std::memset(info, 0, sizeof(v3_param_info));
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
         if (rindex == 0)
         {
-            std::memset(info, 0, sizeof(v3_param_info));
             info->param_id = rindex;
             info->flags = V3_PARAM_CAN_AUTOMATE | V3_PARAM_IS_LIST | V3_PARAM_PROGRAM_CHANGE;
             info->step_count = fProgramCountMinusOne;
@@ -1417,10 +1417,12 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
         {
-            std::memset(info, 0, sizeof(v3_param_info));
             info->param_id = rindex;
+# if DISTRHO_PLUGIN_WANT_PROGRAMS
+            ++info->param_id;
+# endif
             info->flags = V3_PARAM_CAN_AUTOMATE | V3_PARAM_IS_HIDDEN;
             info->step_count = 127;
             char ccstr[24];
@@ -1465,7 +1467,6 @@ public:
         if ((hints & kParameterIsInteger) && ranges.max - ranges.min > 1)
             step_count = ranges.max - ranges.min - 1;
 
-        std::memset(info, 0, sizeof(v3_param_info));
         info->param_id = index + fParameterOffset;
         info->flags = flags;
         info->step_count = step_count;
@@ -1493,7 +1494,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
         {
             snprintf_f32_utf16(output, std::round(normalised * 127), 128);
             return V3_OK;
@@ -1519,7 +1520,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
         {
             // TODO
             return V3_NOT_IMPLEMENTED;
@@ -1542,7 +1543,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
             return std::round(normalised * 127);
         rindex -= 130*16;
 #endif
@@ -1561,7 +1562,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
             return std::max(0.0, std::min(1.0, plain / 127));
         rindex -= 130*16;
 #endif
@@ -1580,7 +1581,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
         {
             // TODO
             return 0.0;
@@ -1625,7 +1626,7 @@ public:
         --rindex;
 #endif
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (rindex <= 130*16)
+        if (rindex < 130*16)
         {
             // TODO
             fChangedParameterValues[rindex] = true;
@@ -1775,7 +1776,7 @@ public:
                 --rindex;
 # endif
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-                if (rindex <= 130*16)
+                if (rindex < 130*16)
                     continue;
                 rindex -= 130*16;
 # endif
@@ -1835,25 +1836,41 @@ public:
 # if DISTRHO_PLUGIN_WANT_STATE
         if (std::strcmp(msgid, "state-set") == 0)
         {
-            int16_t* key16;
-            int16_t* value16;
-            uint32_t keySize, valueSize;
+            int64_t keyLength = -1;
+            int64_t valueLength = -1;
             v3_result res;
 
-            res = v3_cpp_obj(attrs)->get_binary(attrs, "key", (const void**)&key16, &keySize);
+            res = v3_cpp_obj(attrs)->get_int(attrs, "key:length", &keyLength);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, V3_INTERNAL_ERR);
+
+            res = v3_cpp_obj(attrs)->get_int(attrs, "value:length", &valueLength);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, V3_INTERNAL_ERR);
+
+            int16_t* const key16 = (int16_t*)std::malloc(sizeof(int16_t)*(keyLength + 1));
+            DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, V3_NOMEM);
+
+            int16_t* const value16 = (int16_t*)std::malloc(sizeof(int16_t)*(valueLength + 1));
+            DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, V3_NOMEM);
+
+            res = v3_cpp_obj(attrs)->get_string(attrs, "key", key16, sizeof(int16_t)*keyLength);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
 
-            res = v3_cpp_obj(attrs)->get_binary(attrs, "value", (const void**)&value16, &valueSize);
+            res = v3_cpp_obj(attrs)->get_string(attrs, "value", value16, sizeof(int16_t)*valueLength);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
 
             // do cheap inline conversion
             char* const key = (char*)key16;
             char* const value = (char*)value16;
 
-            for (uint32_t i=0; i<keySize/sizeof(int16_t); ++i)
+            for (int64_t i=0; i<keyLength; ++i)
                 key[i] = key16[i];
-            for (uint32_t i=0; i<valueSize/sizeof(int16_t); ++i)
+            for (int64_t i=0; i<valueLength; ++i)
                 value[i] = value16[i];
+
+            key[keyLength] = '\0';
+            value[valueLength] = '\0';
 
             fPlugin.setState(key, value);
 
@@ -1867,6 +1884,8 @@ public:
                     if (dkey == key)
                     {
                         it->second = value;
+                        std::free(key16);
+                        std::free(value16);
                         return V3_OK;
                     }
                 }
@@ -1874,6 +1893,8 @@ public:
                 d_stderr("Failed to find plugin state with key \"%s\"", key);
             }
 
+            std::free(key16);
+            std::free(value16);
             return V3_OK;
         }
 # endif
@@ -2042,6 +2063,8 @@ private:
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
         v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 2);
+        v3_cpp_obj(attrlist)->set_int(attrlist, "key:length", std::strlen(key));
+        v3_cpp_obj(attrlist)->set_int(attrlist, "value:length", std::strlen(value));
         v3_cpp_obj(attrlist)->set_string(attrlist, "key", ScopedUTF16String(key));
         v3_cpp_obj(attrlist)->set_string(attrlist, "value", ScopedUTF16String(value));
         v3_cpp_obj(fConnection)->notify(fConnection, message);
@@ -3085,6 +3108,10 @@ struct dpf_component : v3_component_cpp {
           hostContextFromFactory(h),
           hostContextFromInitialize(nullptr)
     {
+        // make sure context is valid through this component lifetime
+        if (hostContextFromFactory != nullptr)
+            v3_cpp_obj_ref(hostContextFromFactory);
+
         // v3_funknown, everything custom
         query_interface = query_interface_component;
         ref = ref_component;
@@ -3541,6 +3568,10 @@ struct dpf_factory : v3_plugin_factory_cpp {
 
     ~dpf_factory()
     {
+        // unref old context if there is one
+        if (hostContext != nullptr)
+            v3_cpp_obj_unref(hostContext);
+
         if (gComponentGarbage.size() == 0)
             return;
 
@@ -3696,7 +3727,18 @@ struct dpf_factory : v3_plugin_factory_cpp {
     {
         d_stdout("dpf_factory::set_host_context => %p %p", self, context);
         dpf_factory* const factory = *static_cast<dpf_factory**>(self);
+
+        // unref old context if there is one
+        if (factory->hostContext != nullptr)
+            v3_cpp_obj_unref(factory->hostContext);
+
+        // store new context
         factory->hostContext = context;
+
+        // make sure the object keeps being valid for a while
+        if (context != nullptr)
+            v3_cpp_obj_ref(context);
+
         return V3_OK;
     }
 

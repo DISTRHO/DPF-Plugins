@@ -3,7 +3,7 @@
  * Copyright (C) 1998-2000  Peter Alm, Mikael Alm, Olle Hallnas, Thomas Nilsson and 4Front Technologies
  * Copyright (C) 2000 Christian Zander <phoenix@minion.de>
  * Copyright (C) 2015 Nedko Arnaudov
- * Copyright (C) 2016-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2016-2021 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -24,6 +24,7 @@
 #include "DistrhoUI.hpp"
 
 #include "glBars.hpp"
+#include "ResizeHandle.hpp"
 
 START_NAMESPACE_DISTRHO
 
@@ -50,11 +51,11 @@ protected:
     // Widget Callbacks
 
     void onDisplay() override;
-    bool onKeyboard(const KeyboardEvent&) override;
 
 private:
     bool fInitialized;
     glBarsState fState;
+    ResizeHandle fResizeHandle;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistrhoUIGLBars)
 };

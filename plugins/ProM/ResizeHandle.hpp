@@ -56,6 +56,11 @@ protected:
         const GraphicsContext& context(getGraphicsContext());
         const double lineWidth = 1.0 * getScaleFactor();
 
+#ifdef DGL_OPENGL
+        glUseProgram(0);
+        glMatrixMode(GL_MODELVIEW);
+#endif
+
         // draw white lines, 1px wide
         Color(1.0f, 1.0f, 1.0f).setFor(context);
         l1.draw(context, lineWidth);

@@ -49,7 +49,6 @@ protected:
 
     void onDisplay() override;
     bool onKeyboard(const KeyboardEvent&) override;
-    bool onSpecial(const SpecialEvent&) override;
 
 private:
     ScopedPointer<projectM> fPM;
