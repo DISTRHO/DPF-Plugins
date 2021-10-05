@@ -14,7 +14,14 @@
  * For a full copy of the license see the LICENSE file.
  */
 
+/* s/private/public/ as workaround old projectM versions */
+#define private public
 #include "libprojectM/projectM.hpp"
+#undef private
+
+#ifndef PROJECTM_DATA_DIR
+#include "libprojectM/projectM-opengl.h"
+#endif
 
 #include "DistrhoPluginProM.hpp"
 #include "DistrhoUIProM.hpp"
@@ -253,6 +260,7 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
     if (fPM == nullptr)
         return false;
 
+#ifdef HAVE_PROJECTM_TEXT_FUNCTIONS
     // special handling for text
     if (fPM->isTextInputActive(true) && !ev.press)
     {
@@ -269,6 +277,7 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
             return true;
         }
     }
+#endif
 
     projectMKeycode pmKey = PROJECTM_K_NONE;
 
@@ -304,12 +313,14 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
         case '\r':
             pmKey = PROJECTM_K_RETURN;
             break;
+#ifdef HAVE_PROJECTM_TEXT_FUNCTIONS
         case '/':
             pmKey = PROJECTM_K_SLASH;
             break;
         case '\\':
             pmKey = PROJECTM_K_BACKSLASH;
             break;
+#endif
         case '+':
             pmKey = PROJECTM_K_PLUS;
             break;

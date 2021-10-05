@@ -116,9 +116,16 @@ BASE_FLAGS += -DPROJECTM_DATA_DIR='"$(shell pkg-config --variable=pkgdatadir lib
 BASE_FLAGS += $(shell pkg-config --cflags libprojectM)
 LINK_FLAGS += $(shell pkg-config --libs libprojectM)
 
+ifeq ($(shell pkg-config --atleast-version=3.1.8 libprojectM && echo true),true)
+BASE_FLAGS += -DHAVE_PROJECTM_TEXT_FUNCTIONS
+endif
+
 else # HAVE_PROJECTM
 
-# compiler macros
+# custom macros for ProM
+BASE_FLAGS += -DHAVE_PROJECTM_TEXT_FUNCTIONS
+
+# compiler macros from projectM
 BASE_FLAGS += -DUSE_TEXT_MENU=1
 BASE_FLAGS += -DUSE_THREADS=1
 # GLES stuff

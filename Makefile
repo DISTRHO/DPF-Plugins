@@ -14,6 +14,11 @@ PREFIX  ?= /usr/local
 DESTDIR ?=
 
 # --------------------------------------------------------------
+# Check for system-wide projectM
+
+HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
+
+# --------------------------------------------------------------
 
 ifneq ($(CROSS_COMPILING),true)
 CAN_GENERATE_TTL = true
@@ -59,6 +64,44 @@ ifeq ($(HAVE_OPENGL),true)
 	# ProM (needs OpenGL + ProjectM)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_OPENGL
+
+ifneq ($(HAVE_PROJECTM),true)
+resources: gen
+	# LV2 fonts
+	install -d bin/ProM.lv2/resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.lv2/resources/fonts/
+	# LV2 presets
+	install -d bin/ProM.lv2/resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.lv2/resources/presets/
+
+ifeq ($(MACOS),true)
+	# VST2 fonts
+	install -d bin/ProM.vst/Contents/Resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst/Contents/Resources/fonts/
+	# VST2 presets
+	install -d bin/ProM.vst/Contents/Resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst/Contents/Resources/presets/
+else
+	# VST2 directory
+	install -d bin/ProM.vst
+	mv bin/ProM-vst$(LIB_EXT) bin/ProM.vst/ProM$(LIB_EXT)
+	# VST2 fonts
+	install -d bin/ProM.vst/resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst/resources/fonts/
+	# VST2 presets
+	install -d bin/ProM.vst/resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst/resources/presets/
+endif
+
+	# VST3 fonts
+	install -d bin/ProM.vst3/Contents/Resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst3/Contents/Resources/fonts/
+	# VST3 presets
+	install -d bin/ProM.vst3/Contents/Resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst3/Contents/Resources/presets/
+else
+resources:
+endif
 
 gen: plugins dpf/utils/lv2_ttl_generator
 ifeq ($(CAN_GENERATE_TTL),true)
