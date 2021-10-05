@@ -6,7 +6,7 @@
 
 include dpf/Makefile.base.mk
 
-all: dgl plugins gen
+all: dgl plugins resources gen
 
 # --------------------------------------------------------------
 
