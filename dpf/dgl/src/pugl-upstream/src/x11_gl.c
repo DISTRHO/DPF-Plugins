@@ -63,6 +63,9 @@ puglX11GlConfigure(PuglView* view)
 
   // clang-format off
   const int attrs[] = {
+#ifdef DGL_USE_RGBA
+    GLX_RGBA,
+#endif
     GLX_X_RENDERABLE,  True,
     GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
     GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
@@ -149,7 +152,7 @@ puglX11GlCreate(PuglView* view)
 
     GLX_CONTEXT_PROFILE_MASK_ARB,
     (view->hints[PUGL_USE_COMPAT_PROFILE]
-       ? GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+       ? GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB
        : GLX_CONTEXT_CORE_PROFILE_BIT_ARB),
     0};
 

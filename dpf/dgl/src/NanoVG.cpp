@@ -54,6 +54,18 @@ DGL_EXT(PFNGLUNIFORM4FVPROC,               glUniform4fv)
 DGL_EXT(PFNGLUSEPROGRAMPROC,               glUseProgram)
 DGL_EXT(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer)
 DGL_EXT(PFNGLBLENDFUNCSEPARATEPROC,        glBlendFuncSeparate)
+# ifdef DGL_USE_NANOVG_FBO
+DGL_EXT(PFNGLBINDFRAMEBUFFERPROC,          glBindFramebuffer)
+DGL_EXT(PFNGLBINDRENDERBUFFERPROC,         glBindRenderbuffer)
+DGL_EXT(PFNGLCHECKFRAMEBUFFERSTATUSPROC,   glCheckFramebufferStatus)
+DGL_EXT(PFNGLDELETEFRAMEBUFFERSPROC,       glDeleteFramebuffers)
+DGL_EXT(PFNGLDELETERENDERBUFFERSPROC,      glDeleteRenderbuffers)
+DGL_EXT(PFNGLFRAMEBUFFERTEXTURE2DPROC,     glFramebufferTexture2D)
+DGL_EXT(PFNGLFRAMEBUFFERRENDERBUFFERPROC,  glFramebufferRenderbuffer)
+DGL_EXT(PFNGLGENFRAMEBUFFERSPROC,          glGenFramebuffers)
+DGL_EXT(PFNGLGENRENDERBUFFERSPROC,         glGenRenderbuffers)
+DGL_EXT(PFNGLRENDERBUFFERSTORAGEPROC,      glRenderbufferStorage)
+# endif
 # ifdef DGL_USE_OPENGL3
 DGL_EXT(PFNGLBINDBUFFERRANGEPROC,          glBindBufferRange)
 DGL_EXT(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray)
@@ -83,6 +95,11 @@ DGL_EXT(PFNGLUNIFORMBLOCKBINDINGPROC,      glUniformBlockBinding)
 #endif
 
 #include "nanovg/nanovg_gl.h"
+
+#ifdef DGL_USE_NANOVG_FBO
+# define NANOVG_FBO_VALID 1
+# include "nanovg/nanovg_gl_utils.h"
+#endif
 
 #if defined(NANOVG_GL2)
 # define nvgCreateGL nvgCreateGL2
@@ -145,6 +162,18 @@ DGL_EXT(PFNGLUNIFORM4FVPROC,               glUniform4fv)
 DGL_EXT(PFNGLUSEPROGRAMPROC,               glUseProgram)
 DGL_EXT(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer)
 DGL_EXT(PFNGLBLENDFUNCSEPARATEPROC,        glBlendFuncSeparate)
+# ifdef DGL_USE_NANOVG_FBO
+DGL_EXT(PFNGLBINDFRAMEBUFFERPROC,          glBindFramebuffer)
+DGL_EXT(PFNGLBINDRENDERBUFFERPROC,         glBindRenderbuffer)
+DGL_EXT(PFNGLCHECKFRAMEBUFFERSTATUSPROC,   glCheckFramebufferStatus)
+DGL_EXT(PFNGLDELETEFRAMEBUFFERSPROC,       glDeleteFramebuffers)
+DGL_EXT(PFNGLDELETERENDERBUFFERSPROC,      glDeleteRenderbuffers)
+DGL_EXT(PFNGLFRAMEBUFFERTEXTURE2DPROC,     glFramebufferTexture2D)
+DGL_EXT(PFNGLFRAMEBUFFERRENDERBUFFERPROC,  glFramebufferRenderbuffer)
+DGL_EXT(PFNGLGENFRAMEBUFFERSPROC,          glGenFramebuffers)
+DGL_EXT(PFNGLGENRENDERBUFFERSPROC,         glGenRenderbuffers)
+DGL_EXT(PFNGLRENDERBUFFERSTORAGEPROC,      glRenderbufferStorage)
+# endif
 # ifdef DGL_USE_OPENGL3
 DGL_EXT(PFNGLBINDBUFFERRANGEPROC,          glBindBufferRange)
 DGL_EXT(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray)

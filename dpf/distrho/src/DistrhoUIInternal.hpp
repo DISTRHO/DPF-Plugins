@@ -132,9 +132,16 @@ public:
         return uiData->window->getScaleFactor();
     }
 
-    Size<uint> getMinimumSizeConstraint(bool& keepAspectRatio)
+    bool getGeometryConstraints(uint& minimumWidth, uint& minimumHeight, bool& keepAspectRatio) const noexcept
     {
-        return uiData->window->getMinimumSizeConstraint(keepAspectRatio);
+#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+        uiData->window->getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
+#else
+        const DGL_NAMESPACE::Size<uint> size(uiData->window->getGeometryConstraints(keepAspectRatio));
+        minimumWidth = size.getWidth();
+        minimumHeight = size.getHeight();
+#endif
+        return true;
     }
 
     bool isResizable() const noexcept
@@ -269,12 +276,16 @@ public:
 
     // -------------------------------------------------------------------
 
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
     void setWindowSizeForVST3(const uint width, const uint height)
     {
         ui->setSize(width, height);
+# if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         uiData->window->setSize(width, height);
         // uiData->app.idle();
+# endif
     }
+#endif
 
     void setWindowTitle(const char* const uiTitle)
     {
@@ -315,6 +326,29 @@ public:
 
         // if shift modifier is on, convert a-z -> A-Z for character input
         if (key >= 'a' && key <= 'z' && (mods & DGL_NAMESPACE::kModifierShift) != 0)
+            cev.character -= 'a' - 'A';
+
+        ui->onCharacterInput(cev);
+        return ret;
+    }
+
+    bool handlePluginKeyboardVST3(const bool press, const uint keychar, const uint keycode, const uint16_t mods)
+    {
+        DGL_NAMESPACE::Widget::KeyboardEvent ev;
+        ev.mod     = mods;
+        ev.press   = press;
+        ev.key     = keychar;
+        ev.keycode = keycode;
+
+        const bool ret = ui->onKeyboard(ev);
+
+        DGL_NAMESPACE::Widget::CharacterInputEvent cev;
+        cev.mod       = mods;
+        cev.keycode   = keycode;
+        cev.character = keychar;
+
+        // if shift modifier is on, convert a-z -> A-Z for character input
+        if (keychar >= 'a' && keychar <= 'z' && (mods & DGL_NAMESPACE::kModifierShift) != 0)
             cev.character -= 'a' - 'A';
 
         ui->onCharacterInput(cev);

@@ -757,6 +757,10 @@ public:
         {
             res = v3_cpp_obj(stream)->read(stream, buffer, sizeof(buffer)-1, &read);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
+
+            if (read == 0)
+                return V3_OK;
+
             DISTRHO_SAFE_ASSERT_INT_RETURN(read > 0, read, V3_INTERNAL_ERR);
 
             for (int32_t i = 0; i < read; ++i)
@@ -2501,6 +2505,9 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
           hostContextFromComponent(hc),
           hostContextFromInitialize(nullptr)
     {
+        d_stdout("dpf_edit_controller() has contexts %p %p",
+                     hostContextFromFactory, hostContextFromComponent);
+
         // make sure context is valid through this controller lifetime
         if (hostContextFromComponent != nullptr)
             v3_cpp_obj_ref(hostContextFromComponent);
@@ -2537,6 +2544,10 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
             v3_cpp_obj_unref(hostContextFromComponent);
             hostContextFromComponent = nullptr;
         }
+
+        d_stdout("dpf_edit_controller::cleanup() has contexts %p %p",
+                     hostContextFromFactory, hostContextFromComponent);
+
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -2594,6 +2605,7 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
 
     static uint32_t V3_API ref_edit_controller(void* self)
     {
+        d_stdout("dpf_edit_controller::ref => %p", self);
         return ++(*(dpf_edit_controller**)self)->refcounter;
     }
 
@@ -2608,6 +2620,7 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
             return refcount;
         }
 
+        d_stdout("dpf_edit_controller::unref => %p is zero, doing cleanup", self);
         controller->cleanup();
         return 0;
     }
@@ -2627,6 +2640,8 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
         // query for host context
         v3_host_application** host = nullptr;
         v3_cpp_obj_query_interface(context, v3_host_application_iid, &host);
+
+        d_stdout("dpf_edit_controller::initialize                 => %p %p | host %p", self, context, host);
 
         // save it for later so we can unref it
         controller->hostContextFromInitialize = host;
@@ -2831,10 +2846,19 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
         dpf_edit_controller* const controller = *(dpf_edit_controller**)self;
         DISTRHO_SAFE_ASSERT_RETURN(controller != nullptr, nullptr);
 
+        d_stdout("create_view has contexts %p %p",
+                     controller->hostContextFromFactory, controller->hostContextFromComponent);
+
 #if DISTRHO_PLUGIN_HAS_UI
         // plugin must be initialized
         PluginVst3* const vst3 = controller->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, nullptr);
+
+        d_stdout("dpf_edit_controller::create_view                => %p %s | edit-ctrl %p, host %p, factory %p",
+                 self, name,
+                 controller->hostContextFromInitialize,
+                 controller->hostContextFromComponent,
+                 controller->hostContextFromFactory);
 
         // we require a host context for message creation
         v3_host_application** host = controller->hostContextFromInitialize != nullptr
@@ -3238,6 +3262,9 @@ struct dpf_component : v3_component_cpp {
 
         if (v3_tuid_match(iid, v3_edit_controller_iid))
         {
+            d_stdout("query_interface_component called with contexts %p %p",
+                     component->hostContextFromFactory, component->hostContextFromInitialize);
+
             if (component->controller == nullptr)
                 component->controller = new dpf_edit_controller(component->vst3,
                                                                 component->hostContextFromFactory,
@@ -3351,6 +3378,8 @@ struct dpf_component : v3_component_cpp {
         v3_host_application** host = nullptr;
         if (context != nullptr)
             v3_cpp_obj_query_interface(context, v3_host_application_iid, &host);
+
+        d_stdout("dpf_component::initialize              => %p %p | host %p", self, context, host);
 
         // save it for later so we can unref it
         component->hostContextFromInitialize = host;
