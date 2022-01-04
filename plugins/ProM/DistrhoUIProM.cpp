@@ -93,17 +93,23 @@ static String getCurrentExecutableDataDir()
 
 DistrhoUIProM::DistrhoUIProM()
     : UI(512, 512),
-      fPM(nullptr),
-      fResizeHandle(this)
+      fPM(nullptr)
+#ifndef DGL_USE_OPENGL3
+    , fResizeHandle(this)
+#endif
 {
-    // const double scaleFactor = getScaleFactor();
-    // if (d_isNotZero(scaleFactor))
-    //    setSize(512*scaleFactor, 512*scaleFactor)
-    setGeometryConstraints(256, 256, true);
+    const double scaleFactor = getScaleFactor();
+
+    if (d_isNotZero(scaleFactor))
+        setSize(512*scaleFactor, 512*scaleFactor);
+
+    setGeometryConstraints(256*scaleFactor, 256*scaleFactor, true);
 
     // no need to show resize handle if window is user-resizable
+#ifndef DGL_USE_OPENGL3
     // if (isResizable())
     //     fResizeHandle.hide();
+#endif
 }
 
 DistrhoUIProM::~DistrhoUIProM()

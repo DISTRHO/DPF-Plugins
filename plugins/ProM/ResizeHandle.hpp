@@ -58,7 +58,9 @@ protected:
 
 #ifdef DGL_OPENGL
         glUseProgram(0);
+# ifndef DGL_USE_OPENGL3
         glMatrixMode(GL_MODELVIEW);
+# endif
 #endif
 
         // draw white lines, 1px wide
