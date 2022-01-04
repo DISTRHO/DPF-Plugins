@@ -49,9 +49,12 @@ endif
 ifeq ($(MACOS),true)
 JACK_LIBS  += -framework CoreAudio -framework CoreFoundation
 else ifeq ($(WINDOWS),true)
-JACK_LIBS  += -lksuser -lmfplat -lmfuuid -lole32 -lwinmm -lwmcodecdspuuid
+JACK_LIBS  += -lole32 -lwinmm
+# DirectSound
+JACK_LIBS  += -ldsound
+# WASAPI
+# JACK_LIBS  += -lksuser -lmfplat -lmfuuid -lwmcodecdspuuid
 else ifneq ($(HAIKU),true)
-JACK_LIBS   = -ldl
 ifeq ($(HAVE_ALSA),true)
 JACK_FLAGS += $(ALSA_FLAGS)
 JACK_LIBS  += $(ALSA_LIBS)
@@ -68,19 +71,9 @@ endif
 # backwards compat
 BASE_FLAGS += -DHAVE_JACK
 
-# ---------------------------------------------------------------------------------------------------------------------
-# Set VST3 filename, see https://vst3sdk-doc.diatonic.jp/doc/vstinterfaces/vst3loc.html
-
-ifeq ($(LINUX),true)
-VST3_FILENAME = $(TARGET_PROCESSOR)-linux/$(NAME).so
-endif
-ifeq ($(MACOS),true)
-ifneq ($(MACOS_OLD),true)
-VST3_FILENAME = MacOS/$(NAME)
-endif
-endif
-ifeq ($(WINDOWS),true)
-VST3_FILENAME = $(TARGET_PROCESSOR)-win/$(NAME).vst3
+# always needed
+ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+LINK_FLAGS += -ldl
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -94,6 +87,32 @@ OBJS_UI += $(BUILD_DIR)/DistrhoUI_macOS_$(NAME).mm.o
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Set VST2 filename, either single binary or inside a bundle
+
+ifeq ($(MACOS),true)
+VST2_CONTENTS = $(NAME).vst/Contents
+VST2_FILENAME = $(VST2_CONTENTS)/MacOS/$(NAME)
+else ifeq ($(USE_VST2_BUNDLE),true)
+VST2_FILENAME = $(NAME).vst/$(NAME)$(LIB_EXT)
+else
+VST2_FILENAME = $(NAME)-vst$(LIB_EXT)
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set VST3 filename, see https://vst3sdk-doc.diatonic.jp/doc/vstinterfaces/vst3loc.html
+
+ifeq ($(LINUX),true)
+VST3_FILENAME = $(NAME).vst3/Contents/$(TARGET_PROCESSOR)-linux/$(NAME).so
+endif
+ifeq ($(MACOS),true)
+VST3_CONTENTS = $(NAME).vst3/Contents
+VST3_FILENAME = $(VST3_CONTENTS)/MacOS/$(NAME)
+endif
+ifeq ($(WINDOWS),true)
+VST3_FILENAME = $(NAME).vst3/Contents/$(TARGET_PROCESSOR)-win/$(NAME).vst3
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Set plugin binary file targets
 
 jack       = $(TARGET_DIR)/$(NAME)$(APP_EXT)
@@ -103,9 +122,19 @@ dssi_ui    = $(TARGET_DIR)/$(NAME)-dssi/$(NAME)_ui$(APP_EXT)
 lv2        = $(TARGET_DIR)/$(NAME).lv2/$(NAME)$(LIB_EXT)
 lv2_dsp    = $(TARGET_DIR)/$(NAME).lv2/$(NAME)_dsp$(LIB_EXT)
 lv2_ui     = $(TARGET_DIR)/$(NAME).lv2/$(NAME)_ui$(LIB_EXT)
-vst2       = $(TARGET_DIR)/$(NAME)-vst$(LIB_EXT)
+vst2       = $(TARGET_DIR)/$(VST2_FILENAME)
 ifneq ($(VST3_FILENAME),)
-vst3       = $(TARGET_DIR)/$(NAME).vst3/Contents/$(VST3_FILENAME)
+vst3       = $(TARGET_DIR)/$(VST3_FILENAME)
+endif
+shared     = $(TARGET_DIR)/$(NAME)$(LIB_EXT)
+
+ifeq ($(MACOS),true)
+vst2files += $(TARGET_DIR)/$(VST2_CONTENTS)/Info.plist
+vst2files += $(TARGET_DIR)/$(VST2_CONTENTS)/PkgInfo
+vst2files += $(TARGET_DIR)/$(VST2_CONTENTS)/Resources/empty.lproj
+vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/Info.plist
+vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/PkgInfo
+vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/Resources/empty.lproj
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -119,6 +148,7 @@ SYMBOLS_LV2UI  = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/lv2-ui.exp
 SYMBOLS_LV2    = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/lv2.exp
 SYMBOLS_VST2   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/vst2.exp
 SYMBOLS_VST3   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/vst3.exp
+SYMBOLS_SHARED = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/shared.exp
 else ifeq ($(WINDOWS),true)
 SYMBOLS_LADSPA = $(DPF_PATH)/utils/symbols/ladspa.def
 SYMBOLS_DSSI   = $(DPF_PATH)/utils/symbols/dssi.def
@@ -127,6 +157,7 @@ SYMBOLS_LV2UI  = $(DPF_PATH)/utils/symbols/lv2-ui.def
 SYMBOLS_LV2    = $(DPF_PATH)/utils/symbols/lv2.def
 SYMBOLS_VST2   = $(DPF_PATH)/utils/symbols/vst2.def
 SYMBOLS_VST3   = $(DPF_PATH)/utils/symbols/vst3.def
+SYMBOLS_SHARED = $(DPF_PATH)/utils/symbols/shared.def
 else ifneq ($(DEBUG),true)
 SYMBOLS_LADSPA = -Wl,--version-script=$(DPF_PATH)/utils/symbols/ladspa.version
 SYMBOLS_DSSI   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/dssi.version
@@ -135,6 +166,7 @@ SYMBOLS_LV2UI  = -Wl,--version-script=$(DPF_PATH)/utils/symbols/lv2-ui.version
 SYMBOLS_LV2    = -Wl,--version-script=$(DPF_PATH)/utils/symbols/lv2.version
 SYMBOLS_VST2   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/vst2.version
 SYMBOLS_VST3   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/vst3.version
+SYMBOLS_SHARED = -Wl,--version-script=$(DPF_PATH)/utils/symbols/shared.version
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -238,32 +270,32 @@ all:
 # ---------------------------------------------------------------------------------------------------------------------
 # Common
 
-$(BUILD_DIR)/%.S.o: %.S $(EXTRA_LIBS)
+$(BUILD_DIR)/%.S.o: %.S
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	@$(CC) $< $(BUILD_C_FLAGS) -c -o $@
 
-$(BUILD_DIR)/%.c.o: %.c $(EXTRA_LIBS)
+$(BUILD_DIR)/%.c.o: %.c
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	$(SILENT)$(CC) $< $(BUILD_C_FLAGS) -c -o $@
 
-$(BUILD_DIR)/%.cc.o: %.cc $(EXTRA_LIBS)
+$(BUILD_DIR)/%.cc.o: %.cc
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -c -o $@
 
-$(BUILD_DIR)/%.cpp.o: %.cpp $(EXTRA_LIBS)
+$(BUILD_DIR)/%.cpp.o: %.cpp
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -c -o $@
 
-$(BUILD_DIR)/%.m.o: %.m $(EXTRA_LIBS)
+$(BUILD_DIR)/%.m.o: %.m
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	$(SILENT)$(CC) $< $(BUILD_C_FLAGS) -ObjC -c -o $@
 
-$(BUILD_DIR)/%.mm.o: %.mm $(EXTRA_LIBS)
+$(BUILD_DIR)/%.mm.o: %.mm
 	-@mkdir -p "$(shell dirname $(BUILD_DIR)/$<)"
 	@echo "Compiling $<"
 	$(SILENT)$(CC) $< $(BUILD_CXX_FLAGS) -ObjC++ -c -o $@
@@ -291,27 +323,27 @@ $(DPF_PATH)/build/libdgl-vulkan.a:
 
 AS_PUGL_NAMESPACE = $(subst -,_,$(1))
 
-$(BUILD_DIR)/DistrhoPluginMain_%.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp
+$(BUILD_DIR)/DistrhoPluginMain_%.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp $(EXTRA_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoPluginMain.cpp ($*)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_$* -c -o $@
 
-$(BUILD_DIR)/DistrhoUIMain_%.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
+$(BUILD_DIR)/DistrhoUIMain_%.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp $(EXTRA_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoUIMain.cpp ($*)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_$* -c -o $@
 
-$(BUILD_DIR)/DistrhoUI_macOS_%.mm.o: $(DPF_PATH)/distrho/DistrhoUI_macOS.mm
+$(BUILD_DIR)/DistrhoUI_macOS_%.mm.o: $(DPF_PATH)/distrho/DistrhoUI_macOS.mm $(EXTRA_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoUI_macOS.mm ($*)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DPUGL_NAMESPACE=$(call AS_PUGL_NAMESPACE,$*) -DGL_SILENCE_DEPRECATION -Wno-deprecated-declarations -I$(DPF_PATH)/dgl/src -I$(DPF_PATH)/dgl/src/pugl-upstream/include -ObjC++ -c -o $@
 
-$(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp
+$(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp $(EXTRA_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoPluginMain.cpp (JACK)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_JACK $(JACK_FLAGS) -c -o $@
 
-$(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
+$(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp $(EXTRA_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
 	@echo "Compiling DistrhoUIMain.cpp (DSSI)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(LIBLO_FLAGS) -DDISTRHO_PLUGIN_TARGET_DSSI -c -o $@
@@ -322,13 +354,13 @@ $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp
 jack: $(jack)
 
 ifeq ($(HAVE_DGL),true)
-$(jack): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o $(BUILD_DIR)/DistrhoUIMain_JACK.cpp.o $(DGL_LIB) $(EXTRA_LIBS)
+$(jack): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o $(BUILD_DIR)/DistrhoUIMain_JACK.cpp.o $(DGL_LIB)
 else
 $(jack): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating JACK standalone for $(NAME)"
-	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(JACK_LIBS) -o $@
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(JACK_LIBS) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 # LADSPA
@@ -365,13 +397,13 @@ lv2_dsp: $(lv2_dsp)
 lv2_sep: $(lv2_dsp) $(lv2_ui)
 
 ifeq ($(HAVE_DGL),true)
-$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB) $(EXTRA_LIBS)
+$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
 else
 $(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin for $(NAME)"
-	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_LV2) -o $@
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_LV2) -o $@
 
 $(lv2_dsp): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
 	-@mkdir -p $(shell dirname $@)
@@ -386,30 +418,59 @@ $(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
 # ---------------------------------------------------------------------------------------------------------------------
 # VST2
 
-vst2 vst: $(vst2)
+vst2 vst: $(vst2) $(vst2files)
 
 ifeq ($(HAVE_DGL),true)
-$(vst2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.o $(DGL_LIB) $(EXTRA_LIBS)
+$(vst2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.o $(DGL_LIB)
 else
 $(vst2): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating VST2 plugin for $(NAME)"
-	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST2) -o $@
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST2) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 # VST3
 
-vst3: $(vst3)
+vst3: $(vst3) $(vst3files)
 
 ifeq ($(HAVE_DGL),true)
-$(vst3): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.o $(DGL_LIB) $(EXTRA_LIBS)
+$(vst3): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.o $(DGL_LIB)
 else
 $(vst3): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating VST3 plugin for $(NAME)"
-	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST3) -o $@
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST3) -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Shared
+
+shared: $(shared)
+
+ifeq ($(HAVE_DGL),true)
+$(shared): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.o $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.o $(DGL_LIB)
+else
+$(shared): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.o
+endif
+	-@mkdir -p $(shell dirname $@)
+	@echo "Creating shared library for $(NAME)"
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_SHARED) -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
+# macOS files
+
+$(TARGET_DIR)/%/Contents/Info.plist: $(DPF_PATH)/utils/plugin.vst/Contents/Info.plist
+	-@mkdir -p $(shell dirname $@)
+	$(SILENT)sed -e "s/@INFO_PLIST_PROJECT_NAME@/$(NAME)/" $< > $@
+
+$(TARGET_DIR)/%/Contents/PkgInfo: $(DPF_PATH)/utils/plugin.vst/Contents/PkgInfo
+	-@mkdir -p $(shell dirname $@)
+	$(SILENT)cp $< $@
+
+$(TARGET_DIR)/%/Resources/empty.lproj: $(DPF_PATH)/utils/plugin.vst/Contents/Resources/empty.lproj
+	-@mkdir -p $(shell dirname $@)
+	$(SILENT)cp $< $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -424,11 +485,13 @@ endif
 -include $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.d
+-include $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.d
 
 -include $(BUILD_DIR)/DistrhoUIMain_JACK.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.d
+-include $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.d
 
 # ---------------------------------------------------------------------------------------------------------------------

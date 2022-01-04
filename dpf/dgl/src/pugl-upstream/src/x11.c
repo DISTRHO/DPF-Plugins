@@ -82,6 +82,34 @@ enum WmClientStateMessageAction {
   WM_STATE_TOGGLE
 };
 
+#ifdef HAVE_XCURSOR
+static const char* cursor_names_x11[] = {
+  "left_ptr",          // ARROW
+  "xterm",             // CARET
+  "crosshair",         // CROSSHAIR
+  "hand2",             // HAND
+  "forbidden",         // NO
+  "sb_h_double_arrow", // LEFT_RIGHT
+  "sb_v_double_arrow", // UP_DOWN
+  "size_fdiag",        // DIAGONAL
+  "size_bdiag",        // ANTI_DIAGONAL
+};
+
+/*
+static const char* cursor_names_xdg[] = {
+  "default",     // ARROW
+  "text",        // CARET
+  "crosshair",   // CROSSHAIR
+  "pointer",     // HAND
+  "not-allowed", // NO
+  "ew-resize",   // LEFT_RIGHT
+  "ns-resize",   // UP_DOWN
+  "nwse-resize", // DIAGONAL
+  "nesw-resize", // ANTI_DIAGONAL
+};
+*/
+#endif
+
 static bool
 initXSync(PuglWorldInternals* const impl)
 {
@@ -167,7 +195,7 @@ puglInitViewInternals(void)
   PuglInternals* impl = (PuglInternals*)calloc(1, sizeof(PuglInternals));
 
 #ifdef HAVE_XCURSOR
-  impl->cursorShape = XC_arrow;
+  impl->cursorName = cursor_names_x11[0];
 #endif
 
   return impl;
@@ -263,12 +291,12 @@ updateSizeHints(const PuglView* const view)
 
 #ifdef HAVE_XCURSOR
 static PuglStatus
-defineCursorShape(PuglView* const view, const unsigned shape)
+defineCursorName(PuglView* const view, const char* const name)
 {
   PuglInternals* const impl    = view->impl;
   PuglWorld* const     world   = view->world;
   Display* const       display = world->impl->display;
-  const Cursor         cur     = XcursorShapeLoadCursor(display, shape);
+  const Cursor         cur     = XcursorLibraryLoadCursor(display, name);
 
   if (cur) {
     XDefineCursor(display, impl->win, cur);
@@ -403,10 +431,6 @@ puglRealize(PuglView* const view)
                         XNFocusWindow,
                         impl->win,
                         (XIM)0);
-
-#ifdef HAVE_XCURSOR
-  defineCursorShape(view, impl->cursorShape);
-#endif
 
   puglDispatchSimpleEvent(view, PUGL_CREATE);
 
@@ -1401,8 +1425,8 @@ puglGetClipboard(PuglView* const    view,
                       impl->win,
                       CurrentTime);
 
-    // Run event loop until data is received
-    while (!view->clipboard.data) {
+    // Run event loop until data is received, within limits
+    for (int i=500; !view->clipboard.data && --i >= 0;) {
       puglUpdate(view->world, -1.0);
     }
   }
@@ -1427,37 +1451,25 @@ puglSetClipboard(PuglView* const   view,
   return st;
 }
 
-#ifdef HAVE_XCURSOR
-static const unsigned cursor_nums[] = {
-  XC_arrow,             // ARROW
-  XC_xterm,             // CARET
-  XC_crosshair,         // CROSSHAIR
-  XC_hand2,             // HAND
-  XC_pirate,            // NO
-  XC_sb_h_double_arrow, // LEFT_RIGHT
-  XC_sb_v_double_arrow, // UP_DOWN
-};
-#endif
-
 PuglStatus
 puglSetCursor(PuglView* const view, const PuglCursor cursor)
 {
 #ifdef HAVE_XCURSOR
   PuglInternals* const impl  = view->impl;
   const unsigned       index = (unsigned)cursor;
-  const unsigned       count = sizeof(cursor_nums) / sizeof(cursor_nums[0]);
+  const unsigned       count = sizeof(cursor_names_x11) / sizeof(cursor_names_x11[0]);
   if (index >= count) {
     return PUGL_BAD_PARAMETER;
   }
 
-  const unsigned shape = cursor_nums[index];
-  if (!impl->win || impl->cursorShape == shape) {
+  const char* name = cursor_names_x11[index];
+  if (!impl->win || impl->cursorName == name) {
     return PUGL_SUCCESS;
   }
 
-  impl->cursorShape = cursor_nums[index];
+  impl->cursorName = cursor_names_x11[index];
 
-  return defineCursorShape(view, impl->cursorShape);
+  return defineCursorName(view, impl->cursorName);
 #else
   (void)view;
   (void)cursor;

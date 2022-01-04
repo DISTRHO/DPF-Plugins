@@ -1039,12 +1039,6 @@ puglRealize(PuglView* view)
     [window setContentView:impl->wrapperView];
     [window makeFirstResponder:impl->wrapperView];
     [window setIsVisible:NO];
-
-    if (! view->transientParent)
-    {
-      [window makeKeyAndOrderFront:window];
-      [view->world->impl->app activateIgnoringOtherApps:YES];
-    }
   }
 
   [impl->wrapperView updateTrackingAreas];
@@ -1068,6 +1062,11 @@ puglShow(PuglView* view)
     [view->impl->window setIsVisible:YES];
     [view->impl->drawView setNeedsDisplay:YES];
     updateViewRect(view);
+  }
+
+  if (! view->transientParent) {
+    [view->impl->window makeKeyAndOrderFront:view->impl->window];
+    [view->world->impl->app activateIgnoringOtherApps:YES];
   }
 
   return PUGL_SUCCESS;
@@ -1421,6 +1420,8 @@ puglGetClipboard(PuglView* const    view,
 static NSCursor*
 puglGetNsCursor(const PuglCursor cursor)
 {
+  SEL cursorSelector = nil;
+
   switch (cursor) {
   case PUGL_CURSOR_ARROW:
     return [NSCursor arrowCursor];
@@ -1436,6 +1437,19 @@ puglGetNsCursor(const PuglCursor cursor)
     return [NSCursor resizeLeftRightCursor];
   case PUGL_CURSOR_UP_DOWN:
     return [NSCursor resizeUpDownCursor];
+  case PUGL_CURSOR_DIAGONAL:
+    cursorSelector = @selector(_windowResizeNorthWestSouthEastCursor);
+    break;
+  case PUGL_CURSOR_ANTI_DIAGONAL:
+    cursorSelector = @selector(_windowResizeNorthEastSouthWestCursor);
+    break;
+  }
+
+  if (cursorSelector && [NSCursor respondsToSelector:cursorSelector])
+  {
+    id object = [NSCursor performSelector:cursorSelector];
+    if ([object isKindOfClass:[NSCursor class]])
+      return (NSCursor*)object;
   }
 
   return NULL;

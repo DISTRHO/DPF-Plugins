@@ -86,10 +86,14 @@ static const uint32_t kCVPortHasScaledRange = 0x80;
  */
 
 /**
-   Parameter is automable (real-time safe).
+   Parameter is automatable (real-time safe).
    @see Plugin::setParameterValue(uint32_t, float)
  */
-static const uint32_t kParameterIsAutomable = 0x01;
+static const uint32_t kParameterIsAutomatable = 0x01;
+
+/** It was a typo, sorry.. */
+DISTRHO_DEPRECATED_BY("kParameterIsAutomatable")
+static const uint32_t kParameterIsAutomable = kParameterIsAutomatable;
 
 /**
    Parameter value is boolean.@n
@@ -563,7 +567,7 @@ struct Parameter {
         case kParameterDesignationNull:
             break;
         case kParameterDesignationBypass:
-            hints      = kParameterIsAutomable|kParameterIsBoolean|kParameterIsInteger;
+            hints      = kParameterIsAutomatable|kParameterIsBoolean|kParameterIsInteger;
             name       = "Bypass";
             shortName  = "Bypass";
             symbol     = "dpf_bypass";
@@ -837,6 +841,22 @@ public:
     */
     double getSampleRate() const noexcept;
 
+   /**
+      Get the bundle path where the plugin resides.
+      Can return null if the plugin is not available in a bundle (if it is a single binary).
+      @see getBinaryFilename
+      @see getResourcePath
+    */
+    const char* getBundlePath() const noexcept;
+
+   /**
+      Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
+      When true no processing will be done, the plugin is created only to extract information.@n
+      In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
+      while LV2 creates one when generating turtle meta-data.
+    */
+    bool isDummyInstance() const noexcept;
+
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
    /**
       Get the current host transport time position.@n
@@ -994,7 +1014,7 @@ protected:
    /**
       Change a parameter value.@n
       The host may call this function from any context, including realtime processing.@n
-      When a parameter is marked as automable, you must ensure no non-realtime operations are performed.
+      When a parameter is marked as automatable, you must ensure no non-realtime operations are performed.
       @note This function will only be called for parameter inputs.
     */
     virtual void setParameterValue(uint32_t index, float value);
@@ -1094,7 +1114,10 @@ private:
  */
 
 /**
-   TODO.
+   Create an instance of the Plugin class.@n
+   This is the entry point for DPF plugins.@n
+   DPF will call this to either create an instance of your plugin for the host
+   or to fetch some initial information for internal caching.
  */
 extern Plugin* createPlugin();
 

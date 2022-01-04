@@ -122,6 +122,10 @@ function(dpf_add_plugin NAME)
   target_include_directories("${NAME}" PUBLIC
     "${DPF_ROOT_DIR}/distrho")
 
+  if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
+    target_link_libraries("${NAME}" PRIVATE "dl")
+  endif()
+
   if(_dgl_library)
     # make sure that all code will see DGL_* definitions
     target_link_libraries("${NAME}" PUBLIC
@@ -135,6 +139,9 @@ function(dpf_add_plugin NAME)
   if(_dgl_library)
     dpf__add_static_library("${NAME}-ui" ${_dpf_plugin_FILES_UI})
     target_link_libraries("${NAME}-ui" PUBLIC "${NAME}" ${_dgl_library})
+    if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
+      target_link_libraries("${NAME}-ui" PRIVATE "dl")
+    endif()
     # add the files containing Objective-C classes, recompiled under namespace
     dpf__add_plugin_specific_ui_sources("${NAME}-ui")
   else()
@@ -184,11 +191,6 @@ function(dpf__build_jack NAME DGL_LIBRARY)
   set_target_properties("${NAME}-jack" PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     OUTPUT_NAME "${NAME}")
-
-  # Note: libjack will be linked at runtime
-  if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
-    target_link_libraries("${NAME}-jack" PRIVATE "dl")
-  endif()
 
   # for RtAudio native fallback
   if(APPLE)
@@ -303,7 +305,7 @@ function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
   add_dependencies("${NAME}-lv2" lv2_ttl_generator)
 
   add_custom_command(TARGET "${NAME}-lv2" POST_BUILD
-    COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR}
+    COMMAND
     "$<TARGET_FILE:lv2_ttl_generator>"
     "$<TARGET_FILE:${NAME}-lv2>"
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.lv2"
@@ -414,7 +416,7 @@ function(dpf__build_vst3 NAME DGL_LIBRARY)
       SUFFIX "")
   elseif(WIN32)
     set_target_properties("${NAME}-vst3" PROPERTIES
-      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.vst3/Contents/${vst3_arch}-win/$<0:>")
+      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.vst3/Contents/${vst3_arch}-win/$<0:>" SUFFIX ".vst3")
   else()
     set_target_properties("${NAME}-vst3" PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.vst3/Contents/${vst3_arch}-linux/$<0:>")

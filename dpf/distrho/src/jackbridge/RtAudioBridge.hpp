@@ -23,8 +23,8 @@
 # define __MACOSX_CORE__
 # define RTAUDIO_API_TYPE MACOSX_CORE
 #elif defined(DISTRHO_OS_WINDOWS) && !defined(_MSC_VER)
-# define __WINDOWS_WASAPI__
-# define RTAUDIO_API_TYPE WINDOWS_WASAPI
+# define __WINDOWS_DS__
+# define RTAUDIO_API_TYPE WINDOWS_DS
 #elif defined(HAVE_PULSEAUDIO)
 # define __LINUX_PULSE__
 # define RTAUDIO_API_TYPE LINUX_PULSE
@@ -90,9 +90,14 @@ struct RtAudioBridge {
 
         uint rtAudioBufferFrames = 512;
 
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
         RtAudio::StreamParameters inParams;
+        RtAudio::StreamParameters* const inParamsPtr = &inParams;
         inParams.deviceId = rtAudio->getDefaultInputDevice();
         inParams.nChannels = DISTRHO_PLUGIN_NUM_INPUTS;
+#else
+        RtAudio::StreamParameters* const inParamsPtr = nullptr;
+#endif
 
         RtAudio::StreamParameters outParams;
         outParams.deviceId = rtAudio->getDefaultOutputDevice();
@@ -102,7 +107,10 @@ struct RtAudioBridge {
         opts.flags = RTAUDIO_NONINTERLEAVED | RTAUDIO_MINIMIZE_LATENCY | RTAUDIO_ALSA_USE_DEFAULT;
 
         try {
-            rtAudio->openStream(&outParams, &inParams, RTAUDIO_FLOAT32, 48000, &rtAudioBufferFrames, RtAudioCallback, this, &opts, nullptr);
+            rtAudio->openStream(&outParams, inParamsPtr, RTAUDIO_FLOAT32, 48000, &rtAudioBufferFrames, RtAudioCallback, this, &opts, nullptr);
+        } catch (const RtAudioError& err) {
+            d_safe_exception(err.getMessage().c_str(), __FILE__, __LINE__);
+            return false;
         } DISTRHO_SAFE_EXCEPTION_RETURN("rtAudio->openStream()", false);
 
         handle = rtAudio;

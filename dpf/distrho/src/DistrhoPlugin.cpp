@@ -21,9 +21,11 @@ START_NAMESPACE_DISTRHO
 /* ------------------------------------------------------------------------------------------------------------
  * Static data, see DistrhoPluginInternal.hpp */
 
-uint32_t d_lastBufferSize = 0;
-double   d_lastSampleRate = 0.0;
-bool     d_lastCanRequestParameterValueChanges = false;
+uint32_t    d_nextBufferSize = 0;
+double      d_nextSampleRate = 0.0;
+const char* d_nextBundlePath = nullptr;
+bool        d_nextPluginIsDummy = false;
+bool        d_nextCanRequestParameterValueChanges = false;
 
 /* ------------------------------------------------------------------------------------------------------------
  * Static fallback data, see DistrhoPluginInternal.hpp */
@@ -98,6 +100,16 @@ uint32_t Plugin::getBufferSize() const noexcept
 double Plugin::getSampleRate() const noexcept
 {
     return pData->sampleRate;
+}
+
+const char* Plugin::getBundlePath() const noexcept
+{
+    return pData->bundlePath;
+}
+
+bool Plugin::isDummyInstance() const noexcept
+{
+    return pData->isDummy;
 }
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS

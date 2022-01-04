@@ -15,7 +15,7 @@ NAME = Nekobi
 FILES_DSP = \
 	DistrhoPluginNekobi.cpp
 
-FILES_UI  = \
+FILES_UIxx = \
 	DistrhoArtworkNekobi.cpp \
 	DistrhoUINekobi.cpp
 
@@ -28,7 +28,8 @@ include ../../dpf/Makefile.plugins.mk
 # --------------------------------------------------------------
 # Extra flags
 
-LINK_FLAGS += -lpthread
+BASE_FLAGS += -pthread
+LINK_FLAGS += -pthread
 
 # --------------------------------------------------------------
 # Enable all possible plugin types

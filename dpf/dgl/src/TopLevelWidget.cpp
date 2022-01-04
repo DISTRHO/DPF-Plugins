@@ -60,6 +60,21 @@ void TopLevelWidget::setSize(const Size<uint>& size)
     pData->window.setSize(size);
 }
 
+bool TopLevelWidget::setClipboard(const char* const mimeType, const void* const data, const size_t dataSize)
+{
+    return pData->window.setClipboard(mimeType, data, dataSize);
+}
+
+const void* TopLevelWidget::getClipboard(const char*& mimeType, size_t& dataSize)
+{
+    return pData->window.getClipboard(mimeType, dataSize);
+}
+
+bool TopLevelWidget::setCursor(const MouseCursor cursor)
+{
+    return pData->window.setCursor(cursor);
+}
+
 bool TopLevelWidget::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
 {
     return pData->window.addIdleCallback(callback, timerFrequencyInMs);
@@ -88,36 +103,47 @@ void TopLevelWidget::repaint(const Rectangle<uint>& rect) noexcept
 void TopLevelWidget::setGeometryConstraints(const uint minimumWidth,
                                             const uint minimumHeight,
                                             const bool keepAspectRatio,
-                                            const bool automaticallyScale)
+                                            const bool automaticallyScale,
+                                            const bool resizeNowIfAutoScaling)
 {
-    pData->window.setGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio, automaticallyScale);
+    pData->window.setGeometryConstraints(minimumWidth,
+                                         minimumHeight,
+                                         keepAspectRatio,
+                                         automaticallyScale,
+                                         resizeNowIfAutoScaling);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-bool TopLevelWidget::onKeyboard(const KeyboardEvent&)
+bool TopLevelWidget::onKeyboard(const KeyboardEvent& ev)
 {
-    return false;
+    return pData->keyboardEvent(ev);
 }
 
-bool TopLevelWidget::onCharacterInput(const CharacterInputEvent&)
+bool TopLevelWidget::onCharacterInput(const CharacterInputEvent& ev)
 {
-    return false;
+    return pData->characterInputEvent(ev);
 }
 
-bool TopLevelWidget::onMouse(const MouseEvent&)
+bool TopLevelWidget::onMouse(const MouseEvent& ev)
 {
-    return false;
+    return pData->mouseEvent(ev);
 }
 
-bool TopLevelWidget::onMotion(const MotionEvent&)
+bool TopLevelWidget::onMotion(const MotionEvent& ev)
 {
-    return false;
+    return pData->motionEvent(ev);
 }
 
-bool TopLevelWidget::onScroll(const ScrollEvent&)
+bool TopLevelWidget::onScroll(const ScrollEvent& ev)
 {
-    return false;
+    return pData->scrollEvent(ev);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+void TopLevelWidget::requestSizeChange(uint, uint)
+{
 }
 
 // --------------------------------------------------------------------------------------------------------------------

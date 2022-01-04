@@ -19,9 +19,14 @@
 
 #include "Geometry.hpp"
 
+#ifndef DGL_FILE_BROWSER_DISABLED
+# include "../distrho/extra/FileBrowserDialog.hpp"
+#endif
+
 START_NAMESPACE_DGL
 
 class Application;
+class PluginWindow;
 class TopLevelWidget;
 
 // -----------------------------------------------------------------------
@@ -53,53 +58,9 @@ class Window
 
 public:
 #ifndef DGL_FILE_BROWSER_DISABLED
-   /**
-      File browser options.
-      @see Window::openFileBrowser
-    */
-    struct FileBrowserOptions {
-       /**
-          File browser button state.
-          This allows to customize the behaviour of the file browse dialog buttons.
-          Note these are merely hints, not all systems support them.
-        */
-        enum ButtonState {
-            kButtonInvisible,
-            kButtonVisibleUnchecked,
-            kButtonVisibleChecked,
-        };
-
-        /** Start directory, uses current working directory if null */
-        const char* startDir;
-        /** File browser dialog window title, uses "FileBrowser" if null */
-        const char* title;
-        // TODO file filter
-
-       /**
-          File browser buttons.
-        */
-        struct Buttons {
-            /** Whether to list all files vs only those with matching file extension */
-            ButtonState listAllFiles;
-            /** Whether to show hidden files */
-            ButtonState showHidden;
-            /** Whether to show list of places (bookmarks) */
-            ButtonState showPlaces;
-
-            /** Constructor for default values */
-            Buttons()
-                : listAllFiles(kButtonVisibleChecked),
-                  showHidden(kButtonVisibleUnchecked),
-                  showPlaces(kButtonVisibleChecked) {}
-        } buttons;
-
-        /** Constructor for default values */
-        FileBrowserOptions()
-            : startDir(nullptr),
-              title(nullptr),
-              buttons() {}
-    };
-#endif // DGL_FILE_BROWSER_DISABLED
+    typedef DISTRHO_NAMESPACE::FileBrowserHandle FileBrowserHandle;
+    typedef DISTRHO_NAMESPACE::FileBrowserOptions FileBrowserOptions;
+#endif
 
    /**
       Window graphics context as a scoped struct.
@@ -303,6 +264,36 @@ public:
     void setIgnoringKeyRepeat(bool ignore) noexcept;
 
    /**
+      Set the clipboard contents.
+
+      This sets the system clipboard contents,
+      which can be retrieved with getClipboard() or pasted into other applications.
+
+      If using a string, the use of a null terminator is required (and must be part of dataSize).@n
+      The MIME type of the data "text/plain" is assumed if null is used.
+    */
+    bool setClipboard(const char* mimeType, const void* data, size_t dataSize);
+
+   /**
+      Get the clipboard contents.
+
+      This gets the system clipboard contents,
+      which may have been set with setClipboard() or copied from another application.
+
+      returns the clipboard contents, or null.
+    */
+    const void* getClipboard(const char*& mimeType, size_t& dataSize);
+
+   /**
+      Set the mouse cursor.
+
+      This changes the system cursor that is displayed when the pointer is inside the window.
+      May fail if setting the cursor is not supported on this system,
+      for example if compiled on X11 without Xcursor support.
+    */
+    bool setCursor(MouseCursor cursor);
+
+   /**
       Add a callback function to be triggered on every idle cycle or on a specific timer frequency.
       You can add more than one, and remove them at anytime with removeIdleCallback().
       This can be used to perform some action at a regular interval with relatively low frequency.
@@ -361,7 +352,7 @@ public:
 
 #ifndef DGL_FILE_BROWSER_DISABLED
    /**
-      Open a file browser dialog with this window as parent.
+      Open a file browser dialog with this window as transient parent.
       A few options can be specified to setup the dialog.
 
       If a path is selected, onFileSelected() will be called with the user chosen path.
@@ -408,7 +399,8 @@ public:
     void setGeometryConstraints(uint minimumWidth,
                                 uint minimumHeight,
                                 bool keepAspectRatio = false,
-                                bool automaticallyScale = false);
+                                bool automaticallyScale = false,
+                                bool resizeNowIfAutoScaling = true);
 
    /** DEPRECATED Use isIgnoringKeyRepeat(). */
     DISTRHO_DEPRECATED_BY("isIgnoringKeyRepeat()")
@@ -482,6 +474,7 @@ private:
                     uint height,
                     double scaleFactor,
                     bool resizable,
+                    bool isVST3,
                     bool doPostInit);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window);

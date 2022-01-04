@@ -50,7 +50,7 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
     switch (index)
     {
     case kParameterScale:
-        parameter.hints      = kParameterIsAutomable|kParameterIsLogarithmic;
+        parameter.hints      = kParameterIsAutomatable|kParameterIsLogarithmic;
         parameter.name       = "Scale";
         parameter.symbol     = "scale";
         parameter.unit       = "";
@@ -60,7 +60,7 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
         break;
 
     case kParameterSpeed:
-        parameter.hints      = kParameterIsAutomable|kParameterIsLogarithmic;
+        parameter.hints      = kParameterIsAutomatable|kParameterIsLogarithmic;
         parameter.name       = "Speed";
         parameter.symbol     = "speed";
         parameter.unit       = "";
@@ -70,7 +70,7 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
         break;
 
     case kParameterX:
-        parameter.hints      = kParameterIsAutomable;
+        parameter.hints      = kParameterIsAutomatable;
         parameter.name       = "X";
         parameter.symbol     = "x";
         parameter.unit       = "";
@@ -80,7 +80,7 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
         break;
 
     case kParameterY:
-        parameter.hints      = kParameterIsAutomable;
+        parameter.hints      = kParameterIsAutomatable;
         parameter.name       = "Y";
         parameter.symbol     = "y";
         parameter.unit       = "";
@@ -90,7 +90,7 @@ void DistrhoPluginGLBars::initParameter(uint32_t index, Parameter& parameter)
         break;
 
     case kParameterZ:
-        parameter.hints      = kParameterIsAutomable;
+        parameter.hints      = kParameterIsAutomatable;
         parameter.name       = "Z";
         parameter.symbol     = "z";
         parameter.unit       = "";

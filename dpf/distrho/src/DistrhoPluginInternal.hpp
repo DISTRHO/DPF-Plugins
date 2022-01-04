@@ -19,6 +19,10 @@
 
 #include "../DistrhoPlugin.hpp"
 
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
+# include "DistrhoPluginVST3.hpp"
+#endif
+
 #include <set>
 
 START_NAMESPACE_DISTRHO
@@ -31,9 +35,11 @@ static const uint32_t kMaxMidiEvents = 512;
 // -----------------------------------------------------------------------
 // Static data, see DistrhoPlugin.cpp
 
-extern uint32_t d_lastBufferSize;
-extern double   d_lastSampleRate;
-extern bool     d_lastCanRequestParameterValueChanges;
+extern uint32_t    d_nextBufferSize;
+extern double      d_nextSampleRate;
+extern const char* d_nextBundlePath;
+extern bool        d_nextPluginIsDummy;
+extern bool        d_nextCanRequestParameterValueChanges;
 
 // -----------------------------------------------------------------------
 // DSP callbacks
@@ -83,6 +89,8 @@ static void fillInPredefinedPortGroupData(const uint32_t groupId, PortGroup& por
 // Plugin private data
 
 struct Plugin::PrivateData {
+    const bool canRequestParameterValueChanges;
+    const bool isDummy;
     bool isProcessing;
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -122,10 +130,12 @@ struct Plugin::PrivateData {
 
     uint32_t bufferSize;
     double   sampleRate;
-    bool     canRequestParameterValueChanges;
+    char*    bundlePath;
 
     PrivateData() noexcept
-        : isProcessing(false),
+        : canRequestParameterValueChanges(d_nextCanRequestParameterValueChanges),
+          isDummy(d_nextPluginIsDummy),
+          isProcessing(false),
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
           audioPorts(nullptr),
 #endif
@@ -149,9 +159,9 @@ struct Plugin::PrivateData {
           callbacksPtr(nullptr),
           writeMidiCallbackFunc(nullptr),
           requestParameterValueChangeCallbackFunc(nullptr),
-          bufferSize(d_lastBufferSize),
-          sampleRate(d_lastSampleRate),
-          canRequestParameterValueChanges(d_lastCanRequestParameterValueChanges)
+          bufferSize(d_nextBufferSize),
+          sampleRate(d_nextSampleRate),
+          bundlePath(d_nextBundlePath != nullptr ? strdup(d_nextBundlePath) : nullptr)
     {
         DISTRHO_SAFE_ASSERT(bufferSize != 0);
         DISTRHO_SAFE_ASSERT(d_isNotZero(sampleRate));
@@ -164,7 +174,7 @@ struct Plugin::PrivateData {
 #endif
 
 #ifdef DISTRHO_PLUGIN_TARGET_LV2
-# if (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
+# if (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_STATE || DISTRHO_PLUGIN_WANT_TIMEPOS)
         parameterOffset += 1;
 # endif
 # if (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
@@ -173,12 +183,7 @@ struct Plugin::PrivateData {
 #endif
 
 #ifdef DISTRHO_PLUGIN_TARGET_VST3
-# if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        parameterOffset += 130 * 16; // all MIDI CCs plus aftertouch and pitchbend
-# endif
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-        parameterOffset += 1;
-# endif
+        parameterOffset += kVst3InternalParameterCount;
 #endif
     }
 
@@ -225,6 +230,12 @@ struct Plugin::PrivateData {
             stateDefValues = nullptr;
         }
 #endif
+
+        if (bundlePath != nullptr)
+        {
+            std::free(bundlePath);
+            bundlePath = nullptr;
+        }
     }
 
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT

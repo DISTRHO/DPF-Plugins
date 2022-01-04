@@ -163,14 +163,20 @@ LINK_OPTS += -Wl,--strip-all
 endif
 endif
 
+ifeq ($(SKIP_STRIPPING),true)
+BASE_FLAGS += -g
+endif
+
 ifeq ($(NOOPT),true)
 # Non-CPU-specific optimization flags
 BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
 ifeq ($(WINDOWS),true)
+# Assume we want posix
+BASE_FLAGS += -posix -D__STDC_FORMAT_MACROS
 # Needed for windows, see https://github.com/falkTX/Carla/issues/855
-BASE_OPTS  += -mstackrealign
+BASE_FLAGS += -mstackrealign
 else
 # Not needed for Windows
 BASE_FLAGS += -fPIC -DPIC
@@ -182,6 +188,11 @@ LINK_OPTS   =
 else
 BASE_FLAGS += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
 CXXFLAGS   += -fvisibility-inlines-hidden
+endif
+
+ifeq ($(WITH_LTO),true)
+BASE_FLAGS += -fno-strict-aliasing -flto
+LINK_FLAGS += -fno-strict-aliasing -flto -Werror=odr -Werror=lto-type-mismatch
 endif
 
 BUILD_C_FLAGS   = $(BASE_FLAGS) -std=gnu99 $(CFLAGS)
@@ -238,6 +249,7 @@ HAVE_OPENGL = true
 else
 HAVE_OPENGL = $(shell $(PKG_CONFIG) --exists gl && echo true)
 ifneq ($(HAIKU),true)
+HAVE_DBUS    = $(shell $(PKG_CONFIG) --exists dbus-1 && echo true)
 HAVE_X11     = $(shell $(PKG_CONFIG) --exists x11 && echo true)
 HAVE_XCURSOR = $(shell $(PKG_CONFIG) --exists xcursor && echo true)
 HAVE_XEXT    = $(shell $(PKG_CONFIG) --exists xext && echo true)
@@ -250,6 +262,9 @@ endif
 
 HAVE_LIBLO = $(shell $(PKG_CONFIG) --exists liblo && echo true)
 
+ifeq ($(SKIP_RTAUDIO_FALLBACK),true)
+CXXFLAGS += -DDPF_JACK_STANDALONE_SKIP_RTAUDIO_FALLBACK
+else
 ifeq ($(MACOS),true)
 HAVE_RTAUDIO    = true
 else ifeq ($(WINDOWS),true)
@@ -261,6 +276,7 @@ ifeq ($(HAVE_ALSA),true)
 HAVE_RTAUDIO    = true
 else ifeq ($(HAVE_PULSEAUDIO),true)
 HAVE_RTAUDIO    = true
+endif
 endif
 endif
 
@@ -280,15 +296,19 @@ endif
 
 ifeq ($(WINDOWS),true)
 DGL_SYSTEM_LIBS += -lgdi32 -lcomdlg32
+# -lole32
 endif
 
 ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+ifeq ($(HAVE_DBUS),true)
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags dbus-1) -DHAVE_DBUS
+DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs dbus-1)
+endif
 ifeq ($(HAVE_X11),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags x11) -DHAVE_X11
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs x11)
 ifeq ($(HAVE_XCURSOR),true)
-# TODO -DHAVE_XCURSOR
-DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xcursor)
+DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xcursor) -DHAVE_XCURSOR
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xcursor)
 endif
 ifeq ($(HAVE_XEXT),true)
@@ -475,6 +495,7 @@ features:
 	$(call print_available,UNIX)
 	@echo === Detected features
 	$(call print_available,HAVE_ALSA)
+	$(call print_available,HAVE_DBUS)
 	$(call print_available,HAVE_CAIRO)
 	$(call print_available,HAVE_DGL)
 	$(call print_available,HAVE_LIBLO)

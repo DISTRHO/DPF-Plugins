@@ -24,10 +24,10 @@ START_NAMESPACE_DISTRHO
 // -----------------------------------------------------------------------
 // Static data, see DistrhoUI.cpp
 
+extern const char* g_nextBundlePath;
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 extern uintptr_t   g_nextWindowId;
 extern double      g_nextScaleFactor;
-extern const char* g_nextBundlePath;
 #endif
 
 // -----------------------------------------------------------------------
@@ -77,19 +77,19 @@ public:
         uiData->setSizeCallbackFunc     = setSizeCall;
         uiData->fileRequestCallbackFunc = fileRequestCall;
 
+        g_nextBundlePath  = bundlePath;
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         g_nextWindowId    = winId;
         g_nextScaleFactor = scaleFactor;
-        g_nextBundlePath  = bundlePath;
 #endif
         UI::PrivateData::s_nextPrivateData = uiData;
 
         UI* const uiPtr = createUI();
 
+        g_nextBundlePath  = nullptr;
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         g_nextWindowId    = 0;
         g_nextScaleFactor = 0.0;
-        g_nextBundlePath  = nullptr;
 #else
         // enter context called in the PluginWindow constructor, see DistrhoUIPrivateData.hpp
         uiData->window->leaveContext();
@@ -98,6 +98,7 @@ public:
 
         DISTRHO_SAFE_ASSERT_RETURN(uiPtr != nullptr,);
         ui = uiPtr;
+        uiData->initializing = false;
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         // unused
@@ -230,7 +231,14 @@ public:
 
         ui->uiIdle();
     }
-#else
+
+    void showAndFocus()
+    {
+        uiData->window->show();
+        uiData->window->focus();
+    }
+#endif
+
     bool plugin_idle()
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr, false);
@@ -239,7 +247,6 @@ public:
         ui->uiIdle();
         return ! uiData->app.isQuitting();
     }
-#endif
 
     void focus()
     {
@@ -254,7 +261,7 @@ public:
 
     // -------------------------------------------------------------------
 
-#if defined(DISTRHO_PLUGIN_TARGET_VST3) && (defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS))
+#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && defined(DISTRHO_PLUGIN_TARGET_VST3) && (defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS))
     void addIdleCallbackForVST3(IdleCallback* const cb, const uint timerFrequencyInMs)
     {
         uiData->window->addIdleCallback(cb, timerFrequencyInMs);
@@ -279,10 +286,10 @@ public:
 #ifdef DISTRHO_PLUGIN_TARGET_VST3
     void setWindowSizeForVST3(const uint width, const uint height)
     {
+# if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         ui->setSize(width, height);
-# if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-        uiData->window->setSize(width, height);
-        // uiData->app.idle();
+# else
+        uiData->window->setSizeForVST3(width, height);
 # endif
     }
 #endif
@@ -320,6 +327,9 @@ public:
 
         const bool ret = ui->onKeyboard(ev);
 
+        if (! press)
+            return ret;
+
         DGL_NAMESPACE::Widget::CharacterInputEvent cev;
         cev.mod       = mods;
         cev.character = key;
@@ -341,6 +351,9 @@ public:
         ev.keycode = keycode;
 
         const bool ret = ui->onKeyboard(ev);
+
+        if (! press)
+            return ret;
 
         DGL_NAMESPACE::Widget::CharacterInputEvent cev;
         cev.mod       = mods;

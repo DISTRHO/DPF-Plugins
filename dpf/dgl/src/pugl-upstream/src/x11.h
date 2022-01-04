@@ -69,7 +69,7 @@ struct PuglInternalsImpl {
   PuglEvent    pendingExpose;
   int          screen;
 #ifdef HAVE_XCURSOR
-  unsigned cursorShape;
+  const char* cursorName;
 #endif
 };
 

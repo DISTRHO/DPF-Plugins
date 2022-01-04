@@ -15,6 +15,7 @@
  */
 
 #include "DistrhoPluginInternal.hpp"
+#include "../DistrhoPluginUtils.hpp"
 
 #include "lv2/atom.h"
 #include "lv2/buf-size.h"
@@ -223,12 +224,18 @@ void lv2_generate_ttl(const char* const basename)
 {
     USE_NAMESPACE_DISTRHO
 
+    String bundlePath(getBinaryFilename());
+    bundlePath.truncate(bundlePath.rfind(DISTRHO_OS_SEP));
+    d_nextBundlePath = bundlePath.buffer();
+
     // Dummy plugin to get data from
-    d_lastBufferSize = 512;
-    d_lastSampleRate = 44100.0;
+    d_nextBufferSize = 512;
+    d_nextSampleRate = 44100.0;
+    d_nextPluginIsDummy = true;
     PluginExporter plugin(nullptr, nullptr, nullptr);
-    d_lastBufferSize = 0;
-    d_lastSampleRate = 0.0;
+    d_nextBufferSize = 0;
+    d_nextSampleRate = 0.0;
+    d_nextPluginIsDummy = false;
 
     const String pluginDLL(basename);
     const String pluginTTL(pluginDLL + ".ttl");
@@ -844,10 +851,10 @@ void lv2_generate_ttl(const char* const basename)
                         pluginString += "        lv2:portProperty lv2:integer ;\n";
                     if (hints & kParameterIsLogarithmic)
                         pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__logarithmic "> ;\n";
-                    if ((hints & kParameterIsAutomable) == 0 && plugin.isParameterInput(i))
+                    if ((hints & kParameterIsAutomatable) == 0 && plugin.isParameterInput(i))
                     {
                         pluginString += "        lv2:portProperty <" LV2_PORT_PROPS__expensive "> ,\n";
-                        pluginString += "                         <" LV2_KXSTUDIO_PROPERTIES__NonAutomable "> ;\n";
+                        pluginString += "                         <" LV2_KXSTUDIO_PROPERTIES__NonAutomatable "> ;\n";
                     }
 
                     // group

@@ -48,6 +48,10 @@ typedef DGL_NAMESPACE::NanoTopLevelWidget UIWidget;
 typedef DGL_NAMESPACE::TopLevelWidget UIWidget;
 #endif
 
+#ifndef DGL_FILE_BROWSER_DISABLED
+# include "extra/FileBrowserDialog.hpp"
+#endif
+
 START_NAMESPACE_DGL
 class PluginWindow;
 END_NAMESPACE_DGL
@@ -80,7 +84,7 @@ public:
       It assumes aspect ratio is meant to be kept.
       Manually call setGeometryConstraints instead if keeping UI aspect ratio is not required.
     */
-    UI(uint width = 0, uint height = 0, bool automaticallyScale = false);
+    UI(uint width = 0, uint height = 0, bool automaticallyScaleAndSetAsMinimumSize = false);
 
    /**
       Destructor.
@@ -132,6 +136,13 @@ public:
     double getSampleRate() const noexcept;
 
    /**
+      Get the bundle path where the UI resides.@n
+      Can return null if the UI is not available in a bundle (if it is a single binary).
+      @see getBinaryFilename
+    */
+    const char* getBundlePath() const noexcept;
+
+   /**
       editParameter.
 
       Touch/pressed-down event.
@@ -174,6 +185,22 @@ public:
       A note with zero velocity will be sent as note-off (MIDI 0x80), otherwise note-on (MIDI 0x90).
     */
     void sendNote(uint8_t channel, uint8_t note, uint8_t velocity);
+#endif
+
+#ifndef DGL_FILE_BROWSER_DISABLED
+   /**
+      Open a file browser dialog with this window as transient parent.@n
+      A few options can be specified to setup the dialog.
+
+      If a path is selected, onFileSelected() will be called with the user chosen path.
+      If the user cancels or does not pick a file, onFileSelected() will be called with nullptr as filename.
+
+      This function does not block the event loop.
+
+      @note This is exactly the same API as provided by the Window class,
+            but redeclared here so that non-embed/DGL based UIs can still use file browser related functions.
+    */
+    bool openFileBrowser(const FileBrowserOptions& options = FileBrowserOptions());
 #endif
 
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
@@ -290,8 +317,9 @@ protected:
       The most common exception is custom OpenGL setup, but only really needed for custom OpenGL drawing code.
     */
     virtual void uiReshape(uint width, uint height);
+#endif // !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 
-# ifndef DGL_FILE_BROWSER_DISABLED
+#ifndef DGL_FILE_BROWSER_DISABLED
    /**
       Window file selected function, called when a path is selected by the user, as triggered by openFileBrowser().
       This function is for plugin UIs to be able to override Window::onFileSelected(const char*).
@@ -302,8 +330,7 @@ protected:
       If you need to use files as plugin state, please setup and use DISTRHO_PLUGIN_WANT_STATEFILES instead.
     */
     virtual void uiFileBrowserSelected(const char* filename);
-# endif
-#endif // !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#endif
 
    /* --------------------------------------------------------------------------------------------------------
     * UI Resize Handling, internal */
@@ -331,6 +358,10 @@ private:
     PrivateData* const uiData;
     friend class DGL_NAMESPACE::PluginWindow;
     friend class UIExporter;
+#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+   /** @internal */
+    void requestSizeChange(uint width, uint height) override;
+#endif
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UI)
 };

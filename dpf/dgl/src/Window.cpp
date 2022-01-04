@@ -15,6 +15,7 @@
  */
 
 #include "WindowPrivateData.hpp"
+#include "../TopLevelWidget.hpp"
 
 #include "pugl.hpp"
 
@@ -87,7 +88,7 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false))
 {
     pData->initPost();
 }
@@ -98,8 +99,9 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable,
+               const bool isVST3,
                const bool doPostInit)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, isVST3))
 {
     if (doPostInit)
         pData->initPost();
@@ -199,8 +201,14 @@ void Window::setSize(uint width, uint height)
     if (pData->isEmbed)
     {
         const double scaleFactor = pData->scaleFactor;
-        const uint minWidth = static_cast<uint>(pData->minWidth * scaleFactor + 0.5);
-        const uint minHeight = static_cast<uint>(pData->minHeight * scaleFactor + 0.5);
+        uint minWidth = pData->minWidth;
+        uint minHeight = pData->minHeight;
+
+        if (pData->autoScaling && scaleFactor != 1.0)
+        {
+            minWidth *= scaleFactor;
+            minHeight *= scaleFactor;
+        }
 
         // handle geometry constraints here
         if (width < minWidth)
@@ -228,7 +236,19 @@ void Window::setSize(uint width, uint height)
         }
     }
 
-    puglSetWindowSize(pData->view, width, height);
+    if (pData->usesSizeRequest)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(pData->topLevelWidgets.size() != 0,);
+
+        TopLevelWidget* const topLevelWidget = pData->topLevelWidgets.front();
+        DISTRHO_SAFE_ASSERT_RETURN(topLevelWidget != nullptr,);
+
+        topLevelWidget->requestSizeChange(width, height);
+    }
+    else
+    {
+        puglSetWindowSize(pData->view, width, height);
+    }
 }
 
 void Window::setSize(const Size<uint>& size)
@@ -255,6 +275,25 @@ bool Window::isIgnoringKeyRepeat() const noexcept
 void Window::setIgnoringKeyRepeat(const bool ignore) noexcept
 {
     puglSetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT, ignore);
+}
+
+bool Window::setClipboard(const char* const mimeType, const void* const data, const size_t dataSize)
+{
+    return puglSetClipboard(pData->view, mimeType, data, dataSize) == PUGL_SUCCESS;
+}
+
+const void* Window::getClipboard(const char*& mimeType, size_t& dataSize)
+{
+    DISTRHO_SAFE_ASSERT_RETURN(!pData->ignoreEvents, nullptr);
+    pData->ignoreEvents = true;
+    const void* const clipboard = puglGetClipboard(pData->view, &mimeType, &dataSize);
+    pData->ignoreEvents = false;
+    return clipboard;
+}
+
+bool Window::setCursor(const MouseCursor cursor)
+{
+    return puglSetCursor(pData->view, static_cast<PuglCursor>(cursor)) == PUGL_SUCCESS;
 }
 
 bool Window::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
@@ -352,10 +391,11 @@ Size<uint> Window::getGeometryConstraints(bool& keepAspectRatio)
     return Size<uint>(pData->minWidth, pData->minHeight);
 }
 
-void Window::setGeometryConstraints(const uint minimumWidth,
-                                    const uint minimumHeight,
+void Window::setGeometryConstraints(uint minimumWidth,
+                                    uint minimumHeight,
                                     const bool keepAspectRatio,
-                                    const bool automaticallyScale)
+                                    const bool automaticallyScale,
+                                    const bool resizeNowIfAutoScaling)
 {
     DISTRHO_SAFE_ASSERT_RETURN(minimumWidth > 0,);
     DISTRHO_SAFE_ASSERT_RETURN(minimumHeight > 0,);
@@ -370,12 +410,15 @@ void Window::setGeometryConstraints(const uint minimumWidth,
 
     const double scaleFactor = pData->scaleFactor;
 
-    puglSetGeometryConstraints(pData->view,
-                               static_cast<uint>(minimumWidth * scaleFactor + 0.5),
-                               static_cast<uint>(minimumHeight * scaleFactor + 0.5),
-                               keepAspectRatio);
+    if (automaticallyScale && scaleFactor != 1.0)
+    {
+        minimumWidth *= scaleFactor;
+        minimumHeight *= scaleFactor;
+    }
 
-    if (scaleFactor != 1.0)
+    puglSetGeometryConstraints(pData->view, minimumWidth, minimumHeight, keepAspectRatio);
+
+    if (scaleFactor != 1.0 && automaticallyScale && resizeNowIfAutoScaling)
     {
         const Size<uint> size(getSize());
 

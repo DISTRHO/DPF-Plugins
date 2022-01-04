@@ -43,6 +43,15 @@ START_NAMESPACE_DGL
 class NanoVG;
 
 // -----------------------------------------------------------------------
+// Helper methods
+
+/**
+   Create a NanoVG context using the DPF-provided NanoVG library.
+   On Windows this will load a few extra OpenGL functions required for NanoVG to work.
+ */
+NVGcontext* nvgCreateGL(int flags);
+
+// -----------------------------------------------------------------------
 // NanoImage
 
 /**
@@ -443,6 +452,11 @@ public:
       Already transparent paths will get proportionally more transparent as well.
     */
     void globalAlpha(float alpha);
+
+   /**
+      Sets the color tint applied to all rendered shapes.
+    */
+    void globalTint(Color tint);
 
    /* --------------------------------------------------------------------
     * Transforms */
@@ -943,7 +957,6 @@ private:
     inline void onDisplay() override
     {
         // NOTE maybe should use BaseWidget::getWindow().getScaleFactor() as 3rd arg ?
-        NanoVG::reset();
         NanoVG::beginFrame(BaseWidget::getWidth(), BaseWidget::getHeight());
         onNanoDisplay();
         NanoVG::endFrame();

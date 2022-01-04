@@ -19,6 +19,10 @@
 
 #include "../DistrhoUI.hpp"
 
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
+# include "DistrhoPluginVST3.hpp"
+#endif
+
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # include "../extra/Sleep.hpp"
 #else
@@ -33,7 +37,13 @@
 # define DISTRHO_UI_IS_STANDALONE 0
 #endif
 
-#if defined(DISTRHO_PLUGIN_TARGET_VST2)
+#ifdef DISTRHO_PLUGIN_TARGET_VST3
+# define DISTRHO_UI_IS_VST3 1
+#else
+# define DISTRHO_UI_IS_VST3 0
+#endif
+
+#ifdef DISTRHO_PLUGIN_TARGET_VST2
 # undef DISTRHO_UI_USER_RESIZABLE
 # define DISTRHO_UI_USER_RESIZABLE 0
 #endif
@@ -175,7 +185,8 @@ public:
                           const uint width,
                           const uint height,
                           const double scaleFactor)
-        : Window(app, parentWindowHandle, width, height, scaleFactor, DISTRHO_UI_USER_RESIZABLE, false),
+        : Window(app, parentWindowHandle, width, height, scaleFactor,
+                 DISTRHO_UI_USER_RESIZABLE, DISTRHO_UI_IS_VST3, false),
           ui(uiPtr),
           initializing(true),
           receivedReshapeDuringInit(false)
@@ -219,6 +230,13 @@ public:
         if (pData->view != nullptr)
             puglBackendEnter(pData->view);
     }
+
+   #ifdef DISTRHO_PLUGIN_TARGET_VST3
+    void setSizeForVST3(const uint width, const uint height)
+    {
+        puglSetWindowSize(pData->view, width, height);
+    }
+   #endif
 
 protected:
     void onFocus(const bool focus, const DGL_NAMESPACE::CrossingMode mode) override
@@ -308,6 +326,10 @@ struct UI::PrivateData {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
     char* uiStateFileKeyRequest;
 #endif
+    char* bundlePath;
+
+    // Ignore initial resize events while initializing
+    bool initializing;
 
     // Callbacks
     void*           callbacksPtr;
@@ -331,6 +353,8 @@ struct UI::PrivateData {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
           uiStateFileKeyRequest(nullptr),
 #endif
+          bundlePath(nullptr),
+          initializing(true),
           callbacksPtr(nullptr),
           editParamCallbackFunc(nullptr),
           setParamCallbackFunc(nullptr),
@@ -356,12 +380,7 @@ struct UI::PrivateData {
 #endif
 
 #ifdef DISTRHO_PLUGIN_TARGET_VST3
-# if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        parameterOffset += 130 * 16; // all MIDI CCs plus aftertouch and pitchbend
-# endif
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-        parameterOffset += 1;
-# endif
+        parameterOffset += kVst3InternalParameterCount;
 #endif
     }
 
@@ -370,6 +389,7 @@ struct UI::PrivateData {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
         std::free(uiStateFileKeyRequest);
 #endif
+        std::free(bundlePath);
     }
 
     void editParamCallback(const uint32_t rindex, const bool started)
@@ -430,7 +450,7 @@ inline bool UI::PrivateData::fileRequestCallback(const char* const key)
     snprintf(title, sizeof(title)-1u, DISTRHO_PLUGIN_NAME ": %s", key);
     title[sizeof(title)-1u] = '\0';
 
-    DGL_NAMESPACE::Window::FileBrowserOptions opts;
+    FileBrowserOptions opts;
     opts.title = title;
     return window->openFileBrowser(opts);
 #endif

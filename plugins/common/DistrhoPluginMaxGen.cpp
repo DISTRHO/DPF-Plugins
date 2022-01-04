@@ -43,7 +43,7 @@ void DistrhoPluginMaxGen::initParameter(uint32_t index, Parameter& parameter)
 {
     ParamInfo& info(fGenState->params[index]);
 
-    parameter.hints      = kParameterIsAutomable;
+    parameter.hints      = kParameterIsAutomatable;
     parameter.name       = info.name;
     parameter.symbol     = info.name;
     parameter.unit       = info.units;

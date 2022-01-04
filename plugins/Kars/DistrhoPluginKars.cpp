@@ -44,7 +44,7 @@ void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
     switch (index)
     {
     case paramSustain:
-        parameter.hints      = kParameterIsAutomable|kParameterIsBoolean;
+        parameter.hints      = kParameterIsAutomatable|kParameterIsBoolean;
         parameter.name       = "Sustain";
         parameter.symbol     = "sustain";
         parameter.ranges.def = 0.0f;
@@ -52,7 +52,7 @@ void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.max = 1.0f;
         break;
     case paramRelease:
-        parameter.hints      = kParameterIsAutomable;
+        parameter.hints      = kParameterIsAutomatable;
         parameter.name       = "Release";
         parameter.symbol     = "release";
         parameter.unit       = "s";
@@ -61,7 +61,7 @@ void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
         parameter.ranges.max = 5.0f;
         break;
     case paramVolume:
-        parameter.hints      = kParameterIsAutomable;
+        parameter.hints      = kParameterIsAutomatable;
         parameter.name       = "Volume";
         parameter.symbol     = "volume";
         parameter.unit       = "%";

@@ -42,6 +42,7 @@
 # endif
 #elif defined(DISTRHO_OS_WINDOWS)
 # include <wctype.h>
+# include <winsock2.h>
 # include <windows.h>
 # include <windowsx.h>
 # ifdef DGL_CAIRO
@@ -57,6 +58,7 @@
 # endif
 #else
 # include <dlfcn.h>
+# include <unistd.h>
 # include <sys/select.h>
 # include <sys/time.h>
 # include <X11/X.h>
@@ -90,10 +92,12 @@
 # endif
 #endif
 
-#ifdef HAVE_X11
-# define DBLCLKTME 400
-# include "sofd/libsofd.h"
-# include "sofd/libsofd.c"
+#ifndef DGL_FILE_BROWSER_DISABLED
+# ifdef DISTRHO_OS_MAC
+#  import "../../distrho/extra/FileBrowserDialog.cpp"
+# else
+#  include "../../distrho/extra/FileBrowserDialog.cpp"
+# endif
 #endif
 
 #ifndef DISTRHO_OS_MAC
@@ -321,20 +325,12 @@ PuglStatus puglSetGeometryConstraints(PuglView* const view, const uint width, co
         view->maxAspectY = (int)height;
     }
 
-#if defined(DISTRHO_OS_HAIKU)
-    // nothing?
-#elif defined(DISTRHO_OS_MAC)
-    /*
-    if (view->impl->window)
-    {
-        [view->impl->window setContentMinSize:sizePoints(view, view->minWidth, view->minHeight)];
-
-        if (aspect)
-            [view->impl->window setContentAspectRatio:sizePoints(view, view->minAspectX, view->minAspectY)];
-    }
-    */
+#if defined(DISTRHO_OS_HAIKU) || defined(DISTRHO_OS_MAC)
     puglSetMinSize(view, width, height);
-    puglSetAspectRatio(view, width, height, width, height);
+
+    if (aspect) {
+        puglSetAspectRatio(view, width, height, width, height);
+    }
 #elif defined(DISTRHO_OS_WINDOWS)
     // nothing
 #else
@@ -354,17 +350,18 @@ PuglStatus puglSetWindowSize(PuglView* const view, const uint width, const uint 
 {
     view->defaultWidth  = width;
     view->defaultHeight = height;
+    view->frame.width   = width;
+    view->frame.height  = height;
 
-#if defined(DISTRHO_OS_HAIKU) || defined(DISTRHO_OS_MAC)
-    // replace the 2 views setFrame with setFrameSize
-    const PuglRect frame = { view->frame.x, view->frame.y, (double)width, (double)height };
+#if defined(DISTRHO_OS_HAIKU)
+#elif defined(DISTRHO_OS_MAC)
+    // replace setFrame with setFrameSize
     PuglInternals* const impl = view->impl;
 
-    // Update view frame to exactly the requested frame in Pugl coordinates
-    view->frame = frame;
-
+    const PuglRect frame = view->frame;
     const NSRect framePx = rectToNsRect(frame);
     const NSRect framePt = nsRectToPoints(view, framePx);
+
     if (impl->window)
     {
         // Resize window to fit new content rect
@@ -418,8 +415,6 @@ PuglStatus puglSetWindowSize(PuglView* const view, const uint width, const uint 
     }
 #endif
 
-    view->frame.width = width;
-    view->frame.height = height;
     return PUGL_SUCCESS;
 }
 
@@ -529,50 +524,6 @@ void puglMacOSShowCentered(PuglView* const view)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// macOS specific, setup file browser dialog
-
-bool puglMacOSFilePanelOpen(PuglView* const view,
-                            const char* const startDir, const char* const title, const uint flags,
-                            openPanelCallback callback)
-{
-    PuglInternals* impl = view->impl;
-
-    NSOpenPanel* const panel = [NSOpenPanel openPanel];
-
-    [panel setAllowsMultipleSelection:NO];
-    [panel setCanChooseFiles:YES];
-    [panel setCanChooseDirectories:NO];
-    [panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
-
-    // TODO file filter using allowedContentTypes: [UTType]
-
-    if (flags & 0x001)
-        [panel setAllowsOtherFileTypes:YES];
-    if (flags & 0x010)
-        [panel setShowsHiddenFiles:YES];
-
-    NSString* titleString = [[NSString alloc]
-        initWithBytes:title
-               length:strlen(title)
-             encoding:NSUTF8StringEncoding];
-    [panel setTitle:titleString];
-
-    [panel beginSheetModalForWindow:(impl->window ? impl->window : [view->impl->wrapperView window])
-                  completionHandler:^(NSInteger result)
-    {
-        if (result == NSModalResponseOK && [[panel URL] isFileURL])
-        {
-            NSString* const path = [[panel URL] path];
-            callback(view, [path UTF8String]);
-        }
-        else
-        {
-            callback(view, nullptr);
-        }
-   }];
-
-    return true;
-}
 #endif
 
 #ifdef DISTRHO_OS_WINDOWS
@@ -657,7 +608,7 @@ PuglStatus puglX11GrabFocus(const PuglView* const view)
 // --------------------------------------------------------------------------------------------------------------------
 // X11 specific, set dialog window type and pid hints
 
-void puglX11SetWindowTypeAndPID(const PuglView* const view)
+void puglX11SetWindowTypeAndPID(const PuglView* const view, const bool isStandalone)
 {
     const PuglInternals* const impl = view->impl;
 
@@ -667,107 +618,19 @@ void puglX11SetWindowTypeAndPID(const PuglView* const view)
 
     const Atom _wt = XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE", False);
 
-    // Setting the window to both dialog and normal will produce a decorated floating dialog
-    // Order is important: DIALOG needs to come before NORMAL
-    const Atom _wts[2] = {
-        XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_DIALOG", False),
-        XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_NORMAL", False)
-    };
+    Atom _wts[2];
+    int numAtoms = 0;
 
-    XChangeProperty(impl->display, impl->win, _wt, XA_ATOM, 32, PropModeReplace, (const uchar*)&_wts, 2);
+    if (! isStandalone)
+        _wts[numAtoms++] = XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+
+    _wts[numAtoms++] = XInternAtom(impl->display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+
+    XChangeProperty(impl->display, impl->win, _wt, XA_ATOM, 32, PropModeReplace, (const uchar*)&_wts, numAtoms);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// X11 specific stuff for sofd
-
-static Display* sofd_display;
-static char* sofd_filename;
-
-// --------------------------------------------------------------------------------------------------------------------
-// X11 specific, show file dialog via sofd
-
-bool sofdFileDialogShow(PuglView* const view,
-                        const char* const startDir, const char* const title,
-                        const uint flags, const double scaleFactor)
-{
-    // only one possible at a time
-    DISTRHO_SAFE_ASSERT_RETURN(sofd_display == nullptr, false);
-
-    sofd_display = XOpenDisplay(nullptr);
-    DISTRHO_SAFE_ASSERT_RETURN(sofd_display != nullptr, false);
-
-    DISTRHO_SAFE_ASSERT_RETURN(x_fib_configure(0, startDir) == 0, false);
-    DISTRHO_SAFE_ASSERT_RETURN(x_fib_configure(1, title) == 0, false);
-
-    x_fib_cfg_buttons(3, flags & 0x001 ? 1 : flags & 0x002 ? 0 : -1);
-    x_fib_cfg_buttons(1, flags & 0x010 ? 1 : flags & 0x020 ? 0 : -1);
-    x_fib_cfg_buttons(2, flags & 0x100 ? 1 : flags & 0x200 ? 0 : -1);
-
-    return (x_fib_show(sofd_display, view->impl->win, 0, 0, scaleFactor + 0.5) == 0);
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// X11 specific, idle sofd file dialog, returns true if dialog was closed (with or without a file selection)
-
-bool sofdFileDialogIdle(PuglView* const view)
-{
-    if (sofd_display == nullptr)
-        return false;
-
-    XEvent event;
-    while (XPending(sofd_display) > 0)
-    {
-        XNextEvent(sofd_display, &event);
-
-        if (x_fib_handle_events(sofd_display, &event) == 0)
-            continue;
-
-        if (sofd_filename != nullptr)
-            std::free(sofd_filename);
-
-        if (x_fib_status() > 0)
-            sofd_filename = x_fib_filename();
-        else
-            sofd_filename = nullptr;
-
-        x_fib_close(sofd_display);
-        XCloseDisplay(sofd_display);
-        sofd_display = nullptr;
-        return true;
-    }
-
-    return false;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// X11 specific, close sofd file dialog
-
-void sofdFileDialogClose()
-{
-    if (sofd_display != nullptr)
-    {
-        x_fib_close(sofd_display);
-        XCloseDisplay(sofd_display);
-        sofd_display = nullptr;
-    }
-
-    if (sofd_filename != nullptr)
-    {
-        std::free(sofd_filename);
-        sofd_filename = nullptr;
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// X11 specific, get path chosen via sofd file dialog
-
-const char* sofdFileDialogGetPath()
-{
-    return sofd_filename;
-}
-#endif
-
-// --------------------------------------------------------------------------------------------------------------------
+#endif // HAVE_X11
 
 #ifndef DISTRHO_OS_MAC
 END_NAMESPACE_DGL

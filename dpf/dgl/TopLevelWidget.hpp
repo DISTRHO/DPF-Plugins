@@ -101,13 +101,17 @@ public:
     void repaint(const Rectangle<uint>& rect) noexcept;
 
     // TODO group stuff after here, convenience functions present in Window class
+    bool setClipboard(const char* mimeType, const void* data, size_t dataSize);
+    const void* getClipboard(const char*& mimeType, size_t& dataSize);
+    bool setCursor(MouseCursor cursor);
     bool addIdleCallback(IdleCallback* callback, uint timerFrequencyInMs = 0);
     bool removeIdleCallback(IdleCallback* callback);
     double getScaleFactor() const noexcept;
     void setGeometryConstraints(uint minimumWidth,
                                 uint minimumHeight,
                                 bool keepAspectRatio = false,
-                                bool automaticallyScale = false);
+                                bool automaticallyScale = false,
+                                bool resizeNowIfAutoScaling = true);
 
     DISTRHO_DEPRECATED_BY("getApp()")
     Application& getParentApp() const noexcept { return getApp(); }
@@ -129,6 +133,8 @@ private:
 #ifdef DISTRHO_DEFINES_H_INCLUDED
     friend class DISTRHO_NAMESPACE::UI;
 #endif
+   /** @internal */
+    virtual void requestSizeChange(uint width, uint height);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TopLevelWidget)
 };

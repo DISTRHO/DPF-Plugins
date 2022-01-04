@@ -30,11 +30,17 @@ typedef HANDLE d_ThreadHandle;
 typedef pthread_t d_ThreadHandle;
 #endif
 
+#ifdef DISTRHO_OS_MAC
 typedef struct PuglWorldImpl PuglWorld;
+#endif
 
 START_NAMESPACE_DGL
 
 class Window;
+
+#ifndef DISTRHO_OS_MAC
+typedef struct PuglWorldImpl PuglWorld;
+#endif
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -90,6 +96,9 @@ struct Application::PrivateData {
     /** Set flag indicating application is quitting, and close all windows in reverse order of registration.
         For standalone mode only. */
     void quit();
+
+    /** Get time via pugl */
+    double getTime() const;
 
     /** Set pugl world class name. */
     void setClassName(const char* name);

@@ -15,6 +15,7 @@
  */
 
 #include "DistrhoPluginInternal.hpp"
+#include "../DistrhoPluginUtils.hpp"
 #include "../extra/ScopedSafeLocale.hpp"
 
 #if DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_HAS_EMBED_UI
@@ -991,8 +992,8 @@ public:
             {
                 const uint32_t hints(fPlugin.getParameterHints(index));
 
-                // must be automable, and not output
-                if ((hints & kParameterIsAutomable) != 0 && (hints & kParameterIsOutput) == 0)
+                // must be automatable, and not output
+                if ((hints & kParameterIsAutomatable) != 0 && (hints & kParameterIsOutput) == 0)
                     return 1;
             }
             break;
@@ -1403,9 +1404,10 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
     if (doInternalInit)
     {
         // set valid but dummy values
-        d_lastBufferSize = 512;
-        d_lastSampleRate = 44100.0;
-        d_lastCanRequestParameterValueChanges = true;
+        d_nextBufferSize = 512;
+        d_nextSampleRate = 44100.0;
+        d_nextPluginIsDummy = true;
+        d_nextCanRequestParameterValueChanges = true;
     }
 
     // Create dummy plugin to get data from
@@ -1414,9 +1416,10 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
     if (doInternalInit)
     {
         // unset
-        d_lastBufferSize = 0;
-        d_lastSampleRate = 0.0;
-        d_lastCanRequestParameterValueChanges = false;
+        d_nextBufferSize = 0;
+        d_nextSampleRate = 0.0;
+        d_nextPluginIsDummy = false;
+        d_nextCanRequestParameterValueChanges = false;
 
         *(PluginExporter**)ptr = &plugin;
         return 0;
@@ -1437,15 +1440,15 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
 
             audioMasterCallback audioMaster = (audioMasterCallback)obj->audioMaster;
 
-            d_lastBufferSize = audioMaster(effect, audioMasterGetBlockSize, 0, 0, nullptr, 0.0f);
-            d_lastSampleRate = audioMaster(effect, audioMasterGetSampleRate, 0, 0, nullptr, 0.0f);
-            d_lastCanRequestParameterValueChanges = true;
+            d_nextBufferSize = audioMaster(effect, audioMasterGetBlockSize, 0, 0, nullptr, 0.0f);
+            d_nextSampleRate = audioMaster(effect, audioMasterGetSampleRate, 0, 0, nullptr, 0.0f);
+            d_nextCanRequestParameterValueChanges = true;
 
             // some hosts are not ready at this point or return 0 buffersize/samplerate
-            if (d_lastBufferSize == 0)
-                d_lastBufferSize = 2048;
-            if (d_lastSampleRate <= 0.0)
-                d_lastSampleRate = 44100.0;
+            if (d_nextBufferSize == 0)
+                d_nextBufferSize = 2048;
+            if (d_nextSampleRate <= 0.0)
+                d_nextSampleRate = 44100.0;
 
             obj->plugin = new PluginVst(audioMaster, effect);
             return 1;
@@ -1679,6 +1682,32 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
     // old version
     if (audioMaster(nullptr, audioMasterVersion, 0, 0, nullptr, 0.0f) == 0)
         return nullptr;
+
+    // find plugin bundle
+    static String bundlePath;
+    if (bundlePath.isEmpty())
+    {
+        String tmpPath(getBinaryFilename());
+        tmpPath.truncate(tmpPath.rfind(DISTRHO_OS_SEP));
+#ifdef DISTRHO_OS_MAC
+        if (tmpPath.endsWith("/MacOS"))
+        {
+            tmpPath.truncate(tmpPath.rfind('/'));
+            if (tmpPath.endsWith("/Contents"))
+            {
+                tmpPath.truncate(tmpPath.rfind('/'));
+                bundlePath = tmpPath;
+                d_nextBundlePath = bundlePath.buffer();
+            }
+        }
+#else
+        if (tmpPath.endsWith(".vst"))
+        {
+            bundlePath = tmpPath;
+            d_nextBundlePath = bundlePath.buffer();
+        }
+#endif
+    }
 
     // first internal init
     PluginExporter* plugin = nullptr;

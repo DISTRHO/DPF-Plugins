@@ -21,8 +21,61 @@
 
 START_NAMESPACE_DISTRHO
 
-// -----------------------------------------------------------------------------------------------------------
+/* ------------------------------------------------------------------------------------------------------------
+ * Plugin related utilities */
 
+/**
+   @defgroup PluginRelatedUtilities Plugin related utilities
+
+   @{
+ */
+
+/**
+   Get the absolute filename of the plugin DSP/UI binary.@n
+   Under certain systems or plugin formats the binary will be inside the plugin bundle.@n
+   Also, in some formats or setups, the DSP and UI binaries are in different files.
+*/
+const char* getBinaryFilename();
+
+/**
+   Get a string representation of the current plugin format we are building against.@n
+   This can be "JACK/Standalone", "LADSPA", "DSSI", "LV2", "VST2" or "VST3".@n
+   This string is purely informational and must not be used to tweak plugin behaviour.
+
+   @note DO NOT CHANGE PLUGIN BEHAVIOUR BASED ON PLUGIN FORMAT.
+*/
+const char* getPluginFormatName() noexcept;
+
+/**
+   Get the path to where resources are stored within the plugin bundle.@n
+   Requires a valid plugin bundle path.
+
+   Returns a path inside the bundle where the plugin is meant to store its resources in.@n
+   This path varies between systems and plugin formats, like so:
+
+    - LV2: <bundle>/resources (can be stored anywhere inside the bundle really, DPF just uses this one)
+    - VST2 macOS: <bundle>/Contents/Resources
+    - VST2 non-macOS: <bundle>/resources (see note)
+
+   The other non-mentioned formats do not support bundles.@n
+
+   @note For VST2 on non-macOS systems, this assumes you have your plugin inside a dedicated directory
+         rather than only shipping with the binary (e.g. <myplugin.vst>/myplugin.dll)
+*/
+const char* getResourcePath(const char* bundlePath) noexcept;
+
+/** @} */
+
+/* ------------------------------------------------------------------------------------------------------------
+ * Plugin helper classes */
+
+/**
+   @defgroup PluginHelperClasses Plugin helper classes
+
+   @{
+ */
+
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
 /**
    Handy class to help keep audio buffer in sync with incoming MIDI events.
    To use it, create a local variable (on the stack) and call nextEvent() until it returns false.
@@ -151,6 +204,9 @@ private:
     uint32_t remainingMidiEventCount;
     uint32_t totalFramesUsed;
 };
+#endif
+
+/** @} */
 
 // -----------------------------------------------------------------------------------------------------------
 

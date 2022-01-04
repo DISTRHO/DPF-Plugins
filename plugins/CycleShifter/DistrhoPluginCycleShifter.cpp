@@ -45,7 +45,7 @@ DistrhoPluginCycleShifter::DistrhoPluginCycleShifter()
 
 void DistrhoPluginCycleShifter::initParameter(uint32_t index, Parameter& parameter)
 {
-    parameter.hints      = kParameterIsAutomable;
+    parameter.hints      = kParameterIsAutomatable;
     parameter.ranges.min = 0.0f;
     parameter.ranges.max = 1.0f;
 
