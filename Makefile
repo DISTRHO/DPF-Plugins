@@ -23,31 +23,32 @@ endif
 
 dgl:
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-	$(MAKE) -C dpf/dgl
+	$(MAKE) FILE_BROWSER_DISABLED=true -C dpf/dgl
 ifeq ($(HAVE_OPENGL),true)
-	$(MAKE) -C dpf/dgl opengl3
+	$(MAKE) FILE_BROWSER_DISABLED=true -C dpf/dgl opengl3
 endif
 endif
 
 plugins: dgl
+	# FIXME all the FILE_BROWSER_DISABLED=true stuff need to go into individual plugins
 	# Kars
 	$(MAKE) all -C plugins/Kars
 
 	# Mini-Series
-	$(MAKE) all -C plugins/3BandEQ
-	$(MAKE) all -C plugins/3BandSplitter
-	$(MAKE) all -C plugins/PingPongPan
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/3BandEQ
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/3BandSplitter
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/PingPongPan
 
 	# ndc-Plugs
-	$(MAKE) all -C plugins/AmplitudeImposer
-	$(MAKE) all -C plugins/CycleShifter
-	$(MAKE) all -C plugins/SoulForce
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/AmplitudeImposer
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/CycleShifter
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/SoulForce
 
 	# MVerb
-	$(MAKE) all -C plugins/MVerb
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/MVerb
 
 	# Nekobi
-	$(MAKE) all -C plugins/Nekobi
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/Nekobi
 
 	# Max-Gen stuff
 	$(MAKE) all -C plugins/bitcrush
@@ -57,7 +58,7 @@ plugins: dgl
 
 ifeq ($(HAVE_OPENGL),true)
 	# glBars (needs OpenGL)
-	$(MAKE) all -C plugins/glBars
+	$(MAKE) FILE_BROWSER_DISABLED=true all -C plugins/glBars
 
 	# ProM (needs OpenGL + ProjectM)
 	$(MAKE) all -C plugins/ProM
