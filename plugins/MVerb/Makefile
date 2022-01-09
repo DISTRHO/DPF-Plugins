@@ -22,6 +22,7 @@ FILES_UI  = \
 # --------------------------------------------------------------
 # Do some magic
 
+FILE_BROWSER_DISABLED = true
 include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------

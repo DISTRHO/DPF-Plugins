@@ -23,6 +23,7 @@ FILES_UI  = \
 # Do some magic
 
 UI_TYPE = generic
+FILE_BROWSER_DISABLED = true
 include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------
