@@ -24,6 +24,9 @@ endif
 dgl:
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	$(MAKE) -C dpf/dgl
+ifeq ($(HAVE_OPENGL),true)
+	$(MAKE) -C dpf/dgl opengl3
+endif
 endif
 
 plugins: dgl
@@ -60,7 +63,7 @@ ifeq ($(HAVE_OPENGL),true)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_OPENGL
 
-ifneq ($(HAVE_OPENGL),true)
+ifeq ($(HAVE_OPENGL),true)
 resources: gen
 	# LV2 fonts
 	install -d bin/ProM.lv2/resources/fonts
@@ -151,18 +154,17 @@ install:
 
 	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
 	install -m 644 bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
-ifeq ($(MACOS),true)
-	cp -r bin/*.vst               $(DESTDIR)$(PREFIX)/lib/vst/
-else
+ifneq ($(MACOS),true)
 	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 endif
 
-ifneq ($(MACOS),true)
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-	cp -r bin/*-dssi  $(DESTDIR)$(PREFIX)/lib/dssi/
+	cp -r bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
 endif # HAVE_CAIRO_OR_OPENGL
-endif # MACOS
-	cp -r bin/*.lv2   $(DESTDIR)$(PREFIX)/lib/lv2/
+	cp -r bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
+ifeq ($(HAVE_OPENGL),true)
+	cp -r bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/
+endif
 
 	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/3BandEQ$(APP_EXT)          $(DESTDIR)$(PREFIX)/bin/
