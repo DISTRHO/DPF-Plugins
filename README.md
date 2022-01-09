@@ -2,7 +2,7 @@ DPF-Plugins
 ===========
 
 Collection of DPF-based plugins ready for packaging.<br/>
-They come in LADSPA, DSSI, LV2 and VST2 formats.
+They come in LADSPA, DSSI, LV2, VST2 and VST3 formats.
 
 This repository does not use submodules,<br/>
 everything you need to build is included in a simple clone.
@@ -11,7 +11,7 @@ The list of plugins/packs are:
  - glBars
  - Kars
  - Max-Gen examples (MaBitcrush, MaFreeverb, MaGigaverb, MaPitchshift)
- - Mini-Series (3BandEQ. 3BandSplitter, PingPongPan)
+ - Mini-Series (3BandEQ, 3BandSplitter, PingPongPan)
  - ndc-Plugs (Amplitude Imposer, Cycle Shifter, Soul Force)
  - MVerb
  - Nekobi
