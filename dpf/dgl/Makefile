@@ -13,22 +13,6 @@ BUILD_CXX_FLAGS += $(DGL_FLAGS) -I. -Isrc -DDONT_SET_USING_DGL_NAMESPACE -Wno-un
 BUILD_CXX_FLAGS += -Isrc/pugl-upstream/include
 LINK_FLAGS      += $(DGL_LIBS)
 
-ifeq ($(NVG_DISABLE_SKIPPING_WHITESPACE),true)
-BUILD_CXX_FLAGS += -DNVG_DISABLE_SKIPPING_WHITESPACE
-endif
-ifneq ($(NVG_FONT_TEXTURE_FLAGS),)
-BUILD_CXX_FLAGS += -DNVG_FONT_TEXTURE_FLAGS=$(NVG_FONT_TEXTURE_FLAGS)
-endif
-ifeq ($(USE_OPENGL3),true)
-BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3
-endif
-ifeq ($(USE_NANOVG_FBO),true)
-BUILD_CXX_FLAGS += -DDGL_USE_NANOVG_FBO
-endif
-ifeq ($(USE_RGBA),true)
-BUILD_CXX_FLAGS += -DDGL_USE_RGBA
-endif
-
 # TODO fix these after pugl-upstream is done
 BUILD_CXX_FLAGS += -Wno-attributes -Wno-extra -Wno-missing-field-initializers
 ifneq ($(MACOS),true)
@@ -85,6 +69,18 @@ endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+OBJS_opengl3 = $(OBJS_common) \
+	../build/dgl/OpenGL.cpp.opengl3.o \
+	../build/dgl/NanoVG.cpp.opengl3.o
+
+ifeq ($(MACOS),true)
+OBJS_opengl3 += ../build/dgl/pugl.mm.opengl3.o
+else
+OBJS_opengl3 += ../build/dgl/pugl.cpp.opengl3.o
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+
 OBJS_stub = $(OBJS_common)
 
 ifeq ($(MACOS),true)
@@ -128,10 +124,11 @@ endif
 
 all: $(TARGETS)
 
-cairo:  ../build/libdgl-cairo.a
-opengl: ../build/libdgl-opengl.a
-stub:   ../build/libdgl-stub.a
-vulkan: ../build/libdgl-vulkan.a
+cairo:   ../build/libdgl-cairo.a
+opengl:  ../build/libdgl-opengl.a
+opengl3: ../build/libdgl-opengl3.a
+stub:    ../build/libdgl-stub.a
+vulkan:  ../build/libdgl-vulkan.a
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -144,6 +141,12 @@ vulkan: ../build/libdgl-vulkan.a
 ../build/libdgl-opengl.a: $(OBJS_opengl)
 	-@mkdir -p ../build
 	@echo "Creating libdgl-opengl.a"
+	$(SILENT)rm -f $@
+	$(SILENT)$(AR) crs $@ $^
+
+../build/libdgl-opengl3.a: $(OBJS_opengl3)
+	-@mkdir -p ../build
+	@echo "Creating libdgl-opengl3.a"
 	$(SILENT)rm -f $@
 	$(SILENT)$(AR) crs $@ $^
 
@@ -207,6 +210,18 @@ vulkan: ../build/libdgl-vulkan.a
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+../build/dgl/%.cpp.opengl3.o: src/%.cpp
+	-@mkdir -p ../build/dgl
+	@echo "Compiling $< (OpenGL variant)"
+	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(OPENGL_FLAGS) -DDGL_OPENGL -DDGL_USE_OPENGL3 -c -o $@
+
+../build/dgl/%.mm.opengl3.o: src/%.mm
+	-@mkdir -p ../build/dgl
+	@echo "Compiling $< (OpenGL variant)"
+	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(OPENGL_FLAGS) -DDGL_OPENGL -DDGL_USE_OPENGL3 -c -ObjC++ -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
+
 ../build/dgl/%.cpp.vulkan.o: src/%.cpp
 	-@mkdir -p ../build/dgl
 	@echo "Compiling $< (Vulkan variant)"
@@ -230,6 +245,7 @@ debug:
 -include $(OBJS_common:%.o=%.d)
 -include $(OBJS_cairo:%.o=%.d)
 -include $(OBJS_opengl:%.o=%.d)
+-include $(OBJS_opengl3:%.o=%.d)
 -include $(OBJS_stub:%.o=%.d)
 -include $(OBJS_vulkan:%.o=%.d)
 

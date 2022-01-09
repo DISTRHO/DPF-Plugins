@@ -26,6 +26,7 @@ HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
 # --------------------------------------------------------------
 # Import base definitions
 
+FILE_BROWSER_DISABLED = true
 include ../../dpf/Makefile.base.mk
 
 # --------------------------------------------------------------
@@ -105,6 +106,8 @@ endif # !HAVE_PROJECTM
 # --------------------------------------------------------------
 # Do some magic
 
+UI_TYPE = opengl3
+USE_VST2_BUNDLE = true
 include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------

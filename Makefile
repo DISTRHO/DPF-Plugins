@@ -14,11 +14,6 @@ PREFIX  ?= /usr/local
 DESTDIR ?=
 
 # --------------------------------------------------------------
-# Check for system-wide dependencies
-
-HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
-
-# --------------------------------------------------------------
 
 ifneq ($(CROSS_COMPILING),true)
 CAN_GENERATE_TTL = true
@@ -65,7 +60,7 @@ ifeq ($(HAVE_OPENGL),true)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_OPENGL
 
-ifneq ($(HAVE_PROJECTM),true)
+ifneq ($(HAVE_OPENGL),true)
 resources: gen
 	# LV2 fonts
 	install -d bin/ProM.lv2/resources/fonts
@@ -82,9 +77,6 @@ ifeq ($(MACOS),true)
 	install -d bin/ProM.vst/Contents/Resources/presets
 	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst/Contents/Resources/presets/
 else
-	# VST2 directory
-	install -d bin/ProM.vst
-	mv bin/ProM-vst$(LIB_EXT) bin/ProM.vst/ProM$(LIB_EXT)
 	# VST2 fonts
 	install -d bin/ProM.vst/resources/fonts
 	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst/resources/fonts/
@@ -106,9 +98,6 @@ endif
 gen: plugins dpf/utils/lv2_ttl_generator
 ifeq ($(CAN_GENERATE_TTL),true)
 	@$(CURDIR)/dpf/utils/generate-ttl.sh
-endif
-ifeq ($(MACOS),true)
-	@$(CURDIR)/dpf/utils/generate-vst-bundles.sh
 endif
 
 dpf/utils/lv2_ttl_generator:

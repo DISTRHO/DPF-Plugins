@@ -15,7 +15,7 @@ NAME = Nekobi
 FILES_DSP = \
 	DistrhoPluginNekobi.cpp
 
-FILES_UIxx = \
+FILES_UI = \
 	DistrhoArtworkNekobi.cpp \
 	DistrhoUINekobi.cpp
 

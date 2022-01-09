@@ -1,6 +1,6 @@
 /*
  * DISTRHO ProM Plugin
- * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,77 +26,16 @@
 #include "DistrhoPluginProM.hpp"
 #include "DistrhoUIProM.hpp"
 
-#ifndef DISTRHO_OS_WINDOWS
-# include <dlfcn.h>
-#endif
-
-#ifdef DISTRHO_OS_WINDOWS
-static HINSTANCE hInstance = nullptr;
-
-DISTRHO_PLUGIN_EXPORT
-BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID)
-{
-    if (reason == DLL_PROCESS_ATTACH)
-        hInstance = hInst;
-    return 1;
-}
-#endif
+#include "DistrhoPluginUtils.hpp"
 
 START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 
-static String getCurrentExecutableDataDir()
-{
-    static String datadir;
-
-    if (datadir.isNotEmpty())
-        return datadir;
-
-#ifdef DISTRHO_OS_WINDOWS
-    CHAR filename[MAX_PATH + 256];
-    filename[0] = '\0';
-    GetModuleFileName(hInstance, filename, sizeof(filename));
-
-    datadir = String(filename);
-    datadir.truncate(datadir.rfind('\\'));
-#else
-    Dl_info info;
-    dladdr((void*)getCurrentExecutableDataDir, &info);
-
-    datadir = String(info.dli_fname);
-    datadir.truncate(datadir.rfind('/'));
-
-# ifdef DISTRHO_OS_MAC
-    if (datadir.endsWith("/MacOS"))
-    {
-        datadir.truncate(datadir.rfind('/'));
-        datadir += "/Resources";
-    }
-    else
-# endif
-    if (datadir.endsWith("/x86_64-linux"))
-    {
-        datadir.truncate(datadir.rfind('/'));
-        datadir += "/Resources";
-    }
-    else
-#endif
-    {
-        datadir += "/resources";
-    }
-
-    return datadir;
-}
-
-// -----------------------------------------------------------------------
-
 DistrhoUIProM::DistrhoUIProM()
     : UI(512, 512),
-      fPM(nullptr)
-#ifndef DGL_USE_OPENGL3
-    , fResizeHandle(this)
-#endif
+      fPM(nullptr),
+      fResizeHandle(this)
 {
     const double scaleFactor = getScaleFactor();
 
@@ -106,10 +45,8 @@ DistrhoUIProM::DistrhoUIProM()
     setGeometryConstraints(256*scaleFactor, 256*scaleFactor, true);
 
     // no need to show resize handle if window is user-resizable
-#ifndef DGL_USE_OPENGL3
     // if (isResizable())
     //     fResizeHandle.hide();
-#endif
 }
 
 DistrhoUIProM::~DistrhoUIProM()
@@ -151,7 +88,7 @@ void DistrhoUIProM::uiIdle()
     }
 }
 
-void DistrhoUIProM::uiReshape(uint width, uint height)
+void DistrhoUIProM::uiReshape(const uint width, const uint height)
 {
     UI::uiReshape(width, height);
 
@@ -160,19 +97,27 @@ void DistrhoUIProM::uiReshape(uint width, uint height)
 #ifdef PROJECTM_DATA_DIR
         fPM = new projectM(PROJECTM_DATA_DIR "/config.inp");
 #else
-        const String datadir(getCurrentExecutableDataDir());
-        d_stdout("ProM datadir: '%s'", datadir.buffer());
+        if (const char* const bundlePath = getBundlePath())
+        {
+            const String datadir(getResourcePath(bundlePath));
+            d_stdout("ProM datadir: '%s'", datadir.buffer());
 
-        projectM::Settings settings;
-        settings.presetURL    = datadir + DISTRHO_OS_SEP_STR "presets";
-        settings.titleFontURL = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "Vera.ttf";
-        settings.menuFontURL  = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "VeraMono.ttf";
-        settings.datadir      = datadir;
-        fPM = new projectM(settings);
+            projectM::Settings settings;
+            settings.presetURL    = datadir + DISTRHO_OS_SEP_STR "presets";
+            settings.titleFontURL = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "Vera.ttf";
+            settings.menuFontURL  = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "VeraMono.ttf";
+            settings.datadir      = datadir;
+            fPM = new projectM(settings);
+        }
+        else
+        {
+            d_stderr2("ProM: failed to find bundle path, UI will be empty");
+        }
 #endif
     }
 
-    fPM->projectM_resetGL(width, height);
+    if (fPM != nullptr)
+        fPM->projectM_resetGL(width, height);
 }
 
 // -----------------------------------------------------------------------
@@ -184,6 +129,9 @@ void DistrhoUIProM::onDisplay()
         return;
 
     fPM->renderFrame();
+
+    // some projectM versions do not turn off the last set GL program
+    glUseProgram(0);
 }
 
 static projectMKeycode dgl2pmkey(const DGL_NAMESPACE::Key key) noexcept
