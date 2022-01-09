@@ -14,6 +14,11 @@ PREFIX  ?= /usr/local
 DESTDIR ?=
 
 # --------------------------------------------------------------
+# Check for system-wide projectM
+
+HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
+
+# --------------------------------------------------------------
 
 ifneq ($(CROSS_COMPILING),true)
 CAN_GENERATE_TTL = true
@@ -65,6 +70,7 @@ endif # HAVE_OPENGL
 
 ifeq ($(HAVE_OPENGL),true)
 resources: gen
+ifneq ($(HAVE_PROJECTM),true)
 	# LV2 fonts
 	install -d bin/ProM.lv2/resources/fonts
 	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.lv2/resources/fonts/
@@ -94,6 +100,7 @@ endif
 	# VST3 presets
 	install -d bin/ProM.vst3/Contents/Resources/presets
 	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst3/Contents/Resources/presets/
+endif
 else
 resources:
 endif
