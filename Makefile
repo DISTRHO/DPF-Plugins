@@ -14,7 +14,7 @@ PREFIX  ?= /usr/local
 DESTDIR ?=
 
 # --------------------------------------------------------------
-# Check for system-wide projectM
+# Check for system-wide dependencies
 
 HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
 
