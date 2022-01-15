@@ -1,12 +1,7 @@
 name: build
 
-on:
-  push:
-    branches:
-      - '*'
-  pull_request:
-    branches:
-      - '*'
+on: [push]
+
 env:
   DEBIAN_FRONTEND: noninteractive
   HOMEBREW_NO_AUTO_UPDATE: 1
@@ -49,6 +44,24 @@ jobs:
           name: ${{ github.event.repository.name }}-linux-arm64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: |
             bin/*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp utils/README-Linux.txt bin/README.txt
+          tar -c -z bin/* \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
+              -f ~/build.tar.gz \
+              .
+          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.gz
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.gz
 
   linux-armhf:
     runs-on: ubuntu-20.04
@@ -87,6 +100,24 @@ jobs:
           name: ${{ github.event.repository.name }}-linux-armhf-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: |
             bin/*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp utils/README-Linux.txt bin/README.txt
+          tar -c -z bin/* \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
+              -f ~/build.tar.gz \
+              .
+          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.gz
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.gz
 
   linux-i686:
     runs-on: ubuntu-20.04
@@ -123,6 +154,24 @@ jobs:
           name: ${{ github.event.repository.name }}-linux-i686-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: |
             bin/*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp utils/README-Linux.txt bin/README.txt
+          tar -c -z bin/* \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
+              -f ~/build.tar.gz \
+              .
+          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.gz
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.gz
 
   linux-x86_64:
     runs-on: ubuntu-20.04
@@ -148,6 +197,24 @@ jobs:
           name: ${{ github.event.repository.name }}-linux-x86_64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: |
             bin/*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp utils/README-Linux.txt bin/README.txt
+          tar -c -z bin/* \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
+              -f ~/build.tar.gz \
+              .
+          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.gz
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.gz
 
   macos-universal:
     runs-on: macos-10.15
@@ -182,6 +249,19 @@ jobs:
             !bin/lv2
             !bin/vst2
             !bin/vst3
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv *-macOS.pkg ${{ github.event.repository.name }}-${{ github.ref_name }}-macOS.pkg
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-macOS.pkg
 
   win32:
     runs-on: ubuntu-20.04
@@ -218,7 +298,22 @@ jobs:
           path: |
             bin/*
             !bin/*-ladspa.dll
-            !bin/*-dssi.dll
+            !bin/*-dssi*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv bin ${{ github.event.repository.name }}-${{ github.ref_name }}
+          zip -r -9 build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}/* -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-ladspa.dll -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-dssi.dll
+          mv build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}-win32.zip
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-win32.zip
 
   win64:
     runs-on: ubuntu-20.04
@@ -250,6 +345,21 @@ jobs:
             bin/*
             !bin/*-ladspa.dll
             !bin/*-dssi.dll
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv bin ${{ github.event.repository.name }}-${{ github.ref_name }}
+          zip -r -9 build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}/* -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-ladspa.dll -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-dssi.dll
+          mv build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}-win64.zip
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-win64.zip
 
   plugin-validation:
     runs-on: ubuntu-20.04
