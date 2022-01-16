@@ -157,6 +157,7 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib/dssi/
 	install -d $(DESTDIR)$(PREFIX)/lib/lv2/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
+	install -d $(DESTDIR)$(PREFIX)/lib/vst3/
 	install -d $(DESTDIR)$(PREFIX)/bin/
 
 	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
@@ -166,12 +167,13 @@ ifneq ($(MACOS),true)
 endif
 
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-	cp -r bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
+	cp -r  bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
 endif # HAVE_CAIRO_OR_OPENGL
-	cp -r bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
+	cp -r  bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
 ifeq ($(HAVE_OPENGL),true)
-	cp -r bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/
+	cp -rL bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/
 endif
+	cp -rL bin/*.vst3 $(DESTDIR)$(PREFIX)/lib/vst3/
 
 	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/3BandEQ$(APP_EXT)          $(DESTDIR)$(PREFIX)/bin/
