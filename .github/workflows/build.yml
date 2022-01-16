@@ -48,11 +48,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cp utils/README-Linux.txt bin/README.txt
-          tar -c -z bin/* \
-              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
-              -f ~/build.tar.gz \
-              .
-          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.gz
+          tar chJf ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.xz \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}/," \
+              bin/*
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -61,7 +59,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.gz
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-arm64.tar.xz
 
   linux-armhf:
     runs-on: ubuntu-20.04
@@ -104,11 +102,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cp utils/README-Linux.txt bin/README.txt
-          tar -c -z bin/* \
-              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
-              -f ~/build.tar.gz \
-              .
-          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.gz
+          tar chJf ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.xz \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}/," \
+              bin/*
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -117,7 +113,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.gz
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-armhf.tar.xz
 
   linux-i686:
     runs-on: ubuntu-20.04
@@ -158,11 +154,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cp utils/README-Linux.txt bin/README.txt
-          tar -c -z bin/* \
-              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
-              -f ~/build.tar.gz \
-              .
-          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.gz
+          tar chJf ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.xz \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}/," \
+              bin/*
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -171,7 +165,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.gz
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.xz
 
   linux-x86_64:
     runs-on: ubuntu-20.04
@@ -201,11 +195,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cp utils/README-Linux.txt bin/README.txt
-          tar -c -z bin/* \
-              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}," \
-              -f ~/build.tar.gz \
-              .
-          mv ~/build.tar.gz ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.gz
+          tar chJf ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.xz \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}/," \
+              bin/*
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -214,7 +206,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.gz
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-x86_64.tar.xz
 
   macos-universal:
     runs-on: macos-10.15
@@ -302,6 +294,7 @@ jobs:
       - name: Create release archive
         if: startsWith(github.ref, 'refs/tags/')
         run: |
+          cp utils/README-Windows.txt bin/README.txt
           mv bin ${{ github.event.repository.name }}-${{ github.ref_name }}
           zip -r -9 build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}/* -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-ladspa.dll -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-dssi.dll
           mv build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}-win32.zip
@@ -348,6 +341,7 @@ jobs:
       - name: Create release archive
         if: startsWith(github.ref, 'refs/tags/')
         run: |
+          cp utils/README-Windows.txt bin/README.txt
           mv bin ${{ github.event.repository.name }}-${{ github.ref_name }}
           zip -r -9 build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}/* -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-ladspa.dll -x ${{ github.event.repository.name }}-${{ github.ref_name }}/*-dssi.dll
           mv build.zip ${{ github.event.repository.name }}-${{ github.ref_name }}-win64.zip
