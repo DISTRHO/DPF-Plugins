@@ -116,6 +116,8 @@ dpf/utils/lv2_ttl_generator:
 # --------------------------------------------------------------
 
 clean:
+	rm -rf bin build
+
 	$(MAKE) clean -C dpf/dgl
 	$(MAKE) clean -C dpf/utils/lv2-ttl-generator
 
