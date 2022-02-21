@@ -169,10 +169,10 @@ endif
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 	cp -r  bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
 endif # HAVE_CAIRO_OR_OPENGL
-	cp -r  bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
+	cp -rL bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
 ifeq ($(HAVE_OPENGL),true)
 	cp -rL bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/
-endif
+endif # HAVE_OPENGL
 	cp -rL bin/*.vst3 $(DESTDIR)$(PREFIX)/lib/vst3/
 
 	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
