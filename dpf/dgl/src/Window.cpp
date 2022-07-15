@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -155,6 +155,48 @@ void Window::setResizable(const bool resizable)
     pData->setResizable(resizable);
 }
 
+int Window::getOffsetX() const noexcept
+{
+    DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
+
+    return puglGetFrame(pData->view).x;
+}
+
+int Window::getOffsetY() const noexcept
+{
+    DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
+
+    return puglGetFrame(pData->view).y;
+}
+
+Point<int> Window::getOffset() const noexcept
+{
+    DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Point<int>());
+
+    const PuglRect rect = puglGetFrame(pData->view);
+    return Point<int>(rect.x, rect.y);
+}
+
+void Window::setOffsetX(const int x)
+{
+    setOffset(x, getOffsetY());
+}
+
+void Window::setOffsetY(const int y)
+{
+    setOffset(getOffsetX(), y);
+}
+
+void Window::setOffset(const int x, const int y)
+{
+    puglSetPosition(pData->view, x, y);
+}
+
+void Window::setOffset(const Point<int>& offset)
+{
+    setOffset(offset.getX(), offset.getY());
+}
+
 uint Window::getWidth() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
@@ -247,7 +289,7 @@ void Window::setSize(uint width, uint height)
     }
     else
     {
-        puglSetWindowSize(pData->view, width, height);
+        puglSetSizeAndDefault(pData->view, width, height);
     }
 }
 
@@ -277,18 +319,14 @@ void Window::setIgnoringKeyRepeat(const bool ignore) noexcept
     puglSetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT, ignore);
 }
 
-bool Window::setClipboard(const char* const mimeType, const void* const data, const size_t dataSize)
+const void* Window::getClipboard(size_t& dataSize)
 {
-    return puglSetClipboard(pData->view, mimeType, data, dataSize) == PUGL_SUCCESS;
+    return pData->getClipboard(dataSize);
 }
 
-const void* Window::getClipboard(const char*& mimeType, size_t& dataSize)
+bool Window::setClipboard(const char* const mimeType, const void* const data, const size_t dataSize)
 {
-    DISTRHO_SAFE_ASSERT_RETURN(!pData->ignoreEvents, nullptr);
-    pData->ignoreEvents = true;
-    const void* const clipboard = puglGetClipboard(pData->view, &mimeType, &dataSize);
-    pData->ignoreEvents = false;
-    return clipboard;
+    return puglSetClipboard(pData->view, mimeType != nullptr ? mimeType : "text/plain", data, dataSize) == PUGL_SUCCESS;
 }
 
 bool Window::setCursor(const MouseCursor cursor)
@@ -324,7 +362,7 @@ const GraphicsContext& Window::getGraphicsContext() const noexcept
 
 uintptr_t Window::getNativeWindowHandle() const noexcept
 {
-    return puglGetNativeWindow(pData->view);
+    return puglGetNativeView(pData->view);
 }
 
 double Window::getScaleFactor() const noexcept
@@ -358,10 +396,10 @@ void Window::repaint(const Rectangle<uint>& rect) noexcept
         return;
 
     PuglRect prect = {
-        static_cast<double>(rect.getX()),
-        static_cast<double>(rect.getY()),
-        static_cast<double>(rect.getWidth()),
-        static_cast<double>(rect.getHeight()),
+        static_cast<PuglCoord>(rect.getX()),
+        static_cast<PuglCoord>(rect.getY()),
+        static_cast<PuglSpan>(rect.getWidth()),
+        static_cast<PuglSpan>(rect.getHeight()),
     };
     if (pData->autoScaling)
     {
@@ -427,6 +465,43 @@ void Window::setGeometryConstraints(uint minimumWidth,
     }
 }
 
+void Window::setTransientParent(const uintptr_t transientParentWindowHandle)
+{
+    puglSetTransientParent(pData->view, transientParentWindowHandle);
+}
+
+std::vector<ClipboardDataOffer> Window::getClipboardDataOfferTypes()
+{
+    std::vector<ClipboardDataOffer> offerTypes;
+
+    if (const uint32_t numTypes = puglGetNumClipboardTypes(pData->view))
+    {
+        offerTypes.reserve(numTypes);
+
+        for (uint32_t i=0; i<numTypes; ++i)
+        {
+            const ClipboardDataOffer offer = { i + 1, puglGetClipboardType(pData->view, i) };
+            offerTypes.push_back(offer);
+        }
+    }
+
+    return offerTypes;
+}
+
+uint32_t Window::onClipboardDataOffer()
+{
+    std::vector<ClipboardDataOffer> offers(getClipboardDataOfferTypes());
+
+    for (std::vector<ClipboardDataOffer>::iterator it=offers.begin(), end=offers.end(); it != end;++it)
+    {
+        const ClipboardDataOffer offer = *it;
+        if (std::strcmp(offer.type, "text/plain") == 0)
+            return offer.id;
+    }
+
+    return 0;
+}
+
 bool Window::onClose()
 {
     return true;
@@ -448,13 +523,6 @@ void Window::onScaleFactorChanged(double)
 #ifndef DGL_FILE_BROWSER_DISABLED
 void Window::onFileSelected(const char*)
 {
-}
-#endif
-
-#if 0
-void Window::setTransientWinId(const uintptr_t winId)
-{
-    puglSetTransientFor(pData->view, winId);
 }
 #endif
 

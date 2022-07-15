@@ -45,6 +45,13 @@ static bool isThisTheMainThread(const d_ThreadHandle mainThreadHandle) noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
+const char* Application::getClassName() const noexcept
+{
+    return puglGetClassName(pData->world);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
 Application::PrivateData::PrivateData(const bool standalone)
     : world(puglNewWorld(standalone ? PUGL_PROGRAM : PUGL_MODULE,
                          standalone ? PUGL_WORLD_THREADS : 0x0)),
@@ -60,11 +67,8 @@ Application::PrivateData::PrivateData(const bool standalone)
     DISTRHO_SAFE_ASSERT_RETURN(world != nullptr,);
 
     puglSetWorldHandle(world, this);
+#ifndef __EMSCRIPTEN__
     puglSetClassName(world, DISTRHO_MACRO_AS_STRING(DGL_NAMESPACE));
-
-#ifdef DISTRHO_OS_MAC
-    if (standalone)
-        puglMacOSActivateApp();
 #endif
 }
 

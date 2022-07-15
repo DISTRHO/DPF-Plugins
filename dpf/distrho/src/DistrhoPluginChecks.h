@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -81,10 +81,6 @@
 # define DISTRHO_PLUGIN_WANT_STATE 0
 #endif
 
-#ifndef DISTRHO_PLUGIN_WANT_STATEFILES
-# define DISTRHO_PLUGIN_WANT_STATEFILES 0
-#endif
-
 #ifndef DISTRHO_PLUGIN_WANT_FULL_STATE
 # define DISTRHO_PLUGIN_WANT_FULL_STATE 0
 # define DISTRHO_PLUGIN_WANT_FULL_STATE_WAS_NOT_SET
@@ -92,6 +88,14 @@
 
 #ifndef DISTRHO_PLUGIN_WANT_TIMEPOS
 # define DISTRHO_PLUGIN_WANT_TIMEPOS 0
+#endif
+
+#ifndef DISTRHO_UI_FILE_BROWSER
+# if defined(DGL_FILE_BROWSER_DISABLED) || DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#  define DISTRHO_UI_FILE_BROWSER 0
+# else
+#  define DISTRHO_UI_FILE_BROWSER 1
+# endif
 #endif
 
 #ifndef DISTRHO_UI_USER_RESIZABLE
@@ -137,11 +141,15 @@
 #endif
 
 // -----------------------------------------------------------------------
-// Enable state if plugin wants state files
+// Enable state if plugin wants state files (deprecated)
 
-#if DISTRHO_PLUGIN_WANT_STATEFILES && ! DISTRHO_PLUGIN_WANT_STATE
-# undef DISTRHO_PLUGIN_WANT_STATE
-# define DISTRHO_PLUGIN_WANT_STATE 1
+#ifdef DISTRHO_PLUGIN_WANT_STATEFILES
+# warning DISTRHO_PLUGIN_WANT_STATEFILES is deprecated
+# undef DISTRHO_PLUGIN_WANT_STATEFILES
+# if ! DISTRHO_PLUGIN_WANT_STATE
+#  undef DISTRHO_PLUGIN_WANT_STATE
+#  define DISTRHO_PLUGIN_WANT_STATE 1
+# endif
 #endif
 
 // -----------------------------------------------------------------------
@@ -154,7 +162,16 @@
 #endif
 
 // -----------------------------------------------------------------------
-// Disable UI if DGL or External UI is not available
+// Disable file browser if using external UI
+
+#if DISTRHO_UI_FILE_BROWSER && DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+# warning file browser APIs do not work for external UIs
+# undef DISTRHO_UI_FILE_BROWSER 0
+# define DISTRHO_UI_FILE_BROWSER 0
+#endif
+
+// -----------------------------------------------------------------------
+// Disable UI if DGL or external UI is not available
 
 #if (defined(DGL_CAIRO) && ! defined(HAVE_CAIRO)) || (defined(DGL_OPENGL) && ! defined(HAVE_OPENGL))
 # undef DISTRHO_PLUGIN_HAS_EMBED_UI

@@ -861,12 +861,18 @@ public:
         std::memcpy(newBuf, fBuffer, fBufferLen);
         std::memcpy(newBuf + fBufferLen, strBuf, strBufLen + 1);
 
-        return String(newBuf);
+        return String(newBuf, false);
     }
 
     String operator+(const String& str) noexcept
     {
         return operator+(str.fBuffer);
+    }
+
+    // needed for std::map compatibility
+    bool operator<(const String& str) const noexcept
+    {
+        return std::strcmp(fBuffer, str.fBuffer) < 0;
     }
 
     // -------------------------------------------------------------------

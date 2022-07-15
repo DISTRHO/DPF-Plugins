@@ -25,30 +25,36 @@ ifneq ($(HAIKU),true)
 ifneq ($(HURD),true)
 ifneq ($(LINUX),true)
 ifneq ($(MACOS),true)
+ifneq ($(WASM),true)
 ifneq ($(WINDOWS),true)
 
 ifneq (,$(findstring bsd,$(TARGET_MACHINE)))
-BSD=true
+BSD = true
 else ifneq (,$(findstring haiku,$(TARGET_MACHINE)))
-HAIKU=true
+HAIKU = true
 else ifneq (,$(findstring linux,$(TARGET_MACHINE)))
-LINUX=true
+LINUX = true
 else ifneq (,$(findstring gnu,$(TARGET_MACHINE)))
-HURD=true
+HURD = true
 else ifneq (,$(findstring apple,$(TARGET_MACHINE)))
-MACOS=true
+MACOS = true
 else ifneq (,$(findstring mingw,$(TARGET_MACHINE)))
-WINDOWS=true
+WINDOWS = true
+else ifneq (,$(findstring msys,$(TARGET_MACHINE)))
+WINDOWS = true
+else ifneq (,$(findstring wasm,$(TARGET_MACHINE)))
+WASM = true
 else ifneq (,$(findstring windows,$(TARGET_MACHINE)))
-WINDOWS=true
+WINDOWS = true
 endif
 
-endif
-endif
-endif
-endif
-endif
-endif
+endif # WINDOWS
+endif # WASM
+endif # MACOS
+endif # LINUX
+endif # HURD
+endif # HAIKU
+endif # BSD
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Auto-detect the processor
@@ -56,30 +62,37 @@ endif
 TARGET_PROCESSOR := $(firstword $(subst -, ,$(TARGET_MACHINE)))
 
 ifneq (,$(filter i%86,$(TARGET_PROCESSOR)))
-CPU_I386=true
-CPU_I386_OR_X86_64=true
+CPU_I386 = true
+CPU_I386_OR_X86_64 = true
+endif
+ifneq (,$(filter wasm32,$(TARGET_PROCESSOR)))
+CPU_I386 = true
+CPU_I386_OR_X86_64 = true
 endif
 ifneq (,$(filter x86_64,$(TARGET_PROCESSOR)))
-CPU_X86_64=true
-CPU_I386_OR_X86_64=true
+CPU_X86_64 = true
+CPU_I386_OR_X86_64 = true
 endif
 ifneq (,$(filter arm%,$(TARGET_PROCESSOR)))
-CPU_ARM=true
-CPU_ARM_OR_AARCH64=true
+CPU_ARM = true
+CPU_ARM_OR_AARCH64 = true
 endif
 ifneq (,$(filter arm64%,$(TARGET_PROCESSOR)))
-CPU_ARM64=true
-CPU_ARM_OR_AARCH64=true
+CPU_ARM64 = true
+CPU_ARM_OR_AARCH64 = true
 endif
 ifneq (,$(filter aarch64%,$(TARGET_PROCESSOR)))
-CPU_AARCH64=true
-CPU_ARM_OR_AARCH64=true
+CPU_AARCH64 = true
+CPU_ARM_OR_AARCH64 = true
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set PKG_CONFIG (can be overridden by environment variable)
 
-ifeq ($(WINDOWS),true)
+ifeq ($(WASM),true)
+# Skip on wasm by default
+PKG_CONFIG ?= false
+else ifeq ($(WINDOWS),true)
 # Build statically on Windows by default
 PKG_CONFIG ?= pkg-config --static
 else
@@ -87,50 +100,67 @@ PKG_CONFIG ?= pkg-config
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Set LINUX_OR_MACOS
+# Set cross compiling flag
 
-ifeq ($(LINUX),true)
-LINUX_OR_MACOS=true
-endif
-
-ifeq ($(MACOS),true)
-LINUX_OR_MACOS=true
+ifeq ($(WASM),true)
+CROSS_COMPILING = true
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Set MACOS_OR_WINDOWS and HAIKU_OR_MACOS_OR_WINDOWS
+# Set LINUX_OR_MACOS
 
-ifeq ($(HAIKU),true)
-HAIKU_OR_MACOS_OR_WINDOWS=true
+ifeq ($(LINUX),true)
+LINUX_OR_MACOS = true
 endif
 
 ifeq ($(MACOS),true)
-MACOS_OR_WINDOWS=true
-HAIKU_OR_MACOS_OR_WINDOWS=true
+LINUX_OR_MACOS = true
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set MACOS_OR_WINDOWS, MACOS_OR_WASM_OR_WINDOWS, HAIKU_OR_MACOS_OR_WINDOWS and HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS
+
+ifeq ($(HAIKU),true)
+HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS = true
+HAIKU_OR_MACOS_OR_WINDOWS = true
+endif
+
+ifeq ($(MACOS),true)
+HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS = true
+HAIKU_OR_MACOS_OR_WINDOWS = true
+MACOS_OR_WASM_OR_WINDOWS = true
+MACOS_OR_WINDOWS = true
+endif
+
+ifeq ($(WASM),true)
+HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS = true
+MACOS_OR_WASM_OR_WINDOWS = true
 endif
 
 ifeq ($(WINDOWS),true)
-MACOS_OR_WINDOWS=true
-HAIKU_OR_MACOS_OR_WINDOWS=true
+HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS = true
+HAIKU_OR_MACOS_OR_WINDOWS = true
+MACOS_OR_WASM_OR_WINDOWS = true
+MACOS_OR_WINDOWS = true
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set UNIX
 
 ifeq ($(BSD),true)
-UNIX=true
+UNIX = true
 endif
 
 ifeq ($(HURD),true)
-UNIX=true
+UNIX = true
 endif
 
 ifeq ($(LINUX),true)
-UNIX=true
+UNIX = true
 endif
 
 ifeq ($(MACOS),true)
-UNIX=true
+UNIX = true
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -140,7 +170,12 @@ BASE_FLAGS = -Wall -Wextra -pipe -MD -MP
 BASE_OPTS  = -O3 -ffast-math -fdata-sections -ffunction-sections
 
 ifeq ($(CPU_I386_OR_X86_64),true)
-BASE_OPTS += -mtune=generic -msse -msse2 -mfpmath=sse
+BASE_OPTS += -mtune=generic
+ifeq ($(WASM),true)
+BASE_OPTS += -msse -msse2 -msse3 -msimd128
+else
+BASE_OPTS += -msse -msse2 -mfpmath=sse
+endif
 endif
 
 ifeq ($(CPU_ARM),true)
@@ -150,17 +185,24 @@ endif
 endif
 
 ifeq ($(MACOS),true)
+
 # MacOS linker flags
-LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,-dead_strip -Wl,-dead_strip_dylibs
+LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,-dead_strip,-dead_strip_dylibs
 ifneq ($(SKIP_STRIPPING),true)
 LINK_OPTS += -Wl,-x
 endif
+
 else
+
 # Common linker flags
-LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-O1 -Wl,--as-needed
+LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,-O1,--gc-sections
+ifneq ($(WASM),true)
+LINK_OPTS += -Wl,--as-needed
 ifneq ($(SKIP_STRIPPING),true)
 LINK_OPTS += -Wl,--strip-all
 endif
+endif
+
 endif
 
 ifeq ($(SKIP_STRIPPING),true)
@@ -172,9 +214,15 @@ ifeq ($(NOOPT),true)
 BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
+ifneq ($(MACOS_OR_WASM_OR_WINDOWS),true)
+ifneq ($(BSD),true)
+BASE_FLAGS += -fno-gnu-unique
+endif
+endif
+
 ifeq ($(WINDOWS),true)
 # Assume we want posix
-BASE_FLAGS += -posix -D__STDC_FORMAT_MACROS
+BASE_FLAGS += -posix -D__STDC_FORMAT_MACROS=1 -D__USE_MINGW_ANSI_STDIO=1
 # Needed for windows, see https://github.com/falkTX/Carla/issues/855
 BASE_FLAGS += -mstackrealign
 else
@@ -185,27 +233,43 @@ endif
 ifeq ($(DEBUG),true)
 BASE_FLAGS += -DDEBUG -O0 -g
 LINK_OPTS   =
+ifeq ($(WASM),true)
+LINK_OPTS  += -sASSERTIONS=1
+endif
 else
 BASE_FLAGS += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
 CXXFLAGS   += -fvisibility-inlines-hidden
 endif
 
+ifeq ($(STATIC_BUILD),true)
+BASE_FLAGS += -DSTATIC_BUILD
+# LINK_OPTS  += -static
+endif
+
 ifeq ($(WITH_LTO),true)
 BASE_FLAGS += -fno-strict-aliasing -flto
-LINK_FLAGS += -fno-strict-aliasing -flto -Werror=odr -Werror=lto-type-mismatch
+LINK_OPTS  += -fno-strict-aliasing -flto -Werror=odr -Werror=lto-type-mismatch
 endif
 
 BUILD_C_FLAGS   = $(BASE_FLAGS) -std=gnu99 $(CFLAGS)
 BUILD_CXX_FLAGS = $(BASE_FLAGS) -std=gnu++11 $(CXXFLAGS)
 LINK_FLAGS      = $(LINK_OPTS) $(LDFLAGS)
 
-ifneq ($(MACOS),true)
+ifeq ($(WASM),true)
+# Special flag for emscripten
+LINK_FLAGS += -sLLD_REPORT_UNDEFINED
+else ifneq ($(MACOS),true)
 # Not available on MacOS
-LINK_FLAGS     += -Wl,--no-undefined
+LINK_FLAGS += -Wl,--no-undefined
 endif
 
 ifeq ($(MACOS_OLD),true)
 BUILD_CXX_FLAGS = $(BASE_FLAGS) $(CXXFLAGS) -DHAVE_CPP11_SUPPORT=0
+endif
+
+ifeq ($(WASM_EXCEPTIONS),true)
+BUILD_CXX_FLAGS += -fexceptions
+LINK_FLAGS      += -fexceptions
 endif
 
 ifeq ($(WINDOWS),true)
@@ -241,46 +305,47 @@ endif
 
 HAVE_CAIRO  = $(shell $(PKG_CONFIG) --exists cairo && echo true)
 
-# Vulkan is not supported yet
-# HAVE_VULKAN = $(shell $(PKG_CONFIG) --exists vulkan && echo true)
-
-ifeq ($(MACOS_OR_WINDOWS),true)
+ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_OPENGL = true
 else
-HAVE_OPENGL = $(shell $(PKG_CONFIG) --exists gl && echo true)
-ifneq ($(HAIKU),true)
+HAVE_OPENGL  = $(shell $(PKG_CONFIG) --exists gl && echo true)
 HAVE_DBUS    = $(shell $(PKG_CONFIG) --exists dbus-1 && echo true)
 HAVE_X11     = $(shell $(PKG_CONFIG) --exists x11 && echo true)
 HAVE_XCURSOR = $(shell $(PKG_CONFIG) --exists xcursor && echo true)
 HAVE_XEXT    = $(shell $(PKG_CONFIG) --exists xext && echo true)
 HAVE_XRANDR  = $(shell $(PKG_CONFIG) --exists xrandr && echo true)
 endif
-endif
+
+# Vulkan is not supported yet
+# HAVE_VULKAN = $(shell $(PKG_CONFIG) --exists vulkan && echo true)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Check for optional libraries
 
 HAVE_LIBLO = $(shell $(PKG_CONFIG) --exists liblo && echo true)
 
-ifeq ($(SKIP_RTAUDIO_FALLBACK),true)
-CXXFLAGS += -DDPF_JACK_STANDALONE_SKIP_RTAUDIO_FALLBACK
-else
+ifneq ($(SKIP_NATIVE_AUDIO_FALLBACK),true)
+ifneq ($(SKIP_RTAUDIO_FALLBACK),true)
+
 ifeq ($(MACOS),true)
 HAVE_RTAUDIO    = true
 else ifeq ($(WINDOWS),true)
 HAVE_RTAUDIO    = true
-else ifneq ($(HAIKU),true)
+else
 HAVE_ALSA       = $(shell $(PKG_CONFIG) --exists alsa && echo true)
 HAVE_PULSEAUDIO = $(shell $(PKG_CONFIG) --exists libpulse-simple && echo true)
+HAVE_SDL2       = $(shell $(PKG_CONFIG) --exists sdl2 && echo true)
 ifeq ($(HAVE_ALSA),true)
 HAVE_RTAUDIO    = true
 else ifeq ($(HAVE_PULSEAUDIO),true)
 HAVE_RTAUDIO    = true
 endif
 endif
+
+endif
 endif
 
-# backwards compat
+# backwards compat, always available/enabled
 HAVE_JACK = true
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -288,18 +353,13 @@ HAVE_JACK = true
 
 ifeq ($(HAIKU),true)
 DGL_SYSTEM_LIBS += -lbe
-endif
-
-ifeq ($(MACOS),true)
+else ifeq ($(MACOS),true)
 DGL_SYSTEM_LIBS += -framework Cocoa -framework CoreVideo
-endif
-
-ifeq ($(WINDOWS),true)
+else ifeq ($(WASM),true)
+else ifeq ($(WINDOWS),true)
 DGL_SYSTEM_LIBS += -lgdi32 -lcomdlg32
 # -lole32
-endif
-
-ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+else
 ifeq ($(HAVE_DBUS),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags dbus-1) -DHAVE_DBUS
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs dbus-1)
@@ -346,18 +406,18 @@ DGL_FLAGS   += -DHAVE_OPENGL
 ifeq ($(HAIKU),true)
 OPENGL_FLAGS = $(shell $(PKG_CONFIG) --cflags gl)
 OPENGL_LIBS  = $(shell $(PKG_CONFIG) --libs gl)
-endif
-
-ifeq ($(MACOS),true)
+else ifeq ($(MACOS),true)
 OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1 -Wno-deprecated-declarations
 OPENGL_LIBS  = -framework OpenGL
+else ifeq ($(WASM),true)
+ifneq ($(USE_GLES2),true)
+ifneq ($(USE_GLES3),true)
+OPENGL_LIBS  =  -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
 endif
-
-ifeq ($(WINDOWS),true)
+endif
+else ifeq ($(WINDOWS),true)
 OPENGL_LIBS  = -lopengl32
-endif
-
-ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+else
 OPENGL_FLAGS = $(shell $(PKG_CONFIG) --cflags gl x11)
 OPENGL_LIBS  = $(shell $(PKG_CONFIG) --libs gl x11)
 endif
@@ -369,7 +429,7 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Set Stub specific stuff
 
-ifeq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_STUB = true
 else
 HAVE_STUB = $(HAVE_X11)
@@ -409,21 +469,40 @@ PULSEAUDIO_FLAGS = $(shell $(PKG_CONFIG) --cflags libpulse-simple)
 PULSEAUDIO_LIBS  = $(shell $(PKG_CONFIG) --libs libpulse-simple)
 endif
 
-ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
+ifeq ($(HAVE_SDL2),true)
+SDL2_FLAGS = $(shell $(PKG_CONFIG) --cflags sdl2)
+SDL2_LIBS  = $(shell $(PKG_CONFIG) --libs sdl2)
+endif
+
+ifeq ($(HAVE_JACK),true)
+ifeq ($(STATIC_BUILD),true)
+JACK_FLAGS = $(shell $(PKG_CONFIG) --cflags jack)
+JACK_LIBS  = $(shell $(PKG_CONFIG) --libs jack)
+endif
+endif
+
+ifneq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 SHARED_MEMORY_LIBS = -lrt
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Backwards-compatible HAVE_DGL
 
-ifeq ($(MACOS_OR_WINDOWS),true)
+ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_DGL = true
 else ifeq ($(HAVE_OPENGL),true)
-ifeq ($(HAIKU),true)
-HAVE_DGL = true
-else
 HAVE_DGL = $(HAVE_X11)
 endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Namespace flags
+
+ifneq ($(DISTRHO_NAMESPACE),)
+BUILD_CXX_FLAGS += -DDISTRHO_NAMESPACE=$(DISTRHO_NAMESPACE)
+endif
+
+ifneq ($(DGL_NAMESPACE),)
+BUILD_CXX_FLAGS += -DDGL_NAMESPACE=$(DGL_NAMESPACE)
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -439,6 +518,18 @@ endif
 
 ifeq ($(FILE_BROWSER_DISABLED),true)
 BUILD_CXX_FLAGS += -DDGL_FILE_BROWSER_DISABLED
+endif
+
+ifneq ($(WINDOWS_ICON_ID),)
+BUILD_CXX_FLAGS += -DDGL_WINDOWS_ICON_ID=$(WINDOWS_ICON_ID)
+endif
+
+ifeq ($(USE_GLES2),true)
+BUILD_CXX_FLAGS += -DDGL_USE_GLES -DDGL_USE_GLES2
+endif
+
+ifeq ($(USE_GLES3),true)
+BUILD_CXX_FLAGS += -DDGL_USE_GLES -DDGL_USE_GLES3
 endif
 
 ifeq ($(USE_OPENGL3),true)
@@ -457,25 +548,26 @@ ifeq ($(USE_RGBA),true)
 BUILD_CXX_FLAGS += -DDGL_USE_RGBA
 endif
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 # Set app extension
 
-ifeq ($(WINDOWS),true)
+ifeq ($(WASM),true)
+APP_EXT = .html
+else ifeq ($(WINDOWS),true)
 APP_EXT = .exe
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set shared lib extension
 
-LIB_EXT = .so
-
 ifeq ($(MACOS),true)
 LIB_EXT = .dylib
-endif
-
-ifeq ($(WINDOWS),true)
+else ifeq ($(WASM),true)
+LIB_EXT = .wasm
+else ifeq ($(WINDOWS),true)
 LIB_EXT = .dll
+else
+LIB_EXT = .so
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -483,6 +575,8 @@ endif
 
 ifeq ($(MACOS),true)
 SHARED = -dynamiclib
+else ifeq ($(WASM),true)
+SHARED = -sSIDE_MODULE=2
 else
 SHARED = -shared
 endif
@@ -490,8 +584,12 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Handle the verbosity switch
 
-ifeq ($(VERBOSE),true)
 SILENT =
+
+ifeq ($(VERBOSE),1)
+else ifeq ($(VERBOSE),y)
+else ifeq ($(VERBOSE),yes)
+else ifeq ($(VERBOSE),true)
 else
 SILENT = @
 endif
@@ -520,9 +618,12 @@ features:
 	$(call print_available,HURD)
 	$(call print_available,LINUX)
 	$(call print_available,MACOS)
+	$(call print_available,WASM)
 	$(call print_available,WINDOWS)
+	$(call print_available,HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS)
 	$(call print_available,HAIKU_OR_MACOS_OR_WINDOWS)
 	$(call print_available,LINUX_OR_MACOS)
+	$(call print_available,MACOS_OR_WASM_OR_WINDOWS)
 	$(call print_available,MACOS_OR_WINDOWS)
 	$(call print_available,UNIX)
 	@echo === Detected features
@@ -534,6 +635,7 @@ features:
 	$(call print_available,HAVE_OPENGL)
 	$(call print_available,HAVE_PULSEAUDIO)
 	$(call print_available,HAVE_RTAUDIO)
+	$(call print_available,HAVE_SDL2)
 	$(call print_available,HAVE_STUB)
 	$(call print_available,HAVE_VULKAN)
 	$(call print_available,HAVE_X11)

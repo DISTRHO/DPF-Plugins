@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -20,11 +20,12 @@
 #include "../DistrhoUI.hpp"
 
 #ifdef DISTRHO_PLUGIN_TARGET_VST3
-# include "DistrhoPluginVST3.hpp"
+# include "DistrhoPluginVST.hpp"
 #endif
 
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # include "../extra/Sleep.hpp"
+// TODO import and use file browser here
 #else
 # include "../../dgl/src/ApplicationPrivateData.hpp"
 # include "../../dgl/src/WindowPrivateData.hpp"
@@ -48,13 +49,7 @@
 # define DISTRHO_UI_USER_RESIZABLE 0
 #endif
 
-// -----------------------------------------------------------------------
-
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 START_NAMESPACE_DISTRHO
-#else
-START_NAMESPACE_DGL
-#endif
 
 // -----------------------------------------------------------------------
 // Plugin Application, will set class name based on plugin details
@@ -107,12 +102,13 @@ struct PluginApplication
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginApplication)
 };
 #else
-class PluginApplication : public Application
+class PluginApplication : public DGL_NAMESPACE::Application
 {
 public:
     explicit PluginApplication()
-        : Application(DISTRHO_UI_IS_STANDALONE)
+        : DGL_NAMESPACE::Application(DISTRHO_UI_IS_STANDALONE)
     {
+#ifndef DISTRHO_OS_WASM
         const char* const className = (
 #ifdef DISTRHO_PLUGIN_BRAND
             DISTRHO_PLUGIN_BRAND
@@ -122,6 +118,7 @@ public:
             "-" DISTRHO_PLUGIN_NAME
         );
         setClassName(className);
+#endif
     }
 
     void triggerIdleCallbacks()
@@ -172,14 +169,14 @@ public:
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginWindow)
 };
 #else // DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-class PluginWindow : public Window
+class PluginWindow : public DGL_NAMESPACE::Window
 {
-    DISTRHO_NAMESPACE::UI* const ui;
+    UI* const ui;
     bool initializing;
     bool receivedReshapeDuringInit;
 
 public:
-    explicit PluginWindow(DISTRHO_NAMESPACE::UI* const uiPtr,
+    explicit PluginWindow(UI* const uiPtr,
                           PluginApplication& app,
                           const uintptr_t parentWindowHandle,
                           const uint width,
@@ -199,7 +196,7 @@ public:
             puglBackendEnter(pData->view);
     }
 
-    ~PluginWindow()
+    ~PluginWindow() override
     {
         if (pData->view != nullptr)
             puglBackendLeave(pData->view);
@@ -234,11 +231,26 @@ public:
    #ifdef DISTRHO_PLUGIN_TARGET_VST3
     void setSizeForVST3(const uint width, const uint height)
     {
-        puglSetWindowSize(pData->view, width, height);
+        puglSetSizeAndDefault(pData->view, width, height);
     }
    #endif
 
+    std::vector<DGL_NAMESPACE::ClipboardDataOffer> getClipboardDataOfferTypes()
+    {
+        return Window::getClipboardDataOfferTypes();
+    }
+
 protected:
+    uint32_t onClipboardDataOffer() override
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr, 0);
+
+        if (initializing)
+            return 0;
+
+        return ui->uiClipboardDataOffer();
+    }
+
     void onFocus(const bool focus, const DGL_NAMESPACE::CrossingMode mode) override
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
@@ -272,28 +284,13 @@ protected:
         ui->uiScaleFactorChanged(scaleFactor);
     }
 
-# ifndef DGL_FILE_BROWSER_DISABLED
+# if DISTRHO_UI_FILE_BROWSER
     void onFileSelected(const char* filename) override;
 # endif
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginWindow)
 };
 #endif // DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-END_NAMESPACE_DISTRHO
-#else
-END_NAMESPACE_DGL
-#endif
-
-// -----------------------------------------------------------------------
-
-START_NAMESPACE_DISTRHO
-
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-using DGL_NAMESPACE::PluginApplication;
-using DGL_NAMESPACE::PluginWindow;
-#endif
 
 // -----------------------------------------------------------------------
 // UI callbacks
@@ -323,7 +320,7 @@ struct UI::PrivateData {
     uint fgColor;
     double scaleFactor;
     uintptr_t winId;
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
+#if DISTRHO_UI_FILE_BROWSER && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     char* uiStateFileKeyRequest;
 #endif
     char* bundlePath;
@@ -350,7 +347,7 @@ struct UI::PrivateData {
           fgColor(0xffffffff),
           scaleFactor(1.0),
           winId(0),
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
+#if DISTRHO_UI_FILE_BROWSER && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
           uiStateFileKeyRequest(nullptr),
 #endif
           bundlePath(nullptr),
@@ -386,7 +383,7 @@ struct UI::PrivateData {
 
     ~PrivateData() noexcept
     {
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
+#if DISTRHO_UI_FILE_BROWSER && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         std::free(uiStateFileKeyRequest);
 #endif
         std::free(bundlePath);
@@ -441,7 +438,7 @@ inline bool UI::PrivateData::fileRequestCallback(const char* const key)
     if (fileRequestCallbackFunc != nullptr)
         return fileRequestCallbackFunc(callbacksPtr, key);
 
-#if DISTRHO_PLUGIN_WANT_STATEFILES && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
+#if DISTRHO_PLUGIN_WANT_STATE && DISTRHO_UI_FILE_BROWSER && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     std::free(uiStateFileKeyRequest);
     uiStateFileKeyRequest = strdup(key);
     DISTRHO_SAFE_ASSERT_RETURN(uiStateFileKeyRequest != nullptr, false);
@@ -450,7 +447,7 @@ inline bool UI::PrivateData::fileRequestCallback(const char* const key)
     snprintf(title, sizeof(title)-1u, DISTRHO_PLUGIN_NAME ": %s", key);
     title[sizeof(title)-1u] = '\0';
 
-    FileBrowserOptions opts;
+    DGL_NAMESPACE::FileBrowserOptions opts;
     opts.title = title;
     return window->openFileBrowser(opts);
 #endif
@@ -458,14 +455,10 @@ inline bool UI::PrivateData::fileRequestCallback(const char* const key)
     return false;
 }
 
-END_NAMESPACE_DISTRHO
-
 // -----------------------------------------------------------------------
 // PluginWindow onFileSelected that require UI::PrivateData definitions
 
-#if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI && !defined(DGL_FILE_BROWSER_DISABLED)
-START_NAMESPACE_DGL
-
+#if DISTRHO_UI_FILE_BROWSER && !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 inline void PluginWindow::onFileSelected(const char* const filename)
 {
     DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
@@ -473,7 +466,7 @@ inline void PluginWindow::onFileSelected(const char* const filename)
     if (initializing)
         return;
 
-# if DISTRHO_PLUGIN_WANT_STATEFILES
+   #if DISTRHO_PLUGIN_WANT_STATE
     if (char* const key = ui->uiData->uiStateFileKeyRequest)
     {
         ui->uiData->uiStateFileKeyRequest = nullptr;
@@ -487,14 +480,16 @@ inline void PluginWindow::onFileSelected(const char* const filename)
         std::free(key);
         return;
     }
-# endif
+   #endif
 
+    puglBackendEnter(pData->view);
     ui->uiFileBrowserSelected(filename);
+    puglBackendLeave(pData->view);
 }
-
-END_NAMESPACE_DGL
 #endif
 
 // -----------------------------------------------------------------------
+
+END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_UI_PRIVATE_DATA_HPP_INCLUDED

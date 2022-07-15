@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,10 @@
  */
 
 #include "DistrhoPluginInternal.hpp"
-#include "../DistrhoPluginUtils.hpp"
+
+#if !defined(DISTRHO_OS_WINDOWS) && !defined(STATIC_BUILD)
+# include "../DistrhoPluginUtils.hpp"
+#endif
 
 #if DISTRHO_PLUGIN_HAS_UI
 # include "DistrhoUIInternal.hpp"
@@ -26,6 +29,10 @@
 
 #ifdef DPF_RUNTIME_TESTING
 # include "../extra/Thread.hpp"
+#endif
+
+#if defined(STATIC_BUILD) && !defined(DISTRHO_OS_WASM)
+# define JACKBRIDGE_DIRECT
 #endif
 
 #include "jackbridge/JackBridge.cpp"
@@ -116,11 +123,11 @@ class PluginJack
 #endif
 {
 public:
-    PluginJack(jack_client_t* const client)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
+    PluginJack(jack_client_t* const client, const uintptr_t winId)
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
 #if DISTRHO_PLUGIN_HAS_UI
           fUI(this,
-              0, // winId
+              winId,
               d_nextSampleRate,
               nullptr, // edit param
               setParameterValueCallback,
@@ -224,6 +231,9 @@ public:
 #else
         while (! gCloseSignalReceived)
             d_sleep(1);
+
+        // unused
+        (void)winId;
 #endif
     }
 
@@ -900,6 +910,36 @@ int main(int argc, char* argv[])
         return runSelfTests() ? 0 : 1;
 #endif
 
+#if defined(DISTRHO_OS_WINDOWS) && DISTRHO_PLUGIN_HAS_UI
+    /* the code below is based on
+     * https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application/
+     */
+    bool hasConsole = false;
+
+    HANDLE consoleHandleOut, consoleHandleError;
+
+    if (AttachConsole(ATTACH_PARENT_PROCESS))
+    {
+        // Redirect unbuffered STDOUT to the console
+        consoleHandleOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (consoleHandleOut != INVALID_HANDLE_VALUE)
+        {
+            freopen("CONOUT$", "w", stdout);
+            setvbuf(stdout, NULL, _IONBF, 0);
+        }
+
+        // Redirect unbuffered STDERR to the console
+        consoleHandleError = GetStdHandle(STD_ERROR_HANDLE);
+        if (consoleHandleError != INVALID_HANDLE_VALUE)
+        {
+            freopen("CONOUT$", "w", stderr);
+            setvbuf(stderr, NULL, _IONBF, 0);
+        }
+
+        hasConsole = true;
+    }
+#endif
+
     jack_status_t  status = jack_status_t(0x0);
     jack_client_t* client = jackbridge_client_open(DISTRHO_PLUGIN_NAME, JackNoStartServer, &status);
 
@@ -937,10 +977,32 @@ int main(int argc, char* argv[])
         if (errorString.isNotEmpty())
         {
             errorString[errorString.length()-2] = '.';
-            d_stderr("Failed to create jack client, reason was:\n%s", errorString.buffer());
+            d_stderr("Failed to create the JACK client, reason was:\n%s", errorString.buffer());
         }
         else
-            d_stderr("Failed to create jack client, cannot continue!");
+            d_stderr("Failed to create the JACK client, cannot continue!");
+
+       #if defined(DISTRHO_OS_WINDOWS) && DISTRHO_PLUGIN_HAS_UI
+        // make sure message box is high-dpi aware
+        if (const HMODULE user32 = LoadLibrary("user32.dll"))
+        {
+            typedef BOOL(WINAPI* SPDA)(void);
+           #if defined(__GNUC__) && (__GNUC__ >= 9)
+           # pragma GCC diagnostic push
+           # pragma GCC diagnostic ignored "-Wcast-function-type"
+           #endif
+            const SPDA SetProcessDPIAware = (SPDA)GetProcAddress(user32, "SetProcessDPIAware");
+           #if defined(__GNUC__) && (__GNUC__ >= 9)
+           # pragma GCC diagnostic pop
+           #endif
+            if (SetProcessDPIAware)
+                SetProcessDPIAware();
+            FreeLibrary(user32);
+        }
+
+        const String win32error = "Failed to create JACK client, reason was:\n" + errorString;
+        MessageBoxA(nullptr, win32error.buffer(), "", MB_ICONERROR);
+       #endif
 
         return 1;
     }
@@ -951,7 +1013,7 @@ int main(int argc, char* argv[])
     d_nextSampleRate = jackbridge_get_sample_rate(client);
     d_nextCanRequestParameterValueChanges = true;
 
-   #ifndef DISTRHO_OS_WINDOWS
+   #if !defined(DISTRHO_OS_WINDOWS) && !defined(STATIC_BUILD)
     // find plugin bundle
     static String bundlePath;
     if (bundlePath.isEmpty())
@@ -979,7 +1041,41 @@ int main(int argc, char* argv[])
     }
    #endif
 
-    const PluginJack p(client);
+    uintptr_t winId = 0;
+#if DISTRHO_PLUGIN_HAS_UI
+    if (argc == 3 && std::strcmp(argv[1], "embed") == 0)
+        winId = static_cast<uintptr_t>(std::atoll(argv[2]));
+#endif
+
+    const PluginJack p(client, winId);
+
+#if defined(DISTRHO_OS_WINDOWS) && DISTRHO_PLUGIN_HAS_UI
+    /* the code below is based on
+     * https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application/
+     */
+
+    // Send "enter" to release application from the console
+    // This is a hack, but if not used the console doesn't know the application has
+    // returned. The "enter" key only sent if the console window is in focus.
+    if (hasConsole && (GetConsoleWindow() == GetForegroundWindow() || SetFocus(GetConsoleWindow()) != nullptr))
+    {
+        INPUT ip;
+        // Set up a generic keyboard event.
+        ip.type = INPUT_KEYBOARD;
+        ip.ki.wScan = 0; // hardware scan code for key
+        ip.ki.time = 0;
+        ip.ki.dwExtraInfo = 0;
+
+        // Send the "Enter" key
+        ip.ki.wVk = 0x0D; // virtual-key code for the "Enter" key
+        ip.ki.dwFlags = 0; // 0 for key press
+        SendInput(1, &ip, sizeof(INPUT));
+
+        // Release the "Enter" key
+        ip.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
+        SendInput(1, &ip, sizeof(INPUT));
+    }
+#endif
 
     return 0;
 

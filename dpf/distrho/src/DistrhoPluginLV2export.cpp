@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -42,6 +42,10 @@
 # include "mod-license.h"
 #endif
 
+#ifndef DISTRHO_OS_WINDOWS
+# include <unistd.h>
+#endif
+
 #include <fstream>
 #include <iostream>
 
@@ -75,8 +79,8 @@
 # define DISTRHO_LV2_UI_TYPE "UI"
 #endif
 
-#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI) || DISTRHO_PLUGIN_WANT_STATEFILES)
-#define DISTRHO_LV2_USE_EVENTS_OUT (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI))
+#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
+#define DISTRHO_LV2_USE_EVENTS_OUT (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
 
 #define DISTRHO_BYPASS_PARAMETER_NAME "lv2_enabled"
 
@@ -148,9 +152,7 @@ static const char* const lv2ManifestUiOptionalFeatures[] =
     "ui:parent",
     "ui:touch",
 #endif
-#if DISTRHO_PLUGIN_WANT_STATEFILES
     "ui:requestValue",
-#endif
     nullptr
 };
 
@@ -225,14 +227,24 @@ void lv2_generate_ttl(const char* const basename)
     USE_NAMESPACE_DISTRHO
 
     String bundlePath(getBinaryFilename());
-    bundlePath.truncate(bundlePath.rfind(DISTRHO_OS_SEP));
+    if (bundlePath.isNotEmpty())
+    {
+        bundlePath.truncate(bundlePath.rfind(DISTRHO_OS_SEP));
+    }
+#ifndef DISTRHO_OS_WINDOWS
+    else if (char* const cwd = ::getcwd(nullptr, 0))
+    {
+        bundlePath = cwd;
+        std::free(cwd);
+    }
+#endif
     d_nextBundlePath = bundlePath.buffer();
 
     // Dummy plugin to get data from
     d_nextBufferSize = 512;
     d_nextSampleRate = 44100.0;
     d_nextPluginIsDummy = true;
-    PluginExporter plugin(nullptr, nullptr, nullptr);
+    PluginExporter plugin(nullptr, nullptr, nullptr, nullptr);
     d_nextBufferSize = 0;
     d_nextSampleRate = 0.0;
     d_nextPluginIsDummy = false;
@@ -356,21 +368,36 @@ void lv2_generate_ttl(const char* const basename)
         pluginString += "@prefix unit:  <" LV2_UNITS_PREFIX "> .\n";
         pluginString += "\n";
 
-#if DISTRHO_PLUGIN_WANT_STATEFILES
-        // define writable states as lv2 parameters
-        bool hasStateFiles = false;
+#if DISTRHO_PLUGIN_WANT_STATE
+        bool hasHostVisibleState = false;
 
         for (uint32_t i=0, count=plugin.getStateCount(); i < count; ++i)
         {
-            if (! plugin.isStateFile(i))
+            const uint32_t hints = plugin.getStateHints(i);
+
+            if ((hints & kStateIsHostReadable) == 0x0)
                 continue;
 
-            const String& key(plugin.getStateKey(i));
-            pluginString += "<" DISTRHO_PLUGIN_URI "#" + key + ">\n";
+            pluginString += "<" DISTRHO_PLUGIN_URI "#" + plugin.getStateKey(i) + ">\n";
             pluginString += "    a lv2:Parameter ;\n";
-            pluginString += "    rdfs:label \"" + key + "\" ;\n";
-            pluginString += "    rdfs:range atom:Path .\n\n";
-            hasStateFiles = true;
+            pluginString += "    rdfs:label \"" + plugin.getStateLabel(i) + "\" ;\n";
+
+            const String& comment(plugin.getStateDescription(i));
+
+            if (comment.isNotEmpty())
+            {
+                if (comment.contains('"') || comment.contains('\n'))
+                    pluginString += "    rdfs:comment \"\"\"" + comment + "\"\"\" ;\n";
+                else
+                    pluginString += "    rdfs:comment \"" + comment + "\" ;\n";
+            }
+
+            if ((hints & kStateIsFilenamePath) == kStateIsFilenamePath)
+                pluginString += "    rdfs:range atom:Path .\n\n";
+            else
+                pluginString += "    rdfs:range atom:String .\n\n";
+
+            hasHostVisibleState = true;
         }
 #endif
 
@@ -390,16 +417,22 @@ void lv2_generate_ttl(const char* const basename)
         addAttribute(pluginString, "lv2:requiredFeature", lv2ManifestPluginRequiredFeatures, 4);
         addAttribute(pluginString, "opts:supportedOption", lv2ManifestPluginSupportedOptions, 4);
 
-#if DISTRHO_PLUGIN_WANT_STATEFILES
-        if (hasStateFiles)
+#if DISTRHO_PLUGIN_WANT_STATE
+        if (hasHostVisibleState)
         {
             for (uint32_t i=0, count=plugin.getStateCount(); i < count; ++i)
             {
-                if (! plugin.isStateFile(i))
+                const uint32_t hints = plugin.getStateHints(i);
+
+                if ((hints & kStateIsHostReadable) == 0x0)
                     continue;
 
                 const String& key(plugin.getStateKey(i));
-                pluginString += "    patch:writable <" DISTRHO_PLUGIN_URI "#" + key + ">;\n";
+
+                if ((hints & kStateIsHostWritable) == kStateIsHostWritable)
+                    pluginString += "    patch:writable <" DISTRHO_PLUGIN_URI "#" + key + "> ;\n";
+                else
+                    pluginString += "    patch:readable <" DISTRHO_PLUGIN_URI "#" + key + "> ;\n";
             }
             pluginString += "\n";
         }
@@ -439,20 +472,23 @@ void lv2_generate_ttl(const char* const basename)
                 if (port.hints & kAudioPortIsSidechain)
                     pluginString += "        lv2:portProperty lv2:isSideChain;\n";
 
-                switch (port.groupId)
+                if (port.groupId != kPortGroupNone)
                 {
-                case kPortGroupNone:
-                    break;
-                case kPortGroupMono:
-                    pluginString += "        pg:group pg:MonoGroup ;\n";
-                    break;
-                case kPortGroupStereo:
-                    pluginString += "        pg:group pg:StereoGroup ;\n";
-                    break;
-                default:
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
-                    break;
+
+                    switch (port.groupId)
+                    {
+                    case kPortGroupMono:
+                        pluginString += "        lv2:designation pg:center ;\n";
+                        break;
+                    case kPortGroupStereo:
+                        if (i == 1)
+                            pluginString += "        lv2:designation pg:right ;\n";
+                        else
+                            pluginString += "        lv2:designation pg:left ;\n";
+                        break;
+                    }
                 }
 
                 // set ranges
@@ -529,20 +565,23 @@ void lv2_generate_ttl(const char* const basename)
                 if (port.hints & kAudioPortIsSidechain)
                     pluginString += "        lv2:portProperty lv2:isSideChain;\n";
 
-                switch (port.groupId)
+                if (port.groupId != kPortGroupNone)
                 {
-                case kPortGroupNone:
-                    break;
-                case kPortGroupMono:
-                    pluginString += "        pg:group pg:MonoGroup ;\n";
-                    break;
-                case kPortGroupStereo:
-                    pluginString += "        pg:group pg:StereoGroup ;\n";
-                    break;
-                default:
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
-                    break;
+
+                    switch (port.groupId)
+                    {
+                    case kPortGroupMono:
+                        pluginString += "        lv2:designation pg:center ;\n";
+                        break;
+                    case kPortGroupStereo:
+                        if (i == 1)
+                            pluginString += "        lv2:designation pg:right ;\n";
+                        else
+                            pluginString += "        lv2:designation pg:left ;\n";
+                        break;
+                    }
                 }
 
                 // set ranges
@@ -608,11 +647,15 @@ void lv2_generate_ttl(const char* const basename)
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             pluginString += "        atom:supports midi:MidiEvent ;\n";
 # endif
-# if DISTRHO_PLUGIN_WANT_STATEFILES
-            pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
-# endif
 # if DISTRHO_PLUGIN_WANT_TIMEPOS
             pluginString += "        atom:supports <" LV2_TIME__Position "> ;\n";
+# endif
+# if DISTRHO_PLUGIN_WANT_STATE
+            if (hasHostVisibleState)
+            {
+                pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
+                pluginString += "        lv2:designation lv2:control ;\n";
+            }
 # endif
             pluginString += "    ] ;\n\n";
             ++portIndex;
@@ -632,8 +675,12 @@ void lv2_generate_ttl(const char* const basename)
 # if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
             pluginString += "        atom:supports midi:MidiEvent ;\n";
 # endif
-# if DISTRHO_PLUGIN_WANT_STATEFILES
-            pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
+# if DISTRHO_PLUGIN_WANT_STATE
+            if (hasHostVisibleState)
+            {
+                pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
+                pluginString += "        lv2:designation lv2:control ;\n";
+            }
 # endif
             pluginString += "    ] ;\n\n";
             ++portIndex;
@@ -860,21 +907,9 @@ void lv2_generate_ttl(const char* const basename)
                     // group
                     const uint32_t groupId = plugin.getParameterGroupId(i);
 
-                    switch (groupId)
-                    {
-                    case kPortGroupNone:
-                        break;
-                    case kPortGroupMono:
-                        pluginString += "        pg:group pg:MonoGroup ;\n";
-                        break;
-                    case kPortGroupStereo:
-                        pluginString += "        pg:group pg:StereoGroup ;\n";
-                        break;
-                    default:
+                    if (groupId != kPortGroupNone)
                         pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                         + plugin.getPortGroupSymbolForId(groupId) + "> ;\n";
-                        break;
-                    }
 
                 } // ! designated
 
@@ -987,6 +1022,7 @@ void lv2_generate_ttl(const char* const basename)
                 else if (uplicense == "GPL-2.0-OR-LATER" ||
                          uplicense == "GPL2+" ||
                          uplicense == "GPLV2+" ||
+                         uplicense == "GPLV2.0+" ||
                          uplicense == "GPL V2+")
                 {
                     pluginString += "    doap:license <http://spdx.org/licenses/GPL-2.0-or-later.html> ;\n\n";
@@ -1000,6 +1036,7 @@ void lv2_generate_ttl(const char* const basename)
                 else if (uplicense == "GPL-3.0-OR-LATER" ||
                          uplicense == "GPL3+" ||
                          uplicense == "GPLV3+" ||
+                         uplicense == "GPLV3.0+" ||
                          uplicense == "GPL V3+")
                 {
                     pluginString += "    doap:license <http://spdx.org/licenses/GPL-3.0-or-later.html> ;\n\n";
@@ -1052,11 +1089,11 @@ void lv2_generate_ttl(const char* const basename)
                 // generic fallbacks
                 else if (uplicense.startsWith("GPL"))
                 {
-                    pluginString += "    doap:license <https://opensource.org/licenses/gpl-license> ;\n\n";
+                    pluginString += "    doap:license <http://opensource.org/licenses/gpl-license> ;\n\n";
                 }
                 else if (uplicense.startsWith("LGPL"))
                 {
-                    pluginString += "    doap:license <https://opensource.org/licenses/lgpl-license> ;\n\n";
+                    pluginString += "    doap:license <http://opensource.org/licenses/lgpl-license> ;\n\n";
                 }
 
                 // unknown or not handled yet, log a warning
@@ -1090,8 +1127,8 @@ void lv2_generate_ttl(const char* const basename)
             const uint32_t version(plugin.getVersion());
 
             const uint32_t majorVersion = (version & 0xFF0000) >> 16;
-            const uint32_t microVersion = (version & 0x00FF00) >> 8;
-            /* */ uint32_t minorVersion = (version & 0x0000FF) >> 0;
+            /* */ uint32_t minorVersion = (version & 0x00FF00) >> 8;
+            const uint32_t microVersion = (version & 0x0000FF) >> 0;
 
             // NOTE: LV2 ignores 'major' version and says 0 for minor is pre-release/unstable.
             if (majorVersion > 0)
@@ -1111,13 +1148,6 @@ void lv2_generate_ttl(const char* const basename)
                 const PortGroupWithId& portGroup(plugin.getPortGroupByIndex(i));
                 DISTRHO_SAFE_ASSERT_CONTINUE(portGroup.groupId != kPortGroupNone);
                 DISTRHO_SAFE_ASSERT_CONTINUE(portGroup.symbol.isNotEmpty());
-
-                switch (portGroup.groupId)
-                {
-                case kPortGroupMono:
-                case kPortGroupStereo:
-                    continue;
-                }
 
                 pluginString += "\n<" DISTRHO_PLUGIN_URI "#portGroup_" + portGroup.symbol + ">\n";
                 isInput = isOutput = false;
@@ -1142,19 +1172,28 @@ void lv2_generate_ttl(const char* const basename)
                 }
 
                 pluginString += "    a ";
+
                 if (isInput && !isOutput)
                     pluginString += "pg:InputGroup";
                 else if (isOutput && !isInput)
                     pluginString += "pg:OutputGroup";
                 else
                     pluginString += "pg:Group";
+
+                switch (portGroup.groupId)
+                {
+                case kPortGroupMono:
+                    pluginString += " , pg:MonoGroup";
+                    break;
+                case kPortGroupStereo:
+                    pluginString += " , pg:StereoGroup";
+                    break;
+                }
+
                 pluginString += " ;\n";
 
-#if 0
-                pluginString += "    rdfs:label \"" + portGroup.name + "\" ;\n";
-#else
+                // pluginString += "    rdfs:label \"" + portGroup.name + "\" ;\n";
                 pluginString += "    lv2:name \"" + portGroup.name + "\" ;\n";
-#endif
                 pluginString += "    lv2:symbol \"" + portGroup.symbol + "\" .\n";
             }
         }
@@ -1229,10 +1268,11 @@ void lv2_generate_ttl(const char* const basename)
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
         for (uint32_t i=0; i<numStates; ++i)
         {
-#  if DISTRHO_PLUGIN_WANT_STATEFILES
-            if (plugin.isStateFile(i))
+            if (plugin.getStateHints(i) & kStateIsHostReadable)
                 continue;
-#  endif
+
+            // readable states are defined as lv2 parameters.
+            // non-readable states have no definition, but one is needed for presets and ttl validation.
             presetString  = "<" DISTRHO_PLUGIN_LV2_STATE_PREFIX + plugin.getStateKey(i) + ">\n";
             presetString += "    a owl:DatatypeProperty ;\n";
             presetString += "    rdfs:label \"Plugin state key-value string pair\" ;\n";
@@ -1255,9 +1295,16 @@ void lv2_generate_ttl(const char* const basename)
             for (uint32_t j=0; j<numStates; ++j)
             {
                 const String key   = plugin.getStateKey(j);
-                const String value = plugin.getState(key);
+                const String value = plugin.getStateValue(key);
 
-                presetString += "        <" DISTRHO_PLUGIN_LV2_STATE_PREFIX + key + ">";
+                presetString += "        <";
+
+                if (plugin.getStateHints(i) & kStateIsHostReadable)
+                    presetString += DISTRHO_PLUGIN_URI "#";
+                else
+                    presetString += DISTRHO_PLUGIN_LV2_STATE_PREFIX;
+
+                presetString += key + ">";
 
                 if (value.length() < 10)
                     presetString += " \"" + value + "\" ;\n";

@@ -23,12 +23,14 @@
 #ifdef DISTRHO_OS_WINDOWS
 # include <windows.h>
 #else
-# include <dlfcn.h>
+# ifndef STATIC_BUILD
+#  include <dlfcn.h>
+# endif
 # include <limits.h>
 # include <stdlib.h>
 #endif
 
-#if defined(DISTRHO_OS_WINDOWS) && !DISTRHO_IS_STANDALONE
+#if defined(DISTRHO_OS_WINDOWS) && !defined(STATIC_BUILD) && !DISTRHO_IS_STANDALONE
 static HINSTANCE hInstance = nullptr;
 
 DISTRHO_PLUGIN_EXPORT
@@ -48,22 +50,24 @@ const char* getBinaryFilename()
 {
     static String filename;
 
+#ifndef STATIC_BUILD
     if (filename.isNotEmpty())
         return filename;
 
-#ifdef DISTRHO_OS_WINDOWS
-# if DISTRHO_IS_STANDALONE
+# ifdef DISTRHO_OS_WINDOWS
+#  if DISTRHO_IS_STANDALONE
     constexpr const HINSTANCE hInstance = nullptr;
-# endif
+#  endif
     CHAR filenameBuf[MAX_PATH];
     filenameBuf[0] = '\0';
-    GetModuleFileName(hInstance, filenameBuf, sizeof(filenameBuf));
+    GetModuleFileNameA(hInstance, filenameBuf, sizeof(filenameBuf));
     filename = filenameBuf;
-#else
+# else
     Dl_info info;
     dladdr((void*)getBinaryFilename, &info);
     char filenameBuf[PATH_MAX];
     filename = realpath(info.dli_fname, filenameBuf);
+# endif
 #endif
 
     return filename;
@@ -74,7 +78,11 @@ const char* getPluginFormatName() noexcept
 #if defined(DISTRHO_PLUGIN_TARGET_CARLA)
     return "Carla";
 #elif defined(DISTRHO_PLUGIN_TARGET_JACK)
+# ifdef DISTRHO_OS_WASM
+    return "Wasm/Standalone";
+# else
     return "JACK/Standalone";
+# endif
 #elif defined(DISTRHO_PLUGIN_TARGET_LADSPA)
     return "LADSPA";
 #elif defined(DISTRHO_PLUGIN_TARGET_DSSI)

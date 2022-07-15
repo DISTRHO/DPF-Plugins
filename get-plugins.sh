@@ -13,10 +13,10 @@ rm -rf repos
 mkdir repos
 cd repos
 
-git clone --depth 1 --recursive -b develop git://github.com/DISTRHO/DPF
+git clone --depth 1 --recursive -b develop https://github.com/DISTRHO/DPF.git
 
 for PLUGIN in ${PLUGINS[@]}; do
-  git clone --depth 1 git://github.com/DISTRHO/$PLUGIN
+  git clone --depth 1 https://github.com/DISTRHO/${PLUGIN}.git
 done
 
 # special case for ProM
@@ -35,14 +35,22 @@ mkdir plugins
 mv repos/DPF dpf
 rm -rf dpf/.git*
 rm -rf dpf/.travis*
+rm -rf dpf/dgl/src/pugl-upstream/bindings
+rm -rf dpf/dgl/src/pugl-upstream/doc
+rm -rf dpf/dgl/src/pugl-upstream/examples
+rm -rf dpf/dgl/src/pugl-upstream/meson*
+rm -rf dpf/dgl/src/pugl-upstream/resources
+rm -rf dpf/dgl/src/pugl-upstream/scripts
+rm -rf dpf/dgl/src/pugl-upstream/test
 rm -rf dpf/examples
+rm -rf dpf/tests
 rm -f  dpf/Makefile
 
 for PLUGIN in ${PLUGINS[@]}; do
-  for f in $(ls repos/$PLUGIN/plugins/); do
-    mv repos/$PLUGIN/plugins/$f plugins/$f
-    if [ -d plugins/$f ]; then
-      cp repos/$PLUGIN/LICENSE plugins/$f/LICENSE
+  for f in $(ls repos/${PLUGIN}/plugins/); do
+    mv repos/${PLUGIN}/plugins/${f} plugins/${f}
+    if [ -d plugins/${f} ]; then
+      cp repos/${PLUGIN}/LICENSE plugins/${f}/LICENSE
     fi
   done
 done
