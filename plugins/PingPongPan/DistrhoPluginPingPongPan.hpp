@@ -78,6 +78,7 @@ protected:
     // -------------------------------------------------------------------
     // Init
 
+    void initAudioPort(bool input, uint32_t index, AudioPort& port) override;
     void initParameter(uint32_t index, Parameter& parameter) override;
     void initProgramName(uint32_t index, String& programName) override;
 

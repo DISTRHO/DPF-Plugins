@@ -40,6 +40,13 @@ DistrhoPlugin3BandEQ::DistrhoPlugin3BandEQ()
 // -----------------------------------------------------------------------
 // Init
 
+void DistrhoPlugin3BandEQ::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.groupId = kPortGroupStereo;
+
+    Plugin::initAudioPort(input, index, port);
+}
+
 void DistrhoPlugin3BandEQ::initParameter(uint32_t index, Parameter& parameter)
 {
     switch (index)

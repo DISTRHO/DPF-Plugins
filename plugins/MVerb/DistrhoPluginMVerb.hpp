@@ -1,7 +1,7 @@
 /*
  * DISTRHO MVerb, a DPF'ied MVerb.
  * Copyright (c) 2010 Martin Eastwood
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -73,6 +73,7 @@ protected:
     // -------------------------------------------------------------------
     // Init
 
+    void initAudioPort(bool input, uint32_t index, AudioPort& port) override;
     void initParameter(uint32_t index, Parameter& parameter) override;
     void initProgramName(uint32_t index, String& programName) override;
 

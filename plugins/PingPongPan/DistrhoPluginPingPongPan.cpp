@@ -38,6 +38,13 @@ DistrhoPluginPingPongPan::DistrhoPluginPingPongPan()
 // -----------------------------------------------------------------------
 // Init
 
+void DistrhoPluginPingPongPan::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.groupId = kPortGroupStereo;
+
+    Plugin::initAudioPort(input, index, port);
+}
+
 void DistrhoPluginPingPongPan::initParameter(uint32_t index, Parameter& parameter)
 {
     switch (index)
