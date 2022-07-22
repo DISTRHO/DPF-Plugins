@@ -19,6 +19,10 @@
 #include "TopLevelWidget.hpp"
 #include "Color.hpp"
 
+#if defined(DGL_OPENGL) && !defined(DGL_USE_OPENGL3)
+#include "OpenGL-include.hpp"
+#endif
+
 START_NAMESPACE_DGL
 
 /** Resize handle for DPF windows, will sit on bottom-right. */

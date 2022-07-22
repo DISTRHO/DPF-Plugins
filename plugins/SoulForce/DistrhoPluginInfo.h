@@ -1,7 +1,7 @@
 /*
  * DISTRHO SoulForce, a DPF'ied SoulForce.
  * Copyright (C) 2006 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,5 +36,6 @@
 #define DISTRHO_PLUGIN_WANT_PROGRAMS 1
 
 #define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:WaveshaperPlugin"
+#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Distortion"
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

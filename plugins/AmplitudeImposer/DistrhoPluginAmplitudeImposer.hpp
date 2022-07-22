@@ -1,7 +1,7 @@
 /*
  * DISTRHO AmplitudeImposer, a DPF'ied AmplitudeImposer.
  * Copyright (C) 2004 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,12 @@ public:
         kParameterDepth,
         kParameterThreshold,
         kParameterCount
+    };
+    
+    enum PortGroups {
+        kPortGroupAmpEnv,
+        kPortGroupAudio,
+        kPortGroupCount
     };
 
     DistrhoPluginAmplitudeImposer();
@@ -92,6 +98,7 @@ Also has a threshold level for the second input, so that when the signal falls b
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override;
     void initParameter(uint32_t index, Parameter& parameter) override;
+    void initPortGroup(uint32_t groupId, PortGroup& portGroup) override;
     void initProgramName(uint32_t index, String& programName) override;
 
     // -------------------------------------------------------------------

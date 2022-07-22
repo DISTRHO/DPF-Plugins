@@ -1,6 +1,6 @@
 /*
  * DISTRHO 3BandSplitter Plugin, based on 3BandSplitter by Michael Gruhn
- * Copyright (C) 2012-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,5 +28,6 @@
 #define DISTRHO_PLUGIN_WANT_PROGRAMS 1
 
 #define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:EQPlugin"
+#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|EQ"
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

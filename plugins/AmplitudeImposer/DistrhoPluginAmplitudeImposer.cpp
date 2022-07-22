@@ -1,7 +1,7 @@
 /*
  * DISTRHO AmplitudeImposer, a DPF'ied AmplitudeImposer.
  * Copyright (C) 2004 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -57,20 +57,28 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
         switch (index)
         {
         case 0:
-            port.name   = "Input Left (Amp Env)";
-            port.symbol = "in_left_amp";
+            port.name    = "Input Left (Amp Env)";
+            port.symbol  = "in_left_amp";
+            port.groupId = kPortGroupAmpEnv;
+            // FIXME VST3 sidechain handling
+            // port.hints   = kAudioPortIsSidechain;
             break;
         case 1:
-            port.name   = "Input Right (Amp Env)";
-            port.symbol = "in_right_amp";
+            port.name    = "Input Right (Amp Env)";
+            port.symbol  = "in_right_amp";
+            port.groupId = kPortGroupAmpEnv;
+            // FIXME VST3 sidechain handling
+            // port.hints   = kAudioPortIsSidechain;
             break;
         case 2:
-            port.name   = "Input Left (Audio)";
-            port.symbol = "in_left_audio";
+            port.name    = "Input Left (Audio)";
+            port.symbol  = "in_left_audio";
+            port.groupId = kPortGroupAudio;
             break;
         case 3:
-            port.name   = "Input Right (Audio)";
-            port.symbol = "in_right_audio";
+            port.name    = "Input Right (Audio)";
+            port.symbol  = "in_right_audio";
+            port.groupId = kPortGroupAudio;
             break;
         }
     }
@@ -87,6 +95,8 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
             port.symbol = "out_right";
             break;
         }
+
+        port.groupId = kPortGroupStereo;
     }
 }
 
@@ -107,6 +117,21 @@ void DistrhoPluginAmplitudeImposer::initParameter(uint32_t index, Parameter& par
         parameter.name       = "Thres";
         parameter.symbol     = "thres";
         parameter.ranges.def = 0.5f;
+        break;
+    }
+}
+
+void DistrhoPluginAmplitudeImposer::initPortGroup(uint32_t groupId, PortGroup& portGroup)
+{
+    switch (groupId)
+    {
+    case kPortGroupAmpEnv:
+        portGroup.name   = "Amp Env";
+        portGroup.symbol = "amp_env";
+        break;
+    case kPortGroupAudio:
+        portGroup.name   = "Audio";
+        portGroup.symbol = "audio";
         break;
     }
 }

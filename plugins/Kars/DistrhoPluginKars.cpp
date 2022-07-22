@@ -1,6 +1,6 @@
 /*
  * DISTRHO Kars Plugin, based on karplong by Chris Cannam.
- * Copyright (C) 2015-2019 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -38,6 +38,13 @@ DistrhoPluginKars::DistrhoPluginKars()
 
 // -----------------------------------------------------------------------
 // Init
+
+void DistrhoPluginKars::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.groupId = kPortGroupMono;
+
+    Plugin::initAudioPort(input, index, port);
+}
 
 void DistrhoPluginKars::initParameter(uint32_t index, Parameter& parameter)
 {
@@ -165,6 +172,14 @@ void DistrhoPluginKars::run(const float**, float** outputs, uint32_t frames, con
 
         fBlockStart += amsh.frames;
     }
+}
+
+void DistrhoPluginKars::sampleRateChanged(double newSampleRate)
+{
+    fSampleRate = getSampleRate();
+
+    for (int i=kMaxNotes; --i >= 0;)
+        fNotes[i].setSampleRate(newSampleRate);
 }
 
 void DistrhoPluginKars::addSamples(float* out, int voice, uint32_t frames)

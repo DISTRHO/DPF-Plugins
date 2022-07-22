@@ -1,6 +1,6 @@
 /*
  * DPF Max Gen
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -38,6 +38,13 @@ DistrhoPluginMaxGen::~DistrhoPluginMaxGen()
 
 // -----------------------------------------------------------------------
 // Init
+
+void DistrhoPluginMaxGen::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.groupId = kPortGroupStereo;
+
+    Plugin::initAudioPort(input, index, port);
+}
 
 void DistrhoPluginMaxGen::initParameter(uint32_t index, Parameter& parameter)
 {

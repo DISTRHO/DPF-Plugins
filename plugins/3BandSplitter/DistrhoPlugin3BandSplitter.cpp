@@ -40,6 +40,63 @@ DistrhoPlugin3BandSplitter::DistrhoPlugin3BandSplitter()
 // -----------------------------------------------------------------------
 // Init
 
+void DistrhoPlugin3BandSplitter::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.hints = 0x0;
+
+    if (input)
+    {
+        switch (index)
+        {
+        case 0:
+            port.name   = "Inpput Left";
+            port.symbol = "in_left";
+            break;
+        case 1:
+            port.name   = "Input Right";
+            port.symbol = "in_right";
+            break;
+        }
+        port.groupId = kPortGroupStereo;
+    }
+    else
+    {
+        switch (index)
+        {
+        case 0:
+            port.name    = "Output Left (Low)";
+            port.symbol  = "in_left_low";
+            port.groupId = kPortGroupLow;
+            break;
+        case 1:
+            port.name    = "Output Right (Low)";
+            port.symbol  = "in_right_low";
+            port.groupId = kPortGroupLow;
+            break;
+        case 2:
+            port.name    = "Output Left (Mid)";
+            port.symbol  = "in_left_mid";
+            port.groupId = kPortGroupMid;
+            break;
+        case 3:
+            port.name    = "Output Right (Mid)";
+            port.symbol  = "in_right_mid";
+            port.groupId = kPortGroupMid;
+            break;
+        case 4:
+            port.name    = "Output Left (High)";
+            port.symbol  = "in_left_high";
+            port.groupId = kPortGroupHigh;
+            break;
+        case 5:
+            port.name    = "Output Right (High)";
+            port.symbol  = "in_right_high";
+            port.groupId = kPortGroupHigh;
+            break;
+        }
+    }
+}
+
 void DistrhoPlugin3BandSplitter::initParameter(uint32_t index, Parameter& parameter)
 {
     switch (index)
@@ -102,6 +159,25 @@ void DistrhoPlugin3BandSplitter::initParameter(uint32_t index, Parameter& parame
         parameter.ranges.def = 1000.0f;
         parameter.ranges.min = 1000.0f;
         parameter.ranges.max = 20000.0f;
+        break;
+    }
+}
+
+void DistrhoPlugin3BandSplitter::initPortGroup(uint32_t groupId, PortGroup& portGroup)
+{
+    switch (groupId)
+    {
+    case kPortGroupLow:
+        portGroup.name   = "Low";
+        portGroup.symbol = "low";
+        break;
+    case kPortGroupMid:
+        portGroup.name   = "Mid";
+        portGroup.symbol = "mid";
+        break;
+    case kPortGroupHigh:
+        portGroup.name   = "High";
+        portGroup.symbol = "high";
         break;
     }
 }

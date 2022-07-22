@@ -1,7 +1,7 @@
 /*
  * DISTRHO 3BandSplitter Plugin, based on 3BandSplitter by Michael Gruhn
  * Copyright (C) 2007 Michael Gruhn <michael-gruhn@web.de>
- * Copyright (C) 2012-2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,6 +36,14 @@ public:
         paramLowMidFreq,
         paramMidHighFreq,
         paramCount
+    };
+
+    enum PortGroups
+    {
+        kPortGroupLow,
+        kPortGroupMid,
+        kPortGroupHigh,
+        kPortGroupCount
     };
 
     DistrhoPlugin3BandSplitter();
@@ -82,7 +90,9 @@ protected:
     // -------------------------------------------------------------------
     // Init
 
+    void initAudioPort(bool input, uint32_t index, AudioPort& port) override;
     void initParameter(uint32_t index, Parameter& parameter) override;
+    void initPortGroup(uint32_t groupId, PortGroup& portGroup) override;
     void initProgramName(uint32_t index, String& programName) override;
 
     // -------------------------------------------------------------------

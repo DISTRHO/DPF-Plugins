@@ -1,6 +1,6 @@
 /*
  * DPF Max Gen
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -27,6 +27,7 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   2
 
 #define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:PitchPlugin"
+#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Pitch Shift"
 
 #define DISTRHO_PLUGIN_DESCRIPTION "Max Gen Pitchshifter example."
 #define DISTRHO_PLUGIN_VERSION d_cconst('D', 'M', 'p', 's')

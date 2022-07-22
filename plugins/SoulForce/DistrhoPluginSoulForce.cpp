@@ -1,7 +1,7 @@
 /*
  * DISTRHO SoulForce, a DPF'ied SoulForce.
  * Copyright (C) 2006 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,6 +41,13 @@ DistrhoPluginSoulForce::DistrhoPluginSoulForce()
 
 // -----------------------------------------------------------------------
 // Init
+
+void DistrhoPluginSoulForce::initAudioPort(bool input, uint32_t index, AudioPort& port)
+{
+    port.groupId = kPortGroupStereo;
+
+    Plugin::initAudioPort(input, index, port);
+}
 
 void DistrhoPluginSoulForce::initParameter(uint32_t index, Parameter& parameter)
 {
