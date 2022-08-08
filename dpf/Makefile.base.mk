@@ -196,7 +196,10 @@ else
 
 # Common linker flags
 LINK_OPTS  = -fdata-sections -ffunction-sections -Wl,-O1,--gc-sections
-ifneq ($(WASM),true)
+ifeq ($(WASM),true)
+LINK_OPTS += -O3
+LINK_OPTS += -sAGGRESSIVE_VARIABLE_ELIMINATION=1
+else
 LINK_OPTS += -Wl,--as-needed
 ifneq ($(SKIP_STRIPPING),true)
 LINK_OPTS += -Wl,--strip-all
@@ -257,7 +260,7 @@ LINK_FLAGS      = $(LINK_OPTS) $(LDFLAGS)
 
 ifeq ($(WASM),true)
 # Special flag for emscripten
-LINK_FLAGS += -sLLD_REPORT_UNDEFINED
+LINK_FLAGS += -sENVIRONMENT=web -sLLD_REPORT_UNDEFINED
 else ifneq ($(MACOS),true)
 # Not available on MacOS
 LINK_FLAGS += -Wl,--no-undefined
@@ -265,6 +268,11 @@ endif
 
 ifeq ($(MACOS_OLD),true)
 BUILD_CXX_FLAGS = $(BASE_FLAGS) $(CXXFLAGS) -DHAVE_CPP11_SUPPORT=0
+endif
+
+ifeq ($(WASM_CLIPBOARD),true)
+BUILD_CXX_FLAGS += -DPUGL_WASM_ASYNC_CLIPBOARD
+LINK_FLAGS      += -sASYNCIFY -sASYNCIFY_IMPORTS=puglGetAsyncClipboardData
 endif
 
 ifeq ($(WASM_EXCEPTIONS),true)
@@ -346,7 +354,13 @@ endif
 endif
 
 # backwards compat, always available/enabled
+ifneq ($(FORCE_NATIVE_AUDIO_FALLBACK),true)
+ifeq ($(STATIC_BUILD),true)
+HAVE_JACK = $(shell $(PKG_CONFIG) --exists jack && echo true)
+else
 HAVE_JACK = true
+endif
+endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set Generic DGL stuff
@@ -410,7 +424,9 @@ else ifeq ($(MACOS),true)
 OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1 -Wno-deprecated-declarations
 OPENGL_LIBS  = -framework OpenGL
 else ifeq ($(WASM),true)
-ifneq ($(USE_GLES2),true)
+ifeq ($(USE_GLES2),true)
+OPENGL_LIBS  = -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2
+else
 ifneq ($(USE_GLES3),true)
 OPENGL_LIBS  =  -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
 endif

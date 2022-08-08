@@ -34,7 +34,12 @@
 #endif
 
 #include <cerrno>
-#include "../../extra/LibraryUtils.hpp"
+
+#ifdef HAVE_JACK
+# include "../../extra/LibraryUtils.hpp"
+#else
+typedef void* lib_t;
+#endif
 
 // in case JACK fails, we fallback to native bridges simulating JACK API
 #include "NativeBridge.hpp"
@@ -56,10 +61,18 @@
 #endif
 
 #if defined(HAVE_RTAUDIO) && DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+// fix conflict between DGL and macOS names
+# define Point CorePoint
+# define Size CoreSize
 # include "RtAudioBridge.hpp"
 # ifdef RTAUDIO_API_TYPE
 #  include "rtaudio/RtAudio.cpp"
 # endif
+# ifdef RTMIDI_API_TYPE
+#  include "rtmidi/RtMidi.cpp"
+# endif
+# undef Point
+# undef Size
 #endif
 
 #if defined(HAVE_SDL2) && DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -331,9 +344,9 @@ struct JackBridge {
     jacksym_remove_all_properties remove_all_properties_ptr;
     jacksym_set_property_change_callback set_property_change_callback_ptr;
 
-#ifdef __WINE__
+   #ifdef __WINE__
     jacksym_set_thread_creator set_thread_creator_ptr;
-#endif
+   #endif
 
     JackBridge()
         : lib(nullptr),
@@ -429,15 +442,11 @@ struct JackBridge {
           remove_properties_ptr(nullptr),
           remove_all_properties_ptr(nullptr),
           set_property_change_callback_ptr(nullptr)
-#ifdef __WINE__
+         #ifdef __WINE__
         , set_thread_creator_ptr(nullptr)
-#endif
+         #endif
     {
-       #ifdef DISTRHO_OS_WASM
-        // never use jack in wasm
-        return;
-       #endif
-
+      #ifdef HAVE_JACK
        #if defined(DISTRHO_OS_MAC)
         const char* const filename = "libjack.dylib";
        #elif defined(DISTRHO_OS_WINDOWS) && defined(_WIN64)
@@ -578,14 +587,16 @@ struct JackBridge {
         LIB_SYMBOL(remove_all_properties)
         LIB_SYMBOL(set_property_change_callback)
 
-#ifdef __WINE__
+       #ifdef __WINE__
         LIB_SYMBOL(set_thread_creator)
-#endif
+       #endif
+      #endif
 
         #undef JOIN
         #undef LIB_SYMBOL
     }
 
+   #ifdef HAVE_JACK
     ~JackBridge() noexcept
     {
         USE_NAMESPACE_DISTRHO
@@ -596,6 +607,7 @@ struct JackBridge {
             lib = nullptr;
         }
     }
+   #endif
 
     DISTRHO_DECLARE_NON_COPYABLE(JackBridge);
 };
@@ -2265,15 +2277,22 @@ bool jackbridge_set_property_change_callback(jack_client_t* client, JackProperty
 
 START_NAMESPACE_DISTRHO
 
+bool isUsingNativeAudio() noexcept
+{
+#if defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT)
+    return false;
+#else
+    return usingNativeBridge;
+#endif
+}
+
 bool supportsAudioInput()
 {
-#if defined(JACKBRIDGE_DUMMY)
-    return false;
-#elif !defined(JACKBRIDGE_DIRECT)
+#if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
         return nativeBridge->supportsAudioInput();
 #endif
-    return true;
+    return false;
 }
 
 bool supportsBufferSizeChanges()
@@ -2287,38 +2306,32 @@ bool supportsBufferSizeChanges()
 
 bool supportsMIDI()
 {
-#if defined(JACKBRIDGE_DUMMY)
-    return false;
-#elif !defined(JACKBRIDGE_DIRECT)
+#if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
         return nativeBridge->supportsMIDI();
 #endif
-    return true;
+    return false;
 }
 
 bool isAudioInputEnabled()
 {
-#if defined(JACKBRIDGE_DUMMY)
-    return false;
-#elif !defined(JACKBRIDGE_DIRECT)
+#if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
         return nativeBridge->isAudioInputEnabled();
 #endif
-    return true;
+    return false;
 }
 
 bool isMIDIEnabled()
 {
-#if defined(JACKBRIDGE_DUMMY)
-    return false;
-#elif !defined(JACKBRIDGE_DIRECT)
+#if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
         return nativeBridge->isMIDIEnabled();
 #endif
-    return true;
+    return false;
 }
 
-uint32_t getBufferSize()
+uint getBufferSize()
 {
 #if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
@@ -2336,7 +2349,7 @@ bool requestAudioInput()
     return false;
 }
 
-bool requestBufferSizeChange(const uint32_t newBufferSize)
+bool requestBufferSizeChange(const uint newBufferSize)
 {
 #if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)

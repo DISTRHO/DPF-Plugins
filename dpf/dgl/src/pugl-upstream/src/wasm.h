@@ -10,6 +10,8 @@
 
 #include "pugl/pugl.h"
 
+// #define PUGL_WASM_ASYNC_CLIPBOARD
+
 struct PuglTimer {
   PuglView* view;
   uintptr_t id;
@@ -19,14 +21,24 @@ struct PuglWorldInternalsImpl {
   double scaleFactor;
 };
 
+struct LastMotionValues {
+  double x, y, xRoot, yRoot;
+};
+
 struct PuglInternalsImpl {
   PuglSurface* surface;
   bool needsRepaint;
   bool pointerLocked;
   uint32_t numTimers;
-  long lastX, lastY;
-  double lockedX, lockedY;
-  double lockedRootX, lockedRootY;
+  LastMotionValues lastMotion;
+  long buttonPressTimeout;
+  PuglEvent nextButtonEvent;
+#ifdef PUGL_WASM_ASYNC_CLIPBOARD
+  PuglViewHintValue supportsClipboardRead;
+  PuglViewHintValue supportsClipboardWrite;
+#endif
+  PuglViewHintValue supportsTouch;
+  char* clipboardData;
   struct PuglTimer* timers;
 };
 

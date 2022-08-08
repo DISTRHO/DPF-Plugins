@@ -23,12 +23,12 @@
 PuglWorldInternals*
 puglInitWorldInternals(const PuglWorldType type, const PuglWorldFlags flags)
 {
-  printf("DONE: %s %d\n", __func__, __LINE__);
-
   PuglWorldInternals* impl =
     (PuglWorldInternals*)calloc(1, sizeof(PuglWorldInternals));
 
   impl->scaleFactor = emscripten_get_device_pixel_ratio();
+
+  printf("DONE: %s %d | -> %f\n", __func__, __LINE__, impl->scaleFactor);
 
   return impl;
 }
@@ -45,6 +45,28 @@ puglInitViewInternals(PuglWorld* const world)
 {
   printf("DONE: %s %d\n", __func__, __LINE__);
   PuglInternals* impl = (PuglInternals*)calloc(1, sizeof(PuglInternals));
+
+  impl->buttonPressTimeout = -1;
+  impl->supportsTouch = PUGL_DONT_CARE; // not yet known
+
+#ifdef PUGL_WASM_ASYNC_CLIPBOARD
+  impl->supportsClipboardRead = (PuglViewHintValue)EM_ASM_INT({
+    if (typeof(navigator.clipboard) !== 'undefined' && typeof(navigator.clipboard.readText) === 'function' && window.isSecureContext) {
+      return 1; // PUGL_TRUE
+    }
+    return 0; // PUGL_FALSE
+  });
+
+  impl->supportsClipboardWrite = (PuglViewHintValue)EM_ASM_INT({
+    if (typeof(navigator.clipboard) !== 'undefined' && typeof(navigator.clipboard.writeText) === 'function' && window.isSecureContext) {
+      return 1; // PUGL_TRUE
+    }
+    if (typeof(document.queryCommandSupported) !== 'undefined' && document.queryCommandSupported("copy")) {
+      return 1; // PUGL_TRUE
+    }
+    return 0; // PUGL_FALSE
+  });
+#endif
 
   return impl;
 }
@@ -162,7 +184,7 @@ puglKeyCallback(const int eventType, const EmscriptenKeyboardEvent* const keyEve
 
   PuglEvent event = {{PUGL_NOTHING, 0}};
   event.key.type = eventType == EMSCRIPTEN_EVENT_KEYDOWN ? PUGL_KEY_PRESS : PUGL_KEY_RELEASE;
-  event.key.time = keyEvent->timestamp / 1000;
+  event.key.time = keyEvent->timestamp / 1e3;
   // event.key.x     = xevent.xkey.x;
   // event.key.y     = xevent.xkey.y;
   // event.key.xRoot = xevent.xkey.x_root;
@@ -221,7 +243,7 @@ puglMouseCallback(const int eventType, const EmscriptenMouseEvent* const mouseEv
 
   PuglEvent event = {{PUGL_NOTHING, 0}};
 
-  const double   time  = mouseEvent->timestamp / 1000;
+  const double   time  = mouseEvent->timestamp / 1e3;
   const PuglMods state = translateModifiers(mouseEvent->ctrlKey,
                                             mouseEvent->shiftKey,
                                             mouseEvent->altKey,
@@ -252,30 +274,27 @@ puglMouseCallback(const int eventType, const EmscriptenMouseEvent* const mouseEv
     }
     break;
   case EMSCRIPTEN_EVENT_MOUSEMOVE:
-    event.motion.type  = PUGL_MOTION;
-    event.motion.time  = time;
-    if (view->impl->lastX == mouseEvent->targetX && view->impl->lastY == mouseEvent->targetY) {
+    event.motion.type = PUGL_MOTION;
+    event.motion.time = time;
+    if (view->impl->pointerLocked) {
       // adjust local values for delta
       const double movementX = mouseEvent->movementX * scaleFactor;
       const double movementY = mouseEvent->movementY * scaleFactor;
-      view->impl->lockedX += movementX;
-      view->impl->lockedY += movementY;
-      view->impl->lockedRootX += movementX;
-      view->impl->lockedRootY += movementY;
+      view->impl->lastMotion.x += movementX;
+      view->impl->lastMotion.y += movementY;
+      view->impl->lastMotion.xRoot += movementX;
+      view->impl->lastMotion.yRoot += movementY;
       // now set x, y, xRoot and yRoot
-      event.motion.x = view->impl->lockedX;
-      event.motion.y = view->impl->lockedY;
-      event.motion.xRoot = view->impl->lockedRootX;
-      event.motion.yRoot = view->impl->lockedRootY;
+      event.motion.x = view->impl->lastMotion.x;
+      event.motion.y = view->impl->lastMotion.y;
+      event.motion.xRoot = view->impl->lastMotion.xRoot;
+      event.motion.yRoot = view->impl->lastMotion.yRoot;
     } else {
-      // cache unmodified value first, for pointer lock detection
-      view->impl->lastX = mouseEvent->targetX;
-      view->impl->lastY = mouseEvent->targetY;
-      // now set x, y, xRoot and yRoot
-      view->impl->lockedX = event.motion.x = mouseEvent->targetX * scaleFactor;
-      view->impl->lockedY = event.motion.y = mouseEvent->targetY * scaleFactor;
-      view->impl->lockedRootX = event.motion.xRoot = mouseEvent->screenX * scaleFactor;
-      view->impl->lockedRootY = event.motion.yRoot = mouseEvent->screenY * scaleFactor;
+      // cache values for possible pointer lock movement later
+      view->impl->lastMotion.x = event.motion.x = mouseEvent->targetX * scaleFactor;
+      view->impl->lastMotion.y = event.motion.y = mouseEvent->targetY * scaleFactor;
+      view->impl->lastMotion.xRoot = event.motion.xRoot = mouseEvent->screenX * scaleFactor;
+      view->impl->lastMotion.yRoot = event.motion.yRoot = mouseEvent->screenY * scaleFactor;
     }
     event.motion.state = state;
     break;
@@ -298,6 +317,119 @@ puglMouseCallback(const int eventType, const EmscriptenMouseEvent* const mouseEv
   puglDispatchEventWithContext(view, &event);
 
   // note: we must always return false, otherwise canvas never gets keyboard input
+  return EM_FALSE;
+}
+
+static void
+puglTouchStartDelay(void* const userData)
+{
+  PuglView*      const view = (PuglView*)userData;
+  PuglInternals* const impl  = view->impl;
+
+  impl->buttonPressTimeout = -1;
+  impl->nextButtonEvent.button.time += 2000;
+  puglDispatchEventWithContext(view, &impl->nextButtonEvent);
+}
+
+static EM_BOOL
+puglTouchCallback(const int eventType, const EmscriptenTouchEvent* const touchEvent, void* const userData)
+{
+  if (touchEvent->numTouches <= 0) {
+    return EM_FALSE;
+  }
+
+  PuglView*      const view = (PuglView*)userData;
+  PuglInternals* const impl  = view->impl;
+
+  if (impl->supportsTouch == PUGL_DONT_CARE) {
+    impl->supportsTouch = PUGL_TRUE;
+
+    // stop using mouse press events which conflict with touch
+    const char* const className = view->world->className;
+    emscripten_set_mousedown_callback(className, view, false, NULL);
+    emscripten_set_mouseup_callback(className, view, false, NULL);
+  }
+
+  if (!view->visible) {
+    return EM_FALSE;
+  }
+
+  PuglEvent event = {{PUGL_NOTHING, 0}};
+
+  const double   time  = touchEvent->timestamp / 1e3;
+  const PuglMods state = translateModifiers(touchEvent->ctrlKey,
+                                            touchEvent->shiftKey,
+                                            touchEvent->altKey,
+                                            touchEvent->metaKey);
+
+  const double scaleFactor = view->world->impl->scaleFactor;
+
+  d_debug("touch %d|%s %d || %ld",
+          eventType,
+          eventType == EMSCRIPTEN_EVENT_TOUCHSTART ? "start" :
+          eventType == EMSCRIPTEN_EVENT_TOUCHEND ? "end" : "cancel",
+          touchEvent->numTouches,
+          impl->buttonPressTimeout);
+
+  const EmscriptenTouchPoint* point = &touchEvent->touches[0];
+
+  if (impl->buttonPressTimeout != -1 || eventType == EMSCRIPTEN_EVENT_TOUCHCANCEL) {
+    // if we received an event while touch is active, trigger initial click now
+    if (impl->buttonPressTimeout != -1) {
+      emscripten_clear_timeout(impl->buttonPressTimeout);
+      impl->buttonPressTimeout = -1;
+      if (eventType != EMSCRIPTEN_EVENT_TOUCHCANCEL) {
+        impl->nextButtonEvent.button.button = 0;
+      }
+    }
+    impl->nextButtonEvent.button.time = time;
+    puglDispatchEventWithContext(view, &impl->nextButtonEvent);
+  }
+
+  switch (eventType) {
+  case EMSCRIPTEN_EVENT_TOUCHEND:
+  case EMSCRIPTEN_EVENT_TOUCHCANCEL:
+    event.button.type   = PUGL_BUTTON_RELEASE;
+    event.button.time   = time;
+    event.button.button = eventType == EMSCRIPTEN_EVENT_TOUCHCANCEL ? 1 : 0;
+    event.button.x      = point->targetX * scaleFactor;
+    event.button.y      = point->targetY * scaleFactor;
+    event.button.xRoot  = point->screenX * scaleFactor;
+    event.button.yRoot  = point->screenY * scaleFactor;
+    event.button.state  = state;
+    break;
+
+  case EMSCRIPTEN_EVENT_TOUCHSTART:
+    // this event can be used for a couple of things, store it until we know more
+    event.button.type   = PUGL_BUTTON_PRESS;
+    event.button.time   = time;
+    event.button.button = 1; // if no other event occurs soon, treat it as right-click
+    event.button.x      = point->targetX * scaleFactor;
+    event.button.y      = point->targetY * scaleFactor;
+    event.button.xRoot  = point->screenX * scaleFactor;
+    event.button.yRoot  = point->screenY * scaleFactor;
+    event.button.state  = state;
+    memcpy(&impl->nextButtonEvent, &event, sizeof(PuglEvent));
+    impl->buttonPressTimeout = emscripten_set_timeout(puglTouchStartDelay, 2000, view);
+    // fall through, moving "mouse" to touch position
+
+  case EMSCRIPTEN_EVENT_TOUCHMOVE:
+    event.motion.type  = PUGL_MOTION;
+    event.motion.time  = time;
+    event.motion.x     = point->targetX * scaleFactor;
+    event.motion.y     = point->targetY * scaleFactor;
+    event.motion.xRoot = point->screenX * scaleFactor;
+    event.motion.yRoot = point->screenY * scaleFactor;
+    event.motion.state = state;
+    break;
+  }
+
+  if (event.type == PUGL_NOTHING)
+    return EM_FALSE;
+
+  puglDispatchEventWithContext(view, &event);
+
+  // FIXME we must always return false??
   return EM_FALSE;
 }
 
@@ -324,7 +456,6 @@ puglPointerLockChangeCallback(const int eventType, const EmscriptenPointerlockCh
 {
   PuglView* const view = (PuglView*)userData;
 
-  printf("puglPointerLockChangeCallback %d\n", event->isActive);
   view->impl->pointerLocked = event->isActive;
   return EM_TRUE;
 }
@@ -341,7 +472,7 @@ puglWheelCallback(const int eventType, const EmscriptenWheelEvent* const wheelEv
   const double scaleFactor = view->world->impl->scaleFactor;
 
   PuglEvent event = {{PUGL_SCROLL, 0}};
-  event.scroll.time  = wheelEvent->mouse.timestamp / 1000;
+  event.scroll.time  = wheelEvent->mouse.timestamp / 1e3;
   event.scroll.x     = wheelEvent->mouse.targetX;
   event.scroll.y     = wheelEvent->mouse.targetY;
   event.scroll.xRoot = wheelEvent->mouse.screenX;
@@ -362,10 +493,19 @@ static EM_BOOL
 puglUiCallback(const int eventType, const EmscriptenUiEvent* const uiEvent, void* const userData)
 {
   PuglView* const view = (PuglView*)userData;
+  const char* const className = view->world->className;
 
   // FIXME
-  const int width = EM_ASM_INT({ return canvas.parentElement.clientWidth; });
-  const int height = EM_ASM_INT({ return canvas.parentElement.clientHeight; });
+  const int width = EM_ASM_INT({
+    var canvasWrapper = document.getElementById(UTF8ToString($0)).parentElement;
+    canvasWrapper.style.setProperty("--device-pixel-ratio", window.devicePixelRatio);
+    return canvasWrapper.clientWidth;
+  }, className);
+
+  const int height = EM_ASM_INT({
+    var canvasWrapper = document.getElementById(UTF8ToString($0)).parentElement;
+    return canvasWrapper.clientHeight;
+  }, className);
 
   if (!width || !height)
     return EM_FALSE;
@@ -381,6 +521,17 @@ puglUiCallback(const int eventType, const EmscriptenUiEvent* const uiEvent, void
   event.configure.height = height * scaleFactor;
   puglDispatchEvent(view, &event);
   return EM_TRUE;
+}
+
+static EM_BOOL
+puglVisibilityChangeCallback(const int eventType, const EmscriptenVisibilityChangeEvent* const visibilityChangeEvent, void* const userData)
+{
+  PuglView* const view = (PuglView*)userData;
+
+  view->visible = visibilityChangeEvent->hidden == EM_FALSE;
+  PuglEvent event = {{ view->visible ? PUGL_MAP : PUGL_UNMAP, 0}};
+  puglDispatchEvent(view, &event);
+  return EM_FALSE;
 }
 
 PuglStatus
@@ -433,10 +584,19 @@ puglRealize(PuglView* const view)
   event.configure.height = view->frame.height;
   puglDispatchEvent(view, &event);
 
+  EM_ASM({
+   var canvasWrapper = document.getElementById(UTF8ToString($0)).parentElement;
+   canvasWrapper.style.setProperty("--device-pixel-ratio", window.devicePixelRatio);
+  }, className);
+
   emscripten_set_canvas_element_size(className, view->frame.width, view->frame.height);
 //   emscripten_set_keypress_callback(className, view, false, puglKeyCallback);
   emscripten_set_keydown_callback(className, view, false, puglKeyCallback);
   emscripten_set_keyup_callback(className, view, false, puglKeyCallback);
+  emscripten_set_touchstart_callback(className, view, false, puglTouchCallback);
+  emscripten_set_touchend_callback(className, view, false, puglTouchCallback);
+  emscripten_set_touchmove_callback(className, view, false, puglTouchCallback);
+  emscripten_set_touchcancel_callback(className, view, false, puglTouchCallback);
   emscripten_set_mousedown_callback(className, view, false, puglMouseCallback);
   emscripten_set_mouseup_callback(className, view, false, puglMouseCallback);
   emscripten_set_mousemove_callback(className, view, false, puglMouseCallback);
@@ -444,10 +604,10 @@ puglRealize(PuglView* const view)
   emscripten_set_mouseleave_callback(className, view, false, puglMouseCallback);
   emscripten_set_focusin_callback(className, view, false, puglFocusCallback);
   emscripten_set_focusout_callback(className, view, false, puglFocusCallback);
-  emscripten_set_pointerlockchange_callback(className, view, false, puglPointerLockChangeCallback);
   emscripten_set_wheel_callback(className, view, false, puglWheelCallback);
+  emscripten_set_pointerlockchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, view, false, puglPointerLockChangeCallback);
   emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, view, false, puglUiCallback);
-  view->impl->pointerLocked = true;
+  emscripten_set_visibilitychange_callback(view, false, puglVisibilityChangeCallback);
 
   printf("TODO: %s %d\n", __func__, __LINE__);
   return PUGL_SUCCESS;
@@ -456,15 +616,14 @@ puglRealize(PuglView* const view)
 PuglStatus
 puglShow(PuglView* const view)
 {
-  printf("TODO: %s %d\n", __func__, __LINE__);
   view->visible = true;
+  view->impl->needsRepaint = true;
   return puglPostRedisplay(view);
 }
 
 PuglStatus
 puglHide(PuglView* const view)
 {
-  printf("TODO: %s %d\n", __func__, __LINE__);
   view->visible = false;
   return PUGL_FAILURE;
 }
@@ -477,6 +636,7 @@ puglFreeViewInternals(PuglView* const view)
     if (view->backend) {
       view->backend->destroy(view);
     }
+    free(view->impl->clipboardData);
     free(view->impl->timers);
     free(view->impl);
   }
@@ -495,36 +655,6 @@ puglGrabFocus(PuglView*)
   return PUGL_FAILURE;
 }
 
-PuglStatus
-puglAcceptOffer(PuglView* const                 view,
-                const PuglDataOfferEvent* const offer,
-                const uint32_t                  typeIndex)
-{
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return PUGL_FAILURE;
-}
-
-PuglStatus
-puglPaste(PuglView* const view)
-{
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return PUGL_FAILURE;
-}
-
-uint32_t
-puglGetNumClipboardTypes(const PuglView* const view)
-{
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return 0;
-}
-
-const char*
-puglGetClipboardType(const PuglView* const view, const uint32_t typeIndex)
-{
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return NULL;
-}
-
 double
 puglGetScaleFactor(const PuglView* const view)
 {
@@ -535,21 +665,20 @@ puglGetScaleFactor(const PuglView* const view)
 double
 puglGetTime(const PuglWorld*)
 {
-//   d_stdout("DONE %s %d", __func__, __LINE__);
-  return emscripten_get_now() / 1000;
+  return emscripten_get_now() / 1e3;
 }
 
 PuglStatus
 puglUpdate(PuglWorld* const world, const double timeout)
 {
-//   printf("TODO: %s %d\n", __func__, __LINE__);
-
   for (size_t i = 0; i < world->numViews; ++i) {
     PuglView* const view = world->views[i];
 
-    if (view->visible) {
-      puglDispatchSimpleEvent(view, PUGL_UPDATE);
+    if (!view->visible) {
+      continue;
     }
+
+    puglDispatchSimpleEvent(view, PUGL_UPDATE);
 
     if (!view->impl->needsRepaint) {
       continue;
@@ -563,13 +692,6 @@ puglUpdate(PuglWorld* const world, const double timeout)
     event.expose.width  = view->frame.width;
     event.expose.height = view->frame.height;
     puglDispatchEvent(view, &event);
-
-    static bool p = true;
-    if (p) {
-      p = false;
-      d_stdout("drawing at %d %d %u %u", (int)view->frame.x, (int)view->frame.y,
-               (uint)view->frame.width, (uint)view->frame.height);
-    }
   }
 
   return PUGL_SUCCESS;
@@ -578,7 +700,6 @@ puglUpdate(PuglWorld* const world, const double timeout)
 PuglStatus
 puglPostRedisplay(PuglView* const view)
 {
-//   printf("TODO: %s %d\n", __func__, __LINE__);
   view->impl->needsRepaint = true;
   return PUGL_SUCCESS;
 }
@@ -586,7 +707,6 @@ puglPostRedisplay(PuglView* const view)
 PuglStatus
 puglPostRedisplayRect(PuglView* const view, const PuglRect rect)
 {
-//   printf("TODO: %s %d\n", __func__, __LINE__);
   view->impl->needsRepaint = true;
   return PUGL_FAILURE;
 }
@@ -594,14 +714,12 @@ puglPostRedisplayRect(PuglView* const view, const PuglRect rect)
 PuglNativeView
 puglGetNativeView(PuglView* const view)
 {
-  printf("TODO: %s %d\n", __func__, __LINE__);
   return 0;
 }
 
 PuglStatus
 puglSetWindowTitle(PuglView* const view, const char* const title)
 {
-  printf("DONE: %s %d\n", __func__, __LINE__);
   puglSetString(&view->title, title);
   emscripten_set_window_title(title);
   return PUGL_SUCCESS;
@@ -613,7 +731,6 @@ puglSetSizeHint(PuglView* const    view,
                 const PuglSpan     width,
                 const PuglSpan     height)
 {
-  printf("DONE: %s %d\n", __func__, __LINE__);
   view->sizeHints[hint].width  = width;
   view->sizeHints[hint].height = height;
   return PUGL_SUCCESS;
@@ -659,7 +776,7 @@ puglStartTimer(PuglView* const view, const uintptr_t id, const double timeout)
   timer->view = view;
   timer->id = id;
 
-  emscripten_set_timeout_loop(puglTimerLoopCallback, timeout * 1000, timer);
+  emscripten_set_timeout_loop(puglTimerLoopCallback, timeout * 1e3, timer);
   return PUGL_SUCCESS;
 }
 
@@ -685,13 +802,98 @@ puglStopTimer(PuglView* const view, const uintptr_t id)
   return PUGL_FAILURE;
 }
 
+#ifdef PUGL_WASM_ASYNC_CLIPBOARD
+EM_JS(char*, puglGetAsyncClipboardData, (), {
+  var text = Asyncify.handleSleep(function(wakeUp) {
+    navigator.clipboard.readText()
+      .then(function(text) {
+        wakeUp(text);
+      })
+      .catch(function() {
+        wakeUp("");
+      });
+  });
+  if (!text.length) {
+    return null;
+  }
+  var length = lengthBytesUTF8(text) + 1;
+  var str = _malloc(length);
+  stringToUTF8(text, str, length);
+  return str;
+});
+#endif
+
+PuglStatus
+puglPaste(PuglView* const view)
+{
+#ifdef PUGL_WASM_ASYNC_CLIPBOARD
+  // abort early if we already know it is not supported
+  if (view->impl->supportsClipboardRead == PUGL_FALSE) {
+    return PUGL_UNSUPPORTED;
+  }
+
+  free(view->impl->clipboardData);
+  view->impl->clipboardData = puglGetAsyncClipboardData();
+#endif
+
+  if (view->impl->clipboardData == NULL) {
+    return PUGL_FAILURE;
+  }
+
+  const PuglDataOfferEvent offer = {
+    PUGL_DATA_OFFER,
+    0,
+    emscripten_get_now() / 1e3,
+  };
+
+  PuglEvent offerEvent;
+  offerEvent.offer = offer;
+  puglDispatchEvent(view, &offerEvent);
+  return PUGL_SUCCESS;
+}
+
+PuglStatus
+puglAcceptOffer(PuglView* const                 view,
+                const PuglDataOfferEvent* const offer,
+                const uint32_t                  typeIndex)
+{
+  if (typeIndex != 0) {
+    return PUGL_UNSUPPORTED;
+  }
+
+  const PuglDataEvent data = {
+    PUGL_DATA,
+    0,
+    emscripten_get_now() / 1e3,
+    0,
+  };
+
+  PuglEvent dataEvent;
+  dataEvent.data = data;
+  puglDispatchEvent(view, &dataEvent);
+  return PUGL_SUCCESS;
+}
+
+uint32_t
+puglGetNumClipboardTypes(const PuglView* const view)
+{
+  return view->impl->clipboardData != NULL ? 1u : 0u;
+}
+
+const char*
+puglGetClipboardType(const PuglView* const view, const uint32_t typeIndex)
+{
+  return (typeIndex == 0 && view->impl->clipboardData != NULL)
+           ? "text/plain"
+           : NULL;
+}
+
 const void*
 puglGetClipboard(PuglView* const view,
                  const uint32_t  typeIndex,
                  size_t* const   len)
 {
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return NULL;
+  return view->impl->clipboardData;
 }
 
 PuglStatus
@@ -700,8 +902,48 @@ puglSetClipboard(PuglView* const   view,
                  const void* const data,
                  const size_t      len)
 {
-  printf("TODO: %s %d\n", __func__, __LINE__);
-  return PUGL_FAILURE;
+  // only utf8 text supported for now
+  if (type != NULL && strcmp(type, "text/plain") != 0) {
+    return PUGL_UNSUPPORTED;
+  }
+
+  const char* const className = view->world->className;
+  const char* const text      = (const char*)data;
+
+#ifdef PUGL_WASM_ASYNC_CLIPBOARD
+  // abort early if we already know it is not supported
+  if (view->impl->supportsClipboardWrite == PUGL_FALSE) {
+    return PUGL_UNSUPPORTED;
+  }
+#else
+  puglSetString(&view->impl->clipboardData, text);
+#endif
+
+  EM_ASM({
+    if (typeof(navigator.clipboard) !== 'undefined' && typeof(navigator.clipboard.writeText) === 'function' && window.isSecureContext) {
+      navigator.clipboard.writeText(UTF8ToString($1));
+    } else {
+      var canvasClipboardObjName = UTF8ToString($0) + "_clipboard";
+      var canvasClipboardElem = document.getElementById(canvasClipboardObjName);
+
+      if (!canvasClipboardElem) {
+        canvasClipboardElem = document.createElement('textarea');
+        canvasClipboardElem.id = canvasClipboardObjName;
+        canvasClipboardElem.style.position = 'fixed';
+        canvasClipboardElem.style.whiteSpace = 'pre';
+        canvasClipboardElem.style.zIndex = '-1';
+        canvasClipboardElem.setAttribute('readonly', true);
+        document.body.appendChild(canvasClipboardElem);
+      }
+
+      canvasClipboardElem.textContent = UTF8ToString($1);
+      canvasClipboardElem.select();
+      document.execCommand("copy");
+    }
+  }, className, text);
+
+  // FIXME proper return status
+  return PUGL_SUCCESS;
 }
 
 PuglStatus

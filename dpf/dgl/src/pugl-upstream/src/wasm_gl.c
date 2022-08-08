@@ -2,18 +2,18 @@
 // Copyright 2021-2022 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: ISC
 
-// #include "attributes.h"
 #include "stub.h"
-// #include "types.h"
 #include "wasm.h"
 
-// #include "pugl/gl.h"
 #include "pugl/pugl.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <EGL/egl.h>
+
+// for performance reasons we can keep a single EGL context always active
+#define PUGL_WASM_SINGLE_EGL_CONTEXT
 
 typedef struct {
   EGLDisplay display;
@@ -42,21 +42,15 @@ static PuglStatus
 puglWasmGlConfigure(PuglView* view)
 {
   PuglInternals* const impl    = view->impl;
-//   const int            screen  = impl->screen;
-//   Display* const       display = view->world->impl->display;
-
-  printf("TODO: %s %d | start\n", __func__, __LINE__);
 
   const EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
   if (display == EGL_NO_DISPLAY) {
-    printf("eglGetDisplay Failed\n");
     return PUGL_CREATE_CONTEXT_FAILED;
   }
 
   int major, minor;
   if (eglInitialize(display, &major, &minor) != EGL_TRUE) {
-    printf("eglInitialize Failed\n");
     return PUGL_CREATE_CONTEXT_FAILED;
   }
 
@@ -64,33 +58,31 @@ puglWasmGlConfigure(PuglView* view)
   int numConfigs;
 
   if (eglGetConfigs(display, &config, 1, &numConfigs) != EGL_TRUE || numConfigs != 1) {
-    printf("eglGetConfigs Failed\n");
     eglTerminate(display);
     return PUGL_CREATE_CONTEXT_FAILED;
   }
 
   // clang-format off
   const EGLint attrs[] = {
-//     GLX_X_RENDERABLE,  True,
-//     GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
-//     GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-//     GLX_RENDER_TYPE,   GLX_RGBA_BIT,
-
-//     GLX_DOUBLEBUFFER,  puglX11GlHintValue(view->hints[PUGL_DOUBLE_BUFFER]),
-
-    EGL_SAMPLES,      puglWasmGlHintValue(view->hints[PUGL_SAMPLES]),
-    EGL_RED_SIZE,     puglWasmGlHintValue(view->hints[PUGL_RED_BITS]),
-    EGL_GREEN_SIZE,   puglWasmGlHintValue(view->hints[PUGL_GREEN_BITS]),
-    EGL_BLUE_SIZE,    puglWasmGlHintValue(view->hints[PUGL_BLUE_BITS]),
-    EGL_ALPHA_SIZE,   puglWasmGlHintValue(view->hints[PUGL_ALPHA_BITS]),
-    EGL_DEPTH_SIZE,   puglWasmGlHintValue(view->hints[PUGL_DEPTH_BITS]),
-    EGL_STENCIL_SIZE, puglWasmGlHintValue(view->hints[PUGL_STENCIL_BITS]),
+    /*
+    GLX_X_RENDERABLE,  True,
+    GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
+    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+    GLX_RENDER_TYPE,   GLX_RGBA_BIT,
+    EGL_SAMPLE_BUFFERS, view->hints[PUGL_MULTI_SAMPLE] ? 1 : 0,
+    */
+    EGL_SAMPLES,       puglWasmGlHintValue(view->hints[PUGL_SAMPLES]),
+    EGL_RED_SIZE,      puglWasmGlHintValue(view->hints[PUGL_RED_BITS]),
+    EGL_GREEN_SIZE,    puglWasmGlHintValue(view->hints[PUGL_GREEN_BITS]),
+    EGL_BLUE_SIZE,     puglWasmGlHintValue(view->hints[PUGL_BLUE_BITS]),
+    EGL_ALPHA_SIZE,    puglWasmGlHintValue(view->hints[PUGL_ALPHA_BITS]),
+    EGL_DEPTH_SIZE,    puglWasmGlHintValue(view->hints[PUGL_DEPTH_BITS]),
+    EGL_STENCIL_SIZE,  puglWasmGlHintValue(view->hints[PUGL_STENCIL_BITS]),
     EGL_NONE
   };
   // clang-format on
 
   if (eglChooseConfig(display, attrs, &config, 1, &numConfigs) != EGL_TRUE || numConfigs != 1) {
-    printf("eglChooseConfig Failed\n");
     eglTerminate(display);
     return PUGL_CREATE_CONTEXT_FAILED;
   }
@@ -119,10 +111,8 @@ puglWasmGlConfigure(PuglView* view)
   view->hints[PUGL_SAMPLES] =
     puglWasmGlGetAttrib(display, config, EGL_SAMPLES);
 
-  // always enabled for EGL
+  // double-buffering is always enabled for EGL
   view->hints[PUGL_DOUBLE_BUFFER] = 1;
-
-  printf("TODO: %s %d | ok\n", __func__, __LINE__);
 
   return PUGL_SUCCESS;
 }
@@ -131,39 +121,38 @@ PUGL_WARN_UNUSED_RESULT
 static PuglStatus
 puglWasmGlEnter(PuglView* view, const PuglExposeEvent* PUGL_UNUSED(expose))
 {
-//   printf("DONE: %s %d\n", __func__, __LINE__);
   PuglWasmGlSurface* const surface = (PuglWasmGlSurface*)view->impl->surface;
   if (!surface || !surface->context || !surface->surface) {
     return PUGL_FAILURE;
   }
 
-  // TESTING: is it faster if we never unset context?
-  return PUGL_SUCCESS;
-
+#ifndef PUGL_WASM_SINGLE_EGL_CONTEXT
   return eglMakeCurrent(surface->display, surface->surface, surface->surface, surface->context) ? PUGL_SUCCESS : PUGL_FAILURE;
+#else
+  return PUGL_SUCCESS;
+#endif
 }
 
 PUGL_WARN_UNUSED_RESULT
 static PuglStatus
 puglWasmGlLeave(PuglView* view, const PuglExposeEvent* expose)
 {
-//   printf("DONE: %s %d\n", __func__, __LINE__);
   PuglWasmGlSurface* const surface = (PuglWasmGlSurface*)view->impl->surface;
 
   if (expose) { // note: swap buffers always enabled for EGL
     eglSwapBuffers(surface->display, surface->surface);
   }
 
-  // TESTING: is it faster if we never unset context?
-  return PUGL_SUCCESS;
-
+#ifndef PUGL_WASM_SINGLE_EGL_CONTEXT
   return eglMakeCurrent(surface->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) ? PUGL_SUCCESS : PUGL_FAILURE;
+#else
+  return PUGL_SUCCESS;
+#endif
 }
 
 static PuglStatus
 puglWasmGlCreate(PuglView* view)
 {
-  printf("TODO: %s %d | start\n", __func__, __LINE__);
   PuglWasmGlSurface* const surface = (PuglWasmGlSurface*)view->impl->surface;
   const EGLDisplay display = surface->display;
   const EGLConfig  config  = surface->config;
@@ -194,31 +183,18 @@ puglWasmGlCreate(PuglView* view)
   surface->context = eglCreateContext(display, config, EGL_NO_CONTEXT, attrs);
 
   if (surface->context == EGL_NO_CONTEXT) {
-    printf("eglCreateContext Failed\n");
     return PUGL_CREATE_CONTEXT_FAILED;
   }
-
-#if 0
-  eglMakeCurrent(surface->display, surface->surface, surface->surface, surface->context);
-
-  printf("GL_VENDOR=%s\n", glGetString(GL_VENDOR));
-  printf("GL_RENDERER=%s\n", glGetString(GL_RENDERER));
-  printf("GL_VERSION=%s\n", glGetString(GL_VERSION));
-
-  eglMakeCurrent(surface->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-#endif
 
   surface->surface = eglCreateWindowSurface(display, config, 0, NULL);
 
   if (surface->surface == EGL_NO_SURFACE) {
-    printf("eglCreateWindowSurface Failed\n");
     return PUGL_CREATE_CONTEXT_FAILED;
   }
 
-  printf("TODO: %s %d | ok\n", __func__, __LINE__);
-
-  // TESTING: is it faster if we never unset context?
+#ifdef PUGL_WASM_SINGLE_EGL_CONTEXT
   eglMakeCurrent(surface->display, surface->surface, surface->surface, surface->context);
+#endif
 
   return PUGL_SUCCESS;
 }
@@ -226,7 +202,6 @@ puglWasmGlCreate(PuglView* view)
 static void
 puglWasmGlDestroy(PuglView* view)
 {
-  printf("DONE: %s %d\n", __func__, __LINE__);
   PuglWasmGlSurface* surface = (PuglWasmGlSurface*)view->impl->surface;
   if (surface) {
     const EGLDisplay display = surface->display;
@@ -243,13 +218,11 @@ puglWasmGlDestroy(PuglView* view)
 const PuglBackend*
 puglGlBackend(void)
 {
-  printf("DONE: %s %d\n", __func__, __LINE__);
   static const PuglBackend backend = {puglWasmGlConfigure,
                                       puglWasmGlCreate,
                                       puglWasmGlDestroy,
                                       puglWasmGlEnter,
                                       puglWasmGlLeave,
                                       puglStubGetContext};
-
   return &backend;
 }
