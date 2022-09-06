@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -54,6 +54,9 @@ START_NAMESPACE_DISTRHO
    Let's begin with some examples.@n
    Here is one of a stereo audio plugin that simply mutes the host output:
    @code
+   /* DPF plugin include */
+   #include "DistrhoPlugin.hpp"
+
    /* Make DPF related classes available for us to use without any extra namespace references */
    USE_NAMESPACE_DISTRHO;
 
@@ -115,7 +118,7 @@ START_NAMESPACE_DISTRHO
 
      /**
         Get the plugin unique Id.
-        This value is used by LADSPA, DSSI and VST plugin formats.
+        This value is used by LADSPA, DSSI, VST2 and VST3 plugin formats.
       */
       int64_t getUniqueId() const override
       {
@@ -157,7 +160,7 @@ START_NAMESPACE_DISTRHO
    A plugin is nothing without parameters.@n
    In DPF parameters can be inputs or outputs.@n
    They have hints to describe how they behave plus a name and a symbol identifying them.@n
-   Parameters also have 'ranges' – a minimum, maximum and default value.
+   Parameters also have 'ranges' - a minimum, maximum and default value.
 
    Input parameters are by default "read-only": the plugin can read them but not change them.
    (there are exceptions and possibly a request to the host to change values, more on that below)@n
@@ -349,10 +352,10 @@ START_NAMESPACE_DISTRHO
           }
       }
 
-      /**
-          Set the name of the program @a index.
-          This function will be called once, shortly after the plugin is created.
-        */
+     /**
+        Set the name of the program @a index.
+        This function will be called once, shortly after the plugin is created.
+      */
       void initProgramName(uint32_t index, String& programName)
       {
           // we only have one program so we can skip checking the index
@@ -374,6 +377,8 @@ START_NAMESPACE_DISTRHO
               return fGainL;
           case 1;
               return fGainR;
+         default:
+               return 0.f;
           }
       }
 
@@ -619,6 +624,24 @@ START_NAMESPACE_DISTRHO
 #define DISTRHO_UI_CUSTOM_WIDGET_TYPE
 
 /**
+   Default UI width to use when creating initial and temporary windows.@n
+   Setting this macro allows to skip a temporary UI from being created in certain VST2 and VST3 hosts.
+   (which would normally be done for knowing the UI size before host creates a window for it)
+
+   When this macro is defined, the companion DISTRHO_UI_DEFAULT_HEIGHT macro must be defined as well.
+ */
+#define DISTRHO_UI_DEFAULT_WIDTH 300
+
+/**
+   Default UI height to use when creating initial and temporary windows.@n
+   Setting this macro allows to skip a temporary UI from being created in certain VST2 and VST3 hosts.
+   (which would normally be done for knowing the UI size before host creates a window for it)
+
+   When this macro is defined, the companion DISTRHO_UI_DEFAULT_WIDTH macro must be defined as well.
+ */
+#define DISTRHO_UI_DEFAULT_HEIGHT 300
+
+/**
    Whether the %UI uses NanoVG for drawing instead of the default raw OpenGL calls.@n
    When enabled your %UI instance will subclass @ref NanoWidget instead of @ref Widget.
  */
@@ -640,9 +663,8 @@ START_NAMESPACE_DISTRHO
 
 /**
    Custom LV2 category for the plugin.@n
-   This can be one of the following values:
+   This is a single string, and can be one of the following values:
 
-      - lv2:Plugin
       - lv2:AllpassPlugin
       - lv2:AmplifierPlugin
       - lv2:AnalyserPlugin
@@ -688,7 +710,7 @@ START_NAMESPACE_DISTRHO
 
 /**
    Custom VST3 categories for the plugin.@n
-   This is a list of categories, separated by a @c |.
+   This is a single concatenated string of categories, separated by a @c |.
 
    Each effect category can be one of the following values:
 
@@ -723,9 +745,70 @@ START_NAMESPACE_DISTRHO
       - Instrument|Synth
       - Instrument|Synth|Sampler
 
-   @note DPF will automatically set Mono and Stereo categories when appropriate.
+   And extra categories possible for any plugin type:
+
+      - Mono
+      - Stereo
  */
-#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx"
+#define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Stereo"
+
+/**
+   Custom CLAP features for the plugin.@n
+   This is a list of features defined as a string array body, without the terminating @c , or nullptr.
+
+   A top-level category can be set as feature and be one of the following values:
+
+      - instrument
+      - audio-effect
+      - note-effect
+      - analyzer
+
+   The following sub-categories can also be set:
+
+      - synthesizer
+      - sampler
+      - drum
+      - drum-machine
+
+      - filter
+      - phaser
+      - equalizer
+      - de-esser
+      - phase-vocoder
+      - granular
+      - frequency-shifter
+      - pitch-shifter
+
+      - distortion
+      - transient-shaper
+      - compressor
+      - limiter
+
+      - flanger
+      - chorus
+      - delay
+      - reverb
+
+      - tremolo
+      - glitch
+
+      - utility
+      - pitch-correction
+      - restoration
+
+      - multi-effects
+
+      - mixing
+      - mastering
+
+   And finally the following audio capabilities can be set:
+
+      - mono
+      - stereo
+      - surround
+      - ambisonic
+*/
+#define DISTRHO_PLUGIN_CLAP_FEATURES "audio-effect", "stereo"
 
 /** @} */
 

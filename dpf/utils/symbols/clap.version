@@ -1,0 +1,4 @@
+{
+    global: clap_entry;
+    local: *;
+};

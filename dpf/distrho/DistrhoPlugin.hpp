@@ -362,12 +362,27 @@ struct ParameterRanges {
     */
     float getNormalizedValue(const float& value) const noexcept
     {
-        const float normValue((value - min) / (max - min));
+        const float normValue = (value - min) / (max - min);
 
         if (normValue <= 0.0f)
             return 0.0f;
         if (normValue >= 1.0f)
             return 1.0f;
+        return normValue;
+    }
+
+   /**
+      Get a value normalized to 0.0<->1.0.
+      Overloaded function using double precision values.
+    */
+    double getNormalizedValue(const double& value) const noexcept
+    {
+        const double normValue = (value - min) / (max - min);
+
+        if (normValue <= 0.0)
+            return 0.0;
+        if (normValue >= 1.0)
+            return 1.0;
         return normValue;
     }
 
@@ -381,12 +396,33 @@ struct ParameterRanges {
         if (value >= max)
             return 1.0f;
 
-        const float normValue((value - min) / (max - min));
+        const float normValue = (value - min) / (max - min);
 
         if (normValue <= 0.0f)
             return 0.0f;
         if (normValue >= 1.0f)
             return 1.0f;
+
+        return normValue;
+    }
+
+   /**
+      Get a value normalized to 0.0<->1.0, fixed within range.
+      Overloaded function using double precision values.
+    */
+    double getFixedAndNormalizedValue(const double& value) const noexcept
+    {
+        if (value <= min)
+            return 0.0;
+        if (value >= max)
+            return 1.0;
+
+        const double normValue = (value - min) / (max - min);
+
+        if (normValue <= 0.0)
+            return 0.0;
+        if (normValue >= 1.0)
+            return 1.0;
 
         return normValue;
     }
@@ -399,6 +435,20 @@ struct ParameterRanges {
         if (value <= 0.0f)
             return min;
         if (value >= 1.0f)
+            return max;
+
+        return value * (max - min) + min;
+    }
+
+   /**
+      Get a proper value previously normalized to 0.0<->1.0.
+      Overloaded function using double precision values.
+    */
+    double getUnnormalizedValue(const double& value) const noexcept
+    {
+        if (value <= 0.0)
+            return min;
+        if (value >= 1.0)
             return max;
 
         return value * (max - min) + min;
@@ -706,6 +756,16 @@ struct State {
       @note This value is optional and only used for LV2.
     */
     String description;
+
+   /**
+      Default constructor for a null state.
+    */
+    State() noexcept
+        : hints(0x0),
+          key(),
+          defaultValue(),
+          label(),
+          description() {}
 };
 
 /**
@@ -950,6 +1010,16 @@ public:
       while LV2 creates one when generating turtle meta-data.
     */
     bool isDummyInstance() const noexcept;
+
+   /**
+      Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
+      To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
+      and run the JACK/Standalone executable with "selftest" as its only and single argument.
+
+      A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
+      You can use this chance to do a few tests of your own as well.
+    */
+    bool isSelfTestInstance() const noexcept;
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
    /**

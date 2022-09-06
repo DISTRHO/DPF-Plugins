@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -94,7 +94,8 @@ class KnobEventHandler
 public:
     enum Orientation {
         Horizontal,
-        Vertical
+        Vertical,
+        Both
     };
 
     // NOTE hover not implemented yet
@@ -112,12 +113,16 @@ public:
         virtual void knobDragStarted(SubWidget* widget) = 0;
         virtual void knobDragFinished(SubWidget* widget) = 0;
         virtual void knobValueChanged(SubWidget* widget, float value) = 0;
+        virtual void knobDoubleClicked(SubWidget*) {};
     };
 
     explicit KnobEventHandler(SubWidget* self);
     explicit KnobEventHandler(SubWidget* self, const KnobEventHandler& other);
     KnobEventHandler& operator=(const KnobEventHandler& other);
     virtual ~KnobEventHandler();
+
+    // if setStep(1) has been called before, this returns true
+    bool isInteger() const noexcept;
 
     // returns raw value, is assumed to be scaled if using log
     float getValue() const noexcept;
@@ -139,12 +144,15 @@ public:
     void setUsingLogScale(bool yesNo) noexcept;
 
     Orientation getOrientation() const noexcept;
-    void setOrientation(const Orientation orientation) noexcept;
+    void setOrientation(Orientation orientation) noexcept;
 
     void setCallback(Callback* callback) noexcept;
 
-    bool mouseEvent(const Widget::MouseEvent& ev);
-    bool motionEvent(const Widget::MotionEvent& ev);
+    // default 200, higher means slower
+    void setMouseDeceleration(float accel) noexcept;
+
+    bool mouseEvent(const Widget::MouseEvent& ev, double scaleFactor = 1.0);
+    bool motionEvent(const Widget::MotionEvent& ev, double scaleFactor = 1.0);
     bool scrollEvent(const Widget::ScrollEvent& ev);
 
 protected:
@@ -164,6 +172,21 @@ private:
 #endif
 
     DISTRHO_LEAK_DETECTOR(KnobEventHandler)
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+
+class SliderEventHandler
+{
+public:
+    explicit SliderEventHandler(SubWidget* self);
+    virtual ~SliderEventHandler();
+
+private:
+    struct PrivateData;
+    PrivateData* const pData;
+
+    DISTRHO_LEAK_DETECTOR(SliderEventHandler)
 };
 
 // --------------------------------------------------------------------------------------------------------------------

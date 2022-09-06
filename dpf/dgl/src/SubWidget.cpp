@@ -139,10 +139,19 @@ void SubWidget::repaint() noexcept
     if (TopLevelWidget* const topw = getTopLevelWidget())
     {
         if (pData->needsFullViewportForDrawing)
-            topw->repaint();
+            // repaint is virtual and we want precisely the top-level specific implementation, not any higher level
+            topw->TopLevelWidget::repaint();
         else
             topw->repaint(getConstrainedAbsoluteArea());
     }
+}
+
+void SubWidget::toBottom()
+{
+    std::list<SubWidget*>& subwidgets(pData->parentWidget->pData->subWidgets);
+
+    subwidgets.remove(this);
+    subwidgets.insert(subwidgets.begin(), this);
 }
 
 void SubWidget::toFront()

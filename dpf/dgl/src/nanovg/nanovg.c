@@ -23,6 +23,11 @@
 
 #include "nanovg.h"
 #define FONTSTASH_IMPLEMENTATION
+#define stbtt_fontinfo dpf_nvg_stbtt_fontinfo
+#define stbrp_context dpf_nvg_stbrp_context
+#define stbrp_rect dpf_nvg_stbrp_rect
+#define stbrp_node dpf_nvg_stbrp_node
+#define stbrp_coord dpf_nvg_stbrp_coord
 #include "fontstash.h"
 
 #ifndef NVG_NO_STB
@@ -869,7 +874,7 @@ int nvgCreateImage(NVGcontext* ctx, const char* filename, int imageFlags)
 	return image;
 }
 
-int nvgCreateImageMem(NVGcontext* ctx, int imageFlags, unsigned char* data, int ndata)
+int nvgCreateImageMem(NVGcontext* ctx, int imageFlags, const unsigned char* data, int ndata)
 {
 	int w, h, n, image;
 	unsigned char* img = stbi_load_from_memory(data, ndata, &w, &h, &n, 4);

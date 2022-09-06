@@ -65,7 +65,7 @@ START_NAMESPACE_DISTRHO
 
 typedef std::map<const String, String> StringMap;
 
-static const int kVstMidiEventSize = static_cast<int>(sizeof(VstMidiEvent));
+static constexpr const int kVstMidiEventSize = static_cast<int>(sizeof(VstMidiEvent));
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static const writeMidiFunc writeMidiCallback = nullptr;
@@ -117,7 +117,7 @@ struct ParameterAndNotesHelper
     }
 
 #if DISTRHO_PLUGIN_WANT_STATE
-    virtual void setStateFromUI(const char* const newKey, const char* const newValue) = 0;
+    virtual void setStateFromUI(const char* key, const char* value) = 0;
 #endif
 };
 
@@ -575,17 +575,25 @@ public:
             }
             else
             {
+                double scaleFactor = fLastScaleFactor;
+               #if defined(DISTRHO_UI_DEFAULT_WIDTH) && defined(DISTRHO_UI_DEFAULT_HEIGHT)
+                fVstRect.right = DISTRHO_UI_DEFAULT_WIDTH;
+                fVstRect.bottom = DISTRHO_UI_DEFAULT_HEIGHT;
+                if (d_isZero(scaleFactor))
+                    scaleFactor = 1.0;
+               #else
                 UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                                  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
-                                 fPlugin.getInstancePointer(), fLastScaleFactor);
-                fVstRect.right  = tmpUI.getWidth();
+                                 fPlugin.getInstancePointer(), scaleFactor);
+                fVstRect.right = tmpUI.getWidth();
                 fVstRect.bottom = tmpUI.getHeight();
-# ifdef DISTRHO_OS_MAC
-                const double scaleFactor = tmpUI.getScaleFactor();
+                scaleFactor = tmpUI.getScaleFactor();
+                tmpUI.quit();
+               #endif
+               #ifdef DISTRHO_OS_MAC
                 fVstRect.right /= scaleFactor;
                 fVstRect.bottom /= scaleFactor;
-# endif
-                tmpUI.quit();
+               #endif
             }
             *(ERect**)ptr = &fVstRect;
             return 1;
@@ -995,7 +1003,7 @@ public:
             else
                 fTimePosition.bbt.beatsPerMinute = 120.0;
 
-            if (vstTimeInfo->flags & (kVstPpqPosValid|kVstTimeSigValid))
+            if ((vstTimeInfo->flags & (kVstPpqPosValid|kVstTimeSigValid)) == (kVstPpqPosValid|kVstTimeSigValid))
             {
                 const double ppqPos    = std::abs(vstTimeInfo->ppqPos);
                 const int    ppqPerBar = vstTimeInfo->timeSigNumerator * 4 / vstTimeInfo->timeSigDenominator;
@@ -1131,7 +1139,7 @@ private:
         {
             if (fPlugin.isParameterOutput(i))
             {
-                // NOTE: no output parameter support in VST, simulate it here
+                // NOTE: no output parameter support in VST2, simulate it here
                 curValue = fPlugin.getParameterValue(i);
 
                 if (d_isEqual(curValue, parameterValues[i]))
@@ -1230,12 +1238,12 @@ private:
     // functions called from the UI side, may block
 
 # if DISTRHO_PLUGIN_HAS_UI
-    void setStateFromUI(const char* const key, const char* const newValue) override
+    void setStateFromUI(const char* const key, const char* const value) override
 # else
-    void setStateFromUI(const char* const key, const char* const newValue)
+    void setStateFromUI(const char* const key, const char* const value)
 # endif
     {
-        fPlugin.setState(key, newValue);
+        fPlugin.setState(key, value);
 
         // check if we want to save this key
         if (! fPlugin.wantStateKey(key))
@@ -1248,7 +1256,7 @@ private:
 
             if (dkey == key)
             {
-                it->second = newValue;
+                it->second = value;
                 return;
             }
         }

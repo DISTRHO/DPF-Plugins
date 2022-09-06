@@ -240,6 +240,18 @@ endif
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Set CLAP filename, either single binary or inside a bundle
+
+ifeq ($(MACOS),true)
+CLAP_CONTENTS = $(NAME).clap/Contents
+CLAP_FILENAME = $(CLAP_CONTENTS)/MacOS/$(NAME)
+else ifeq ($(USE_CLAP_BUNDLE),true)
+CLAP_FILENAME = $(NAME).clap/$(NAME).clap
+else
+CLAP_FILENAME = $(NAME).clap
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Set plugin binary file targets
 
 ifeq ($(MACOS),true)
@@ -264,6 +276,7 @@ vst2       = $(TARGET_DIR)/$(VST2_FILENAME)
 ifneq ($(VST3_FILENAME),)
 vst3       = $(TARGET_DIR)/$(VST3_FILENAME)
 endif
+clap       = $(TARGET_DIR)/$(CLAP_FILENAME)
 shared     = $(TARGET_DIR)/$(NAME)$(LIB_EXT)
 static     = $(TARGET_DIR)/$(NAME).a
 
@@ -274,6 +287,9 @@ vst2files += $(TARGET_DIR)/$(VST2_CONTENTS)/Resources/empty.lproj
 vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/Info.plist
 vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/PkgInfo
 vst3files += $(TARGET_DIR)/$(VST3_CONTENTS)/Resources/empty.lproj
+clapfiles += $(TARGET_DIR)/$(CLAP_CONTENTS)/Info.plist
+clapfiles += $(TARGET_DIR)/$(CLAP_CONTENTS)/PkgInfo
+clapfiles += $(TARGET_DIR)/$(CLAP_CONTENTS)/Resources/empty.lproj
 endif
 
 ifneq ($(HAVE_DGL),true)
@@ -298,6 +314,7 @@ SYMBOLS_LV2UI  = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/lv2-ui.exp
 SYMBOLS_LV2    = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/lv2.exp
 SYMBOLS_VST2   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/vst2.exp
 SYMBOLS_VST3   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/vst3.exp
+SYMBOLS_CLAP   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/clap.exp
 SYMBOLS_SHARED = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/shared.exp
 else ifeq ($(WASM),true)
 SYMBOLS_LADSPA = -sEXPORTED_FUNCTIONS="['ladspa_descriptor']"
@@ -307,6 +324,7 @@ SYMBOLS_LV2UI  = -sEXPORTED_FUNCTIONS="['lv2ui_descriptor']"
 SYMBOLS_LV2    = -sEXPORTED_FUNCTIONS="['lv2_descriptor','lv2_generate_ttl','lv2ui_descriptor']"
 SYMBOLS_VST2   = -sEXPORTED_FUNCTIONS="['VSTPluginMain']"
 SYMBOLS_VST3   = -sEXPORTED_FUNCTIONS="['GetPluginFactory','ModuleEntry','ModuleExit']"
+SYMBOLS_CLAP   = -sEXPORTED_FUNCTIONS="['clap_entry']"
 SYMBOLS_SHARED = -sEXPORTED_FUNCTIONS="['createSharedPlugin']"
 else ifeq ($(WINDOWS),true)
 SYMBOLS_LADSPA = $(DPF_PATH)/utils/symbols/ladspa.def
@@ -316,6 +334,7 @@ SYMBOLS_LV2UI  = $(DPF_PATH)/utils/symbols/lv2-ui.def
 SYMBOLS_LV2    = $(DPF_PATH)/utils/symbols/lv2.def
 SYMBOLS_VST2   = $(DPF_PATH)/utils/symbols/vst2.def
 SYMBOLS_VST3   = $(DPF_PATH)/utils/symbols/vst3.def
+SYMBOLS_CLAP   = $(DPF_PATH)/utils/symbols/clap.def
 SYMBOLS_SHARED = $(DPF_PATH)/utils/symbols/shared.def
 else ifneq ($(DEBUG),true)
 SYMBOLS_LADSPA = -Wl,--version-script=$(DPF_PATH)/utils/symbols/ladspa.version
@@ -325,6 +344,7 @@ SYMBOLS_LV2UI  = -Wl,--version-script=$(DPF_PATH)/utils/symbols/lv2-ui.version
 SYMBOLS_LV2    = -Wl,--version-script=$(DPF_PATH)/utils/symbols/lv2.version
 SYMBOLS_VST2   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/vst2.version
 SYMBOLS_VST3   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/vst3.version
+SYMBOLS_CLAP   = -Wl,--version-script=$(DPF_PATH)/utils/symbols/clap.version
 SYMBOLS_SHARED = -Wl,--version-script=$(DPF_PATH)/utils/symbols/shared.version
 endif
 
@@ -522,6 +542,28 @@ endif
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_VST3) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
+# CLAP
+
+ifeq ($(HAVE_DGL),true)
+ifneq ($(HAIKU),true)
+ifneq ($(WASM),true)
+CLAP_LIBS = -lpthread
+endif
+endif
+endif
+
+clap: $(clap) $(clapfiles)
+
+ifeq ($(HAVE_DGL),true)
+$(clap): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.o $(BUILD_DIR)/DistrhoUIMain_CLAP.cpp.o $(DGL_LIB)
+else
+$(clap): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.o
+endif
+	-@mkdir -p $(shell dirname $@)
+	@echo "Creating CLAP plugin for $(NAME)"
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(DGL_LIBS) $(CLAP_LIBS) $(SHARED) $(SYMBOLS_CLAP) -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Shared
 
 shared: $(shared)
@@ -557,19 +599,23 @@ $(TARGET_DIR)/%.app/Contents/Info.plist: $(DPF_PATH)/utils/plugin.app/Contents/I
 	-@mkdir -p $(shell dirname $@)
 	$(SILENT)sed -e "s/@INFO_PLIST_PROJECT_NAME@/$(NAME)/" $< > $@
 
-$(TARGET_DIR)/%.vst/Contents/Info.plist: $(DPF_PATH)/utils/plugin.vst/Contents/Info.plist
+$(TARGET_DIR)/%.vst/Contents/Info.plist: $(DPF_PATH)/utils/plugin.bundle/Contents/Info.plist
 	-@mkdir -p $(shell dirname $@)
 	$(SILENT)sed -e "s/@INFO_PLIST_PROJECT_NAME@/$(NAME)/" $< > $@
 
-$(TARGET_DIR)/%.vst3/Contents/Info.plist: $(DPF_PATH)/utils/plugin.vst/Contents/Info.plist
+$(TARGET_DIR)/%.vst3/Contents/Info.plist: $(DPF_PATH)/utils/plugin.bundle/Contents/Info.plist
 	-@mkdir -p $(shell dirname $@)
 	$(SILENT)sed -e "s/@INFO_PLIST_PROJECT_NAME@/$(NAME)/" $< > $@
 
-$(TARGET_DIR)/%/Contents/PkgInfo: $(DPF_PATH)/utils/plugin.vst/Contents/PkgInfo
+$(TARGET_DIR)/%.clap/Contents/Info.plist: $(DPF_PATH)/utils/plugin.bundle/Contents/Info.plist
+	-@mkdir -p $(shell dirname $@)
+	$(SILENT)sed -e "s/@INFO_PLIST_PROJECT_NAME@/$(NAME)/" $< > $@
+
+$(TARGET_DIR)/%/Contents/PkgInfo: $(DPF_PATH)/utils/plugin.bundle/Contents/PkgInfo
 	-@mkdir -p $(shell dirname $@)
 	$(SILENT)cp $< $@
 
-$(TARGET_DIR)/%/Resources/empty.lproj: $(DPF_PATH)/utils/plugin.vst/Contents/Resources/empty.lproj
+$(TARGET_DIR)/%/Resources/empty.lproj: $(DPF_PATH)/utils/plugin.bundle/Contents/Resources/empty.lproj
 	-@mkdir -p $(shell dirname $@)
 	$(SILENT)cp $< $@
 
@@ -586,6 +632,7 @@ endif
 -include $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.d
+-include $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_STATIC.cpp.d
 
@@ -594,6 +641,7 @@ endif
 -include $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.d
+-include $(BUILD_DIR)/DistrhoUIMain_CLAP.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_STATIC.cpp.d
 

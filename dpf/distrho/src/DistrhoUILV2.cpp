@@ -42,8 +42,11 @@ typedef struct _LV2_Atom_MidiEvent {
     uint8_t  data[3]; /**< MIDI data (body). */
 } LV2_Atom_MidiEvent;
 
+#if ! DISTRHO_PLUGIN_WANT_STATE
+static constexpr const setStateFunc setStateCallback = nullptr;
+#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
-static const sendNoteFunc sendNoteCallback = nullptr;
+static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
 
 // -----------------------------------------------------------------------
@@ -76,19 +79,8 @@ public:
           const float scaleFactor,
           const uint32_t bgColor,
           const uint32_t fgColor)
-        : fUI(this, winId, sampleRate,
-              editParameterCallback,
-              setParameterCallback,
-              setStateCallback,
-              sendNoteCallback,
-              nullptr, // resize is very messy, hosts can do it without extensions
-              fileRequestCallback,
-              bundlePath,
-              dspPtr,
-              scaleFactor,
-              bgColor,
-              fgColor),
-          fUridMap(uridMap),
+        : fUridMap(uridMap),
+          fUridUnmap(getLv2Feature<LV2_URID_Unmap>(features, LV2_URID__unmap)),
           fUiPortMap(getLv2Feature<LV2UI_Port_Map>(features, LV2_UI__portMap)),
           fUiRequestValue(getLv2Feature<LV2UI_Request_Value>(features, LV2_UI__requestValue)),
           fUiTouch(getLv2Feature<LV2UI_Touch>(features, LV2_UI__touch)),
@@ -97,15 +89,23 @@ public:
           fURIDs(uridMap),
           fBypassParameterIndex(fUiPortMap != nullptr ? fUiPortMap->port_index(fUiPortMap->handle, "lv2_enabled")
                                                       : LV2UI_INVALID_PORT_INDEX),
-          fWinIdWasNull(winId == 0)
+          fWinIdWasNull(winId == 0),
+          fUI(this, winId, sampleRate,
+              editParameterCallback,
+              setParameterCallback,
+              setStateCallback,
+              sendNoteCallback,
+              nullptr, // resize is very messy, hosts can do it without extensions
+              fileRequestCallback,
+              bundlePath, dspPtr, scaleFactor, bgColor, fgColor)
     {
         if (widget != nullptr)
             *widget = (LV2UI_Widget)fUI.getNativeWindowHandle();
 
-#if DISTRHO_PLUGIN_WANT_STATE
+       #if DISTRHO_PLUGIN_WANT_STATE
         // tell the DSP we're ready to receive msgs
         setState("__dpf_ui_data__", "");
-#endif
+       #endif
 
         if (winId != 0)
             return;
@@ -169,7 +169,7 @@ public:
 
             fUI.parameterChanged(rindex-parameterOffset, value);
         }
-#if DISTRHO_PLUGIN_WANT_STATE
+       #if DISTRHO_PLUGIN_WANT_STATE
         else if (format == fURIDs.atomEventTransfer)
         {
             const LV2_Atom* const atom = (const LV2_Atom*)buffer;
@@ -181,39 +181,44 @@ public:
 
                 fUI.stateChanged(key, value);
             }
-            else if (atom->type == fURIDs.atomObject)
+            else if (atom->type == fURIDs.atomObject && fUridUnmap != nullptr)
             {
-                /* TODO
-                const LV2_Atom_Object* const obj = (const LV2_Atom_Object*)LV2_ATOM_BODY_CONST(atom);
+                const LV2_Atom_Object* const obj = (const LV2_Atom_Object*)atom;
 
                 const LV2_Atom* property = nullptr;
-                const LV2_Atom* avalue = nullptr;
-                lv2_atom_object_get(obj, fURIDs.patchProperty, &property, fURIDs.patchValue, &avalue, 0);
+                const LV2_Atom* atomvalue = nullptr;
+                lv2_atom_object_get(obj, fURIDs.patchProperty, &property, fURIDs.patchValue, &atomvalue, 0);
 
                 DISTRHO_SAFE_ASSERT_RETURN(property != nullptr,);
-                DISTRHO_SAFE_ASSERT_RETURN(avalue != nullptr,);
+                DISTRHO_SAFE_ASSERT_RETURN(atomvalue != nullptr,);
 
                 DISTRHO_SAFE_ASSERT_RETURN(property->type == fURIDs.atomURID,);
-                DISTRHO_SAFE_ASSERT_RETURN(avalue->type == fURIDs.atomPath || avalue->type == fURIDs.atomString,);
+                DISTRHO_SAFE_ASSERT_RETURN(atomvalue->type == fURIDs.atomPath || atomvalue->type == fURIDs.atomString,);
 
                 if (property != nullptr && property->type == fURIDs.atomURID &&
-                    avalue != nullptr && (avalue->type == fURIDs.atomPath || avalue->type == fURIDs.atomString))
+                    atomvalue != nullptr && (atomvalue->type == fURIDs.atomPath || atomvalue->type == fURIDs.atomString))
                 {
-                    const char* const key   = (const char*)LV2_ATOM_BODY_CONST(property);
-                    const char* const value = (const char*)LV2_ATOM_BODY_CONST(avalue);
+                    const LV2_URID dpf_lv2_urid = ((const LV2_Atom_URID*)property)->body;
+                    DISTRHO_SAFE_ASSERT_RETURN(dpf_lv2_urid != 0,);
 
-                    d_stdout("received atom object '%s' '%s'", key, value);
+                    const char* const dpf_lv2_key = fUridUnmap->unmap(fUridUnmap->handle, dpf_lv2_urid);
+                    DISTRHO_SAFE_ASSERT_RETURN(dpf_lv2_key != nullptr,);
+
+                    /*constexpr*/ const size_t reqLen = std::strlen(DISTRHO_PLUGIN_URI "#");
+                    DISTRHO_SAFE_ASSERT_RETURN(std::strlen(dpf_lv2_key) > reqLen,);
+
+                    const char* const key   = dpf_lv2_key + reqLen;
+                    const char* const value = (const char*)LV2_ATOM_BODY_CONST(atomvalue);
 
                     fUI.stateChanged(key, value);
                 }
-                */
             }
             else
             {
-                d_stdout("received atom not dpfKeyValue");
+                d_stdout("DPF :: received atom not handled");
             }
         }
-#endif
+       #endif
     }
 
     // -------------------------------------------------------------------
@@ -269,121 +274,21 @@ public:
 
     // -------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
+   #if DISTRHO_PLUGIN_WANT_PROGRAMS
     void lv2ui_select_program(const uint32_t bank, const uint32_t program)
     {
         const uint32_t realProgram = bank * 128 + program;
 
         fUI.programLoaded(realProgram);
     }
-#endif
+   #endif
 
     // -------------------------------------------------------------------
 
-protected:
-    void editParameterValue(const uint32_t rindex, const bool started)
-    {
-        if (fUiTouch != nullptr && fUiTouch->touch != nullptr)
-            fUiTouch->touch(fUiTouch->handle, rindex, started);
-    }
-
-    void setParameterValue(const uint32_t rindex, float value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
-
-        if (rindex == fBypassParameterIndex)
-            value = 1.0f - value;
-
-        fWriteFunction(fController, rindex, sizeof(float), 0, &value);
-    }
-
-    void setState(const char* const key, const char* const value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
-
-        const uint32_t eventInPortIndex = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS;
-
-        // join key and value
-        String tmpStr;
-        tmpStr += key;
-        tmpStr += "\xff";
-        tmpStr += value;
-
-        tmpStr[std::strlen(key)] = '\0';
-
-        // set msg size (key + separator + value + null terminator)
-        const uint32_t msgSize = static_cast<uint32_t>(tmpStr.length()) + 1U;
-
-        // reserve atom space
-        const uint32_t atomSize = sizeof(LV2_Atom) + msgSize;
-        char* const  atomBuf = (char*)malloc(atomSize);
-        DISTRHO_SAFE_ASSERT_RETURN(atomBuf != nullptr,);
-
-        std::memset(atomBuf, 0, atomSize);
-
-        // set atom info
-        LV2_Atom* const atom = (LV2_Atom*)atomBuf;
-        atom->size = msgSize;
-        atom->type = fURIDs.dpfKeyValue;
-
-        // set atom data
-        std::memcpy(atomBuf + sizeof(LV2_Atom), tmpStr.buffer(), msgSize);
-
-        // send to DSP side
-        fWriteFunction(fController, eventInPortIndex, atomSize, fURIDs.atomEventTransfer, atom);
-
-        // free atom space
-        free(atomBuf);
-    }
-
-#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-    void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
-
-        if (channel > 0xF)
-            return;
-
-        const uint32_t eventInPortIndex = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS;
-
-        LV2_Atom_MidiEvent atomMidiEvent;
-        atomMidiEvent.atom.size = 3;
-        atomMidiEvent.atom.type = fURIDs.midiEvent;
-
-        atomMidiEvent.data[0] = channel + (velocity != 0 ? 0x90 : 0x80);
-        atomMidiEvent.data[1] = note;
-        atomMidiEvent.data[2] = velocity;
-
-        // send to DSP side
-        fWriteFunction(fController, eventInPortIndex, lv2_atom_total_size(&atomMidiEvent.atom),
-                       fURIDs.atomEventTransfer, &atomMidiEvent);
-    }
-#endif
-
-    bool fileRequest(const char* const key)
-    {
-        d_stdout("UI file request %s %p", key, fUiRequestValue);
-
-        if (fUiRequestValue == nullptr)
-            return false;
-
-        String dpf_lv2_key(DISTRHO_PLUGIN_URI "#");
-        dpf_lv2_key += key;
-
-        const int r = fUiRequestValue->request(fUiRequestValue->handle,
-                                        fUridMap->map(fUridMap->handle, dpf_lv2_key.buffer()),
-                                        fURIDs.atomPath,
-                                        nullptr);
-
-        d_stdout("UI file request %s %p => %s %i", key, fUiRequestValue, dpf_lv2_key.buffer(), r);
-        return r == LV2UI_REQUEST_VALUE_SUCCESS;
-    }
-
 private:
-    UIExporter fUI;
-
     // LV2 features
     const LV2_URID_Map*        const fUridMap;
+    const LV2_URID_Unmap*      const fUridUnmap;
     const LV2UI_Port_Map*      const fUiPortMap;
     const LV2UI_Request_Value* const fUiRequestValue;
     const LV2UI_Touch*         const fUiTouch;
@@ -437,39 +342,136 @@ private:
     // using ui:showInterface if true
     const bool fWinIdWasNull;
 
-    // -------------------------------------------------------------------
-    // Callbacks
+    // Plugin UI (after LV2 stuff so the UI can call into us during its constructor)
+    UIExporter fUI;
 
-    #define uiPtr ((UiLv2*)ptr)
+    // ----------------------------------------------------------------------------------------------------------------
+    // DPF callbacks
 
-    static void editParameterCallback(void* ptr, uint32_t rindex, bool started)
+    void editParameterValue(const uint32_t rindex, const bool started)
     {
-        uiPtr->editParameterValue(rindex, started);
+        if (fUiTouch != nullptr && fUiTouch->touch != nullptr)
+            fUiTouch->touch(fUiTouch->handle, rindex, started);
     }
 
-    static void setParameterCallback(void* ptr, uint32_t rindex, float value)
+    static void editParameterCallback(void* const ptr, const uint32_t rindex, const bool started)
     {
-        uiPtr->setParameterValue(rindex, value);
+        static_cast<UiLv2*>(ptr)->editParameterValue(rindex, started);
     }
 
-    static void setStateCallback(void* ptr, const char* key, const char* value)
+    void setParameterValue(const uint32_t rindex, float value)
     {
-        uiPtr->setState(key, value);
+        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
+
+        if (rindex == fBypassParameterIndex)
+            value = 1.0f - value;
+
+        fWriteFunction(fController, rindex, sizeof(float), 0, &value);
     }
 
-#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-    static void sendNoteCallback(void* ptr, uint8_t channel, uint8_t note, uint8_t velocity)
+    static void setParameterCallback(void* const ptr, const uint32_t rindex, const float value)
     {
-        uiPtr->sendNote(channel, note, velocity);
+        static_cast<UiLv2*>(ptr)->setParameterValue(rindex, value);
     }
-#endif
+
+   #if DISTRHO_PLUGIN_WANT_STATE
+    void setState(const char* const key, const char* const value)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
+
+        const uint32_t eventInPortIndex = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS;
+
+        // join key and value
+        String tmpStr;
+        tmpStr += key;
+        tmpStr += "\xff";
+        tmpStr += value;
+
+        tmpStr[std::strlen(key)] = '\0';
+
+        // set msg size (key + separator + value + null terminator)
+        const uint32_t msgSize = static_cast<uint32_t>(tmpStr.length()) + 1U;
+
+        // reserve atom space
+        const uint32_t atomSize = sizeof(LV2_Atom) + msgSize;
+        char* const  atomBuf = (char*)malloc(atomSize);
+        DISTRHO_SAFE_ASSERT_RETURN(atomBuf != nullptr,);
+
+        std::memset(atomBuf, 0, atomSize);
+
+        // set atom info
+        LV2_Atom* const atom = (LV2_Atom*)atomBuf;
+        atom->size = msgSize;
+        atom->type = fURIDs.dpfKeyValue;
+
+        // set atom data
+        std::memcpy(atomBuf + sizeof(LV2_Atom), tmpStr.buffer(), msgSize);
+
+        // send to DSP side
+        fWriteFunction(fController, eventInPortIndex, atomSize, fURIDs.atomEventTransfer, atom);
+
+        // free atom space
+        free(atomBuf);
+    }
+
+    static void setStateCallback(void* const ptr, const char* const key, const char* const value)
+    {
+        static_cast<UiLv2*>(ptr)->setState(key, value);
+    }
+   #endif
+
+   #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+    void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
+
+        if (channel > 0xF)
+            return;
+
+        const uint32_t eventInPortIndex = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS;
+
+        LV2_Atom_MidiEvent atomMidiEvent;
+        atomMidiEvent.atom.size = 3;
+        atomMidiEvent.atom.type = fURIDs.midiEvent;
+
+        atomMidiEvent.data[0] = channel + (velocity != 0 ? 0x90 : 0x80);
+        atomMidiEvent.data[1] = note;
+        atomMidiEvent.data[2] = velocity;
+
+        // send to DSP side
+        fWriteFunction(fController, eventInPortIndex, lv2_atom_total_size(&atomMidiEvent.atom),
+                       fURIDs.atomEventTransfer, &atomMidiEvent);
+    }
+
+    static void sendNoteCallback(void* const ptr, const uint8_t channel, const uint8_t note, const uint8_t velocity)
+    {
+        static_cast<UiLv2*>(ptr)->sendNote(channel, note, velocity);
+    }
+   #endif
+
+    bool fileRequest(const char* const key)
+    {
+        d_stdout("UI file request %s %p", key, fUiRequestValue);
+
+        if (fUiRequestValue == nullptr)
+            return false;
+
+        String dpf_lv2_key(DISTRHO_PLUGIN_URI "#");
+        dpf_lv2_key += key;
+
+        const int r = fUiRequestValue->request(fUiRequestValue->handle,
+                                        fUridMap->map(fUridMap->handle, dpf_lv2_key.buffer()),
+                                        fURIDs.atomPath,
+                                        nullptr);
+
+        d_stdout("UI file request %s %p => %s %i", key, fUiRequestValue, dpf_lv2_key.buffer(), r);
+        return r == LV2UI_REQUEST_VALUE_SUCCESS;
+    }
 
     static bool fileRequestCallback(void* ptr, const char* key)
     {
-        return uiPtr->fileRequest(key);
+        return static_cast<UiLv2*>(ptr)->fileRequest(key);
     }
-
-    #undef uiPtr
 };
 
 // -----------------------------------------------------------------------

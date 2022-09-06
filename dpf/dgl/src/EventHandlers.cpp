@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -274,6 +274,7 @@ struct KnobEventHandler::PrivateData {
     SubWidget* const widget;
     KnobEventHandler::Callback* callback;
 
+    float accel;
     float minimum;
     float maximum;
     float step;
@@ -287,13 +288,15 @@ struct KnobEventHandler::PrivateData {
 
     double lastX;
     double lastY;
+    uint lastClickTime;
 
     PrivateData(KnobEventHandler* const s, SubWidget* const w)
         : self(s),
           widget(w),
           callback(nullptr),
-          minimum(0.0f),
-          maximum(1.0f),
+          accel(200.f),
+          minimum(0.f),
+          maximum(1.f),
           step(0.0f),
           value(0.5f),
           valueDef(value),
@@ -303,12 +306,14 @@ struct KnobEventHandler::PrivateData {
           orientation(Vertical),
           state(kKnobStateDefault),
           lastX(0.0),
-          lastY(0.0) {}
+          lastY(0.0),
+          lastClickTime(0) {}
 
     PrivateData(KnobEventHandler* const s, SubWidget* const w, PrivateData* const other)
         : self(s),
           widget(w),
           callback(other->callback),
+          accel(other->accel),
           minimum(other->minimum),
           maximum(other->maximum),
           step(other->step),
@@ -320,11 +325,13 @@ struct KnobEventHandler::PrivateData {
           orientation(other->orientation),
           state(kKnobStateDefault),
           lastX(0.0),
-          lastY(0.0) {}
+          lastY(0.0),
+          lastClickTime(0) {}
 
     void assignFrom(PrivateData* const other)
     {
         callback     = other->callback;
+        accel        = other->accel;
         minimum      = other->minimum;
         maximum      = other->maximum;
         step         = other->step;
@@ -337,6 +344,7 @@ struct KnobEventHandler::PrivateData {
         state        = kKnobStateDefault;
         lastX        = 0.0;
         lastY        = 0.0;
+        lastClickTime = 0;
     }
 
     inline float logscale(const float v) const
@@ -353,7 +361,7 @@ struct KnobEventHandler::PrivateData {
         return std::log(v/a)/b;
     }
 
-    bool mouseEvent(const Widget::MouseEvent& ev)
+    bool mouseEvent(const Widget::MouseEvent& ev, const double scaleFactor)
     {
         if (ev.button != 1)
             return false;
@@ -370,9 +378,21 @@ struct KnobEventHandler::PrivateData {
                 return true;
             }
 
+            lastX = ev.pos.getX() / scaleFactor;
+            lastY = ev.pos.getY() / scaleFactor;
+
+            if (lastClickTime > 0 && ev.time > lastClickTime && ev.time - lastClickTime <= 300)
+            {
+                lastClickTime = 0;
+
+                if (callback != nullptr)
+                    callback->knobDoubleClicked(widget);
+
+                return true;
+            }
+
+            lastClickTime = ev.time;
             state |= kKnobStateDragging;
-            lastX = ev.pos.getX();
-            lastY = ev.pos.getY();
             widget->repaint();
 
             if (callback != nullptr)
@@ -394,62 +414,87 @@ struct KnobEventHandler::PrivateData {
         return false;
     }
 
-    bool motionEvent(const Widget::MotionEvent& ev)
+    bool motionEvent(const Widget::MotionEvent& ev, const double scaleFactor)
     {
         if ((state & kKnobStateDragging) == 0x0)
             return false;
 
-        bool doVal = false;
-        float d, value2 = 0.0f;
+        float movDiff;
 
-        if (orientation == Horizontal)
+        switch (orientation)
         {
-            if (const double movX = ev.pos.getX() - lastX)
+        case Horizontal:
+            movDiff = ev.pos.getX() / scaleFactor - lastX;
+            break;
+        case Vertical:
+            movDiff = lastY - ev.pos.getY() / scaleFactor;
+            break;
+        case Both:
             {
-                d      = (ev.mod & kModifierControl) ? 2000.0f : 200.0f;
-                value2 = (usingLog ? invlogscale(valueTmp) : valueTmp) + (float(maximum - minimum) / d * float(movX));
-                doVal  = true;
+                const float movDiffX = ev.pos.getX() / scaleFactor - lastX;
+                const float movDiffY = lastY - ev.pos.getY() / scaleFactor;
+                movDiff = std::abs(movDiffX) > std::abs(movDiffY) ? movDiffX : movDiffY;
             }
-        }
-        else if (orientation == Vertical)
-        {
-            if (const double movY = lastY - ev.pos.getY())
-            {
-                d      = (ev.mod & kModifierControl) ? 2000.0f : 200.0f;
-                value2 = (usingLog ? invlogscale(valueTmp) : valueTmp) + (float(maximum - minimum) / d * float(movY));
-                doVal  = true;
-            }
+            break;
+        default:
+            return false;
         }
 
-        if (! doVal)
+        if (d_isZero(movDiff))
             return false;
 
-        if (usingLog)
-            value2 = logscale(value2);
+        const float divisor = (ev.mod & kModifierControl) ? accel * 10.f : accel;
+        valueTmp += (maximum - minimum) / divisor * movDiff;
 
-        if (value2 < minimum)
+        if (usingLog)
+            valueTmp = logscale(valueTmp);
+
+        float value2;
+        bool valueChanged = false;
+
+        if (valueTmp < minimum)
         {
             valueTmp = value2 = minimum;
+            valueChanged = true;
         }
-        else if (value2 > maximum)
+        else if (valueTmp > maximum)
         {
             valueTmp = value2 = maximum;
+            valueChanged = true;
         }
         else
         {
-            valueTmp = value2;
-
             if (d_isNotZero(step))
             {
-                const float rest = std::fmod(value2, step);
-                value2 -= rest + (rest > step/2.0f ? step : 0.0f);
+                if (std::abs(valueTmp - value) >= step)
+                {
+                    const float rest = std::fmod(valueTmp, step);
+                    valueChanged = true;
+                    value2 = valueTmp - rest;
+
+                    if (rest < 0 && rest < step * -0.5f)
+                        value2 -= step;
+                    else if (rest > 0 && rest > step * 0.5f)
+                        value2 += step;
+
+                    if (value2 < minimum)
+                        value2 = minimum;
+                    else if (value2 > maximum)
+                        value2 = maximum;
+                }
+            }
+            else
+            {
+                value2 = valueTmp;
+                valueChanged = true;
             }
         }
 
-        setValue(value2, true);
+        if (valueChanged)
+            setValue(value2, true);
 
-        lastX = ev.pos.getX();
-        lastY = ev.pos.getY();
+        lastX = ev.pos.getX() / scaleFactor;
+        lastY = ev.pos.getY() / scaleFactor;
 
         return true;
     }
@@ -460,7 +505,7 @@ struct KnobEventHandler::PrivateData {
             return false;
 
         const float dir    = (ev.delta.getY() > 0.f) ? 1.f : -1.f;
-        const float d      = (ev.mod & kModifierControl) ? 2000.0f : 200.0f;
+        const float d      = (ev.mod & kModifierControl) ? accel * 10.f : accel;
         float       value2 = (usingLog ? invlogscale(valueTmp) : valueTmp)
                            + ((maximum - minimum) / d * 10.f * dir);
 
@@ -553,6 +598,11 @@ KnobEventHandler::~KnobEventHandler()
     delete pData;
 }
 
+bool KnobEventHandler::isInteger() const noexcept
+{
+    return d_isEqual(pData->step, 1.f);
+}
+
 float KnobEventHandler::getValue() const noexcept
 {
     return pData->value;
@@ -596,9 +646,6 @@ KnobEventHandler::Orientation KnobEventHandler::getOrientation() const noexcept
 
 void KnobEventHandler::setOrientation(const Orientation orientation) noexcept
 {
-    if (pData->orientation == orientation)
-        return;
-
     pData->orientation = orientation;
 }
 
@@ -607,14 +654,19 @@ void KnobEventHandler::setCallback(Callback* const callback) noexcept
     pData->callback = callback;
 }
 
-bool KnobEventHandler::mouseEvent(const Widget::MouseEvent& ev)
+void KnobEventHandler::setMouseDeceleration(float accel) noexcept
 {
-    return pData->mouseEvent(ev);
+    pData->accel = accel;
 }
 
-bool KnobEventHandler::motionEvent(const Widget::MotionEvent& ev)
+bool KnobEventHandler::mouseEvent(const Widget::MouseEvent& ev, const double scaleFactor)
 {
-    return pData->motionEvent(ev);
+    return pData->mouseEvent(ev, scaleFactor);
+}
+
+bool KnobEventHandler::motionEvent(const Widget::MotionEvent& ev, const double scaleFactor)
+{
+    return pData->motionEvent(ev, scaleFactor);
 }
 
 bool KnobEventHandler::scrollEvent(const Widget::ScrollEvent& ev)

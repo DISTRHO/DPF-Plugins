@@ -202,13 +202,23 @@ UI::PrivateData::createNextWindow(UI* const ui, const uint width, const uint hei
  * UI */
 
 UI::UI(const uint width, const uint height, const bool automaticallyScaleAndSetAsMinimumSize)
-    : UIWidget(UI::PrivateData::createNextWindow(this, width, height)),
+    : UIWidget(UI::PrivateData::createNextWindow(this,
+              #ifdef DISTRHO_UI_DEFAULT_WIDTH
+               width == 0 ? DISTRHO_UI_DEFAULT_WIDTH :
+              #endif
+               width,
+              #ifdef DISTRHO_UI_DEFAULT_WIDTH
+               height == 0 ? DISTRHO_UI_DEFAULT_WIDTH :
+              #endif
+               height)),
       uiData(UI::PrivateData::s_nextPrivateData)
 {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     if (width != 0 && height != 0)
     {
+       #ifndef DISTRHO_UI_DEFAULT_WIDTH
         Widget::setSize(width, height);
+       #endif
 
         if (automaticallyScaleAndSetAsMinimumSize)
             setGeometryConstraints(width, height, true, true, true);
@@ -405,19 +415,19 @@ void UI::onResize(const ResizeEvent& ev)
 #endif
 }
 
-// NOTE: only used for VST3
+// NOTE: only used for VST3 and CLAP
 void UI::requestSizeChange(const uint width, const uint height)
 {
-# ifdef DISTRHO_PLUGIN_TARGET_VST3
+   #if defined(DISTRHO_PLUGIN_TARGET_VST3) || defined(DISTRHO_PLUGIN_TARGET_CLAP)
     if (uiData->initializing)
-        uiData->window->setSizeForVST3(width, height);
+        uiData->window->setSizeFromHost(width, height);
     else
         uiData->setSizeCallback(width, height);
-# else
+   #else
     // unused
     (void)width;
     (void)height;
-# endif
+   #endif
 }
 #endif
 
