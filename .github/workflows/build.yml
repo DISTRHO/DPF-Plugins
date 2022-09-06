@@ -348,7 +348,7 @@ jobs:
           path: |
             bin/*
             !bin/*-ladspa.dll
-            !bin/*-dssi.dll
+            !bin/*-dssi*
       - name: Create release archive
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -375,17 +375,17 @@ jobs:
       - name: Set up dependencies
         run: |
           # custom repos
-          wget https://launchpad.net/~kxstudio-debian/+archive/kxstudio/+files/kxstudio-repos_10.0.3_all.deb
-          sudo dpkg -i kxstudio-repos_10.0.3_all.deb
+          wget https://launchpad.net/~kxstudio-debian/+archive/kxstudio/+files/kxstudio-repos_11.1.0_all.deb
+          sudo dpkg -i kxstudio-repos_11.1.0_all.deb
           sudo apt-get update -qq
           # build-deps
           sudo apt-get install -yqq libasound2-dev libcairo2-dev libdbus-1-dev libgl1-mesa-dev liblo-dev libpulse-dev libx11-dev libxcursor-dev libxext-dev libxrandr-dev
           # runtime testing
-          sudo apt-get install -yqq carla-git lilv-utils lv2-dev lv2lint valgrind
+          sudo apt-get install -yqq carla-git lilv-utils lv2-dev lv2lint kxstudio-lv2-extensions mod-lv2-extensions valgrind xvfb
       - name: Build plugins
         env:
           CFLAGS: -g
-          CXXFLAGS: -g -DDPF_ABORT_ON_ERROR
+          CXXFLAGS: -g -DDPF_ABORT_ON_ERROR -DDPF_RUNTIME_TESTING
           LDFLAGS: -static-libgcc -static-libstdc++
         run: |
           make features
