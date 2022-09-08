@@ -60,15 +60,13 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
             port.name    = "Input Left (Amp Env)";
             port.symbol  = "in_left_amp";
             port.groupId = kPortGroupAmpEnv;
-            // FIXME VST3 sidechain handling
-            // port.hints   = kAudioPortIsSidechain;
+            port.hints   = kAudioPortIsSidechain;
             break;
         case 1:
             port.name    = "Input Right (Amp Env)";
             port.symbol  = "in_right_amp";
             port.groupId = kPortGroupAmpEnv;
-            // FIXME VST3 sidechain handling
-            // port.hints   = kAudioPortIsSidechain;
+            port.hints   = kAudioPortIsSidechain;
             break;
         case 2:
             port.name    = "Input Left (Audio)";
