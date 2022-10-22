@@ -164,7 +164,9 @@ clean:
 
 install:
 	install -d $(DESTDIR)$(PREFIX)/lib/ladspa/
+ifeq ($(BUILD_DSSI),true)
 	install -d $(DESTDIR)$(PREFIX)/lib/dssi/
+endif # BUILD_DSSI
 	install -d $(DESTDIR)$(PREFIX)/lib/lv2/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst3/
@@ -172,14 +174,16 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/bin/
 
 	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
+ifeq ($(BUILD_DSSI),true)
 	install -m 644 bin/*-dssi.*   $(DESTDIR)$(PREFIX)/lib/dssi/
+endif # BUILD_DSSI
 ifneq ($(MACOS),true)
 	install -m 644 bin/*-vst.*    $(DESTDIR)$(PREFIX)/lib/vst/
 endif
 
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifeq ($(BUILD_DSSI),true)
 	cp -r  bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
-endif # HAVE_CAIRO_OR_OPENGL
+endif # BUILD_DSSI
 	cp -rL bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
 ifeq ($(HAVE_OPENGL),true)
 	cp -rL bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/

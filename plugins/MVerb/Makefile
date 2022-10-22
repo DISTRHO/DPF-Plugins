@@ -30,10 +30,8 @@ include ../../dpf/Makefile.plugins.mk
 
 TARGETS = jack ladspa lv2_sep vst2 vst3 clap
 
-ifeq ($(HAVE_DGL),true)
-ifeq ($(HAVE_LIBLO),true)
+ifeq ($(BUILD_DSSI),true)
 TARGETS += dssi
-endif
 endif
 
 all: $(TARGETS)

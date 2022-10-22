@@ -555,6 +555,15 @@ BUILD_CXX_FLAGS += -DDGL_NAMESPACE=$(DGL_NAMESPACE)
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Which plugin types to build
+
+ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifeq ($(HAVE_LIBLO),true)
+BUILD_DSSI = true
+endif
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Optional flags
 
 ifeq ($(NVG_DISABLE_SKIPPING_WHITESPACE),true)

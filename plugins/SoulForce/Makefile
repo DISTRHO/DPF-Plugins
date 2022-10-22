@@ -36,10 +36,8 @@ TARGETS += lv2_sep
 TARGETS += vst2
 TARGETS += vst3
 
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-ifeq ($(HAVE_LIBLO),true)
+ifeq ($(BUILD_DSSI),true)
 TARGETS += dssi
-endif
 endif
 
 all: $(TARGETS)

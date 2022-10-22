@@ -23,6 +23,12 @@ include ../../dpf/Makefile.plugins.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-all: jack dssi_dsp lv2_dsp vst2 vst3 clap
+TARGETS = jack lv2_dsp vst2 vst3 clap
+
+ifeq ($(BUILD_DSSI),true)
+TARGETS += dssi_dsp
+endif
+
+all: $(TARGETS)
 
 # --------------------------------------------------------------

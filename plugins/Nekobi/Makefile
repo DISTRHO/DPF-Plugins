@@ -35,6 +35,12 @@ LINK_FLAGS += -pthread
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-all: jack dssi lv2_sep vst2 vst3 clap
+TARGETS = jack lv2_sep vst2 vst3 clap
+
+ifeq ($(BUILD_DSSI),true)
+TARGETS += dssi
+endif
+
+all: $(TARGETS)
 
 # --------------------------------------------------------------

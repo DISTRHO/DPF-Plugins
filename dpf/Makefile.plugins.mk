@@ -299,7 +299,7 @@ DGL_LIBS =
 OBJS_UI =
 endif
 
-ifneq ($(HAVE_LIBLO),true)
+ifneq ($(BUILD_DSSI),true)
 dssi_ui =
 endif
 
