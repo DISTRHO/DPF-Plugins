@@ -17,9 +17,10 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_BRAND "DISTRHO"
-#define DISTRHO_PLUGIN_NAME  "3 Band EQ"
-#define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/3BandEQ"
+#define DISTRHO_PLUGIN_BRAND   "DISTRHO"
+#define DISTRHO_PLUGIN_NAME    "3 Band EQ"
+#define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/3BandEQ"
+#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.MVerb"
 
 #define DISTRHO_PLUGIN_HAS_UI        1
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1
@@ -27,7 +28,8 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   2
 #define DISTRHO_PLUGIN_WANT_PROGRAMS 1
 
-#define DISTRHO_PLUGIN_LV2_CATEGORY "lv2:EQPlugin"
+#define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "equalizer", "stereo"
+#define DISTRHO_PLUGIN_LV2_CATEGORY    "lv2:EQPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|EQ"
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

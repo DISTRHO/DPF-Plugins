@@ -107,6 +107,7 @@ endif # !HAVE_PROJECTM
 # Do some magic
 
 UI_TYPE = opengl3
+USE_CLAP_BUNDLE = true
 USE_VST2_BUNDLE = true
 include ../../dpf/Makefile.plugins.mk
 
@@ -205,7 +206,7 @@ LINK_FLAGS += -lpthread
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-TARGETS = lv2 vst2 vst3
+TARGETS = lv2 vst2 vst3 clap
 
 all: $(TARGETS)
 

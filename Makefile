@@ -79,18 +79,26 @@ ifneq ($(HAVE_PROJECTM),true)
 	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.lv2/resources/presets/
 
 ifeq ($(MACOS),true)
-	# VST2 fonts
+	# CLAP + VST2 fonts
+	install -d bin/ProM.clap/Contents/Resources/fonts
 	install -d bin/ProM.vst/Contents/Resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.clap/Contents/Resources/fonts/
 	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst/Contents/Resources/fonts/
-	# VST2 presets
+	# CLAP + VST2 presets
+	install -d bin/ProM.clap/Contents/Resources/presets
 	install -d bin/ProM.vst/Contents/Resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.clap/Contents/Resources/presets/
 	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst/Contents/Resources/presets/
 else
-	# VST2 fonts
+	# CLAP + VST2 fonts
+	install -d bin/ProM.clap/resources/fonts
 	install -d bin/ProM.vst/resources/fonts
+	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.clap/resources/fonts/
 	ln -sf $(CURDIR)/plugins/ProM/projectM/fonts/*.ttf bin/ProM.vst/resources/fonts/
-	# VST2 presets
+	# CLAP + VST2 presets
+	install -d bin/ProM.clap/resources/presets
 	install -d bin/ProM.vst/resources/presets
+	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.clap/resources/presets/
 	ln -sf $(CURDIR)/plugins/ProM/projectM/presets/presets_* bin/ProM.vst/resources/presets/
 endif
 
@@ -160,6 +168,7 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib/lv2/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst/
 	install -d $(DESTDIR)$(PREFIX)/lib/vst3/
+	install -d $(DESTDIR)$(PREFIX)/lib/clap/
 	install -d $(DESTDIR)$(PREFIX)/bin/
 
 	install -m 644 bin/*-ladspa.* $(DESTDIR)$(PREFIX)/lib/ladspa/
@@ -176,6 +185,7 @@ ifeq ($(HAVE_OPENGL),true)
 	cp -rL bin/*.vst  $(DESTDIR)$(PREFIX)/lib/vst/
 endif # HAVE_OPENGL
 	cp -rL bin/*.vst3 $(DESTDIR)$(PREFIX)/lib/vst3/
+	cp -rL bin/*.clap $(DESTDIR)$(PREFIX)/lib/clap/
 
 	install -m 755 bin/Kars$(APP_EXT)             $(DESTDIR)$(PREFIX)/bin/
 	install -m 755 bin/3BandEQ$(APP_EXT)          $(DESTDIR)$(PREFIX)/bin/

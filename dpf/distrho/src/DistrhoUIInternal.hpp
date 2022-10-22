@@ -193,16 +193,16 @@ public:
         ui->parameterChanged(index, value);
     }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
+   #if DISTRHO_PLUGIN_WANT_PROGRAMS
     void programLoaded(const uint32_t index)
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
 
         ui->programLoaded(index);
     }
-#endif
+   #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
+   #if DISTRHO_PLUGIN_WANT_STATE
     void stateChanged(const char* const key, const char* const value)
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
@@ -211,11 +211,11 @@ public:
 
         ui->stateChanged(key, value);
     }
-#endif
+   #endif
 
     // -------------------------------------------------------------------
 
-#if DISTRHO_UI_IS_STANDALONE
+   #if DISTRHO_UI_IS_STANDALONE
     void exec(DGL_NAMESPACE::IdleCallback* const cb)
     {
         DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
@@ -238,7 +238,7 @@ public:
         uiData->window->show();
         uiData->window->focus();
     }
-#endif
+   #endif
 
     bool plugin_idle()
     {
@@ -263,7 +263,7 @@ public:
     // -------------------------------------------------------------------
 
   #if defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS)
-    void idleForVST3()
+    void idleFromNativeIdle()
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
 
@@ -272,12 +272,12 @@ public:
     }
 
    #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    void addIdleCallbackForVST3(IdleCallback* const cb, const uint timerFrequencyInMs)
+    void addIdleCallbackForNativeIdle(IdleCallback* const cb, const uint timerFrequencyInMs)
     {
         uiData->window->addIdleCallback(cb, timerFrequencyInMs);
     }
 
-    void removeIdleCallbackForVST3(IdleCallback* const cb)
+    void removeIdleCallbackForNativeIdle(IdleCallback* const cb)
     {
         uiData->window->removeIdleCallback(cb);
     }

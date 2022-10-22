@@ -21,14 +21,16 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_BRAND "DISTRHO"
-#define DISTRHO_PLUGIN_NAME  "glBars"
-#define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/glBars"
+#define DISTRHO_PLUGIN_BRAND   "DISTRHO"
+#define DISTRHO_PLUGIN_NAME    "glBars"
+#define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/glBars"
+#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.glBars"
 
 #define DISTRHO_PLUGIN_HAS_UI             1
 #define DISTRHO_PLUGIN_NUM_INPUTS         1
 #define DISTRHO_PLUGIN_NUM_OUTPUTS        1
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1
+#define DISTRHO_PLUGIN_CLAP_FEATURES      "analyzer", "stereo"
 #define DISTRHO_PLUGIN_LV2_CATEGORY       "lv2:AnalyserPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES    "Fx|Analyzer"
 #define DISTRHO_UI_USER_RESIZABLE         1

@@ -57,26 +57,26 @@ void DistrhoPluginAmplitudeImposer::initAudioPort(bool input, uint32_t index, Au
         switch (index)
         {
         case 0:
+            port.name    = "Input Left (Audio)";
+            port.symbol  = "in_left_audio";
+            port.groupId = kPortGroupStereo;
+            break;
+        case 1:
+            port.name    = "Input Right (Audio)";
+            port.symbol  = "in_right_audio";
+            port.groupId = kPortGroupStereo;
+            break;
+        case 2:
             port.name    = "Input Left (Amp Env)";
             port.symbol  = "in_left_amp";
             port.groupId = kPortGroupAmpEnv;
             port.hints   = kAudioPortIsSidechain;
             break;
-        case 1:
+        case 3:
             port.name    = "Input Right (Amp Env)";
             port.symbol  = "in_right_amp";
             port.groupId = kPortGroupAmpEnv;
             port.hints   = kAudioPortIsSidechain;
-            break;
-        case 2:
-            port.name    = "Input Left (Audio)";
-            port.symbol  = "in_left_audio";
-            port.groupId = kPortGroupAudio;
-            break;
-        case 3:
-            port.name    = "Input Right (Audio)";
-            port.symbol  = "in_right_audio";
-            port.groupId = kPortGroupAudio;
             break;
         }
     }
@@ -126,10 +126,6 @@ void DistrhoPluginAmplitudeImposer::initPortGroup(uint32_t groupId, PortGroup& p
     case kPortGroupAmpEnv:
         portGroup.name   = "Amp Env";
         portGroup.symbol = "amp_env";
-        break;
-    case kPortGroupAudio:
-        portGroup.name   = "Audio";
-        portGroup.symbol = "audio";
         break;
     }
 }
@@ -194,10 +190,10 @@ void DistrhoPluginAmplitudeImposer::activate()
 
 void DistrhoPluginAmplitudeImposer::run(const float** inputs, float** outputs, uint32_t frames)
 {
-    const float* const in1  =  inputs[0];
-    const float* const in2  =  inputs[1];
-    const float* const in3  =  inputs[2];
-    const float* const in4  =  inputs[3];
+    const float* const in1  = inputs[0];
+    const float* const in2  = inputs[1];
+    const float* const env1 = inputs[2];
+    const float* const env2 = inputs[3];
     /* */ float* const out1 = outputs[0];
     /* */ float* const out2 = outputs[1];
 
@@ -208,26 +204,26 @@ void DistrhoPluginAmplitudeImposer::run(const float** inputs, float** outputs, u
     for (uint32_t i=0; i<frames; ++i)
     {
         // calculate envelope from 1st two inputs
-        tmp = std::abs(in1[i]);
+        tmp = std::abs(env1[i]);
         /**/ if (tmp > ampEnvelope_l)
             ampEnvelope_l = tmp;
         else if (tmp < ampEnvelope_l)
             ampEnvelope_l -= envDecay;
 
-        tmp = std::abs(in2[i]);
+        tmp = std::abs(env2[i]);
         /**/ if (tmp > ampEnvelope_r)
             ampEnvelope_r = tmp;
         else if (tmp < ampEnvelope_r)
             ampEnvelope_r -= envDecay;
 
         // calculate envelope from 2nd two inputs
-        tmp = std::abs(in3[i]);
+        tmp = std::abs(in1[i]);
         /**/ if (tmp > audioEnvelope_l)
             audioEnvelope_l = tmp;
         else if (tmp < audioEnvelope_l)
             audioEnvelope_l -= envDecay;
 
-        tmp = std::abs(in4[i]);
+        tmp = std::abs(in2[i]);
         /**/ if (tmp > audioEnvelope_r)
             audioEnvelope_r = tmp;
         else if (tmp < audioEnvelope_r)
@@ -246,26 +242,26 @@ void DistrhoPluginAmplitudeImposer::run(const float** inputs, float** outputs, u
         // work out whether we need to multiply audio input
         if (audioEnvelope_l > fThreshold)
         {
-            tempin.left = in3[i];
+            tempin.left = in1[i];
         }
         else
         {
             if (audioEnvelope_l > 0.001f)
-                tempin.left = in3[i] * (fThreshold/audioEnvelope_l);
+                tempin.left = in1[i] * (fThreshold/audioEnvelope_l);
             else
-                tempin.left = in3[i] * (fThreshold/0.001f); //so it'll decay away smoothly
+                tempin.left = in1[i] * (fThreshold/0.001f); //so it'll decay away smoothly
         }
 
         if (audioEnvelope_r > fThreshold)
         {
-            tempin.right = in4[i];
+            tempin.right = in2[i];
         }
         else
         {
             if (audioEnvelope_r > 0.001f)
-                tempin.right = in4[i] * (fThreshold/audioEnvelope_r);
+                tempin.right = in2[i] * (fThreshold/audioEnvelope_r);
             else
-                tempin.right = in4[i] * (fThreshold/0.001f);
+                tempin.right = in2[i] * (fThreshold/0.001f);
         }
 
         // calculate output

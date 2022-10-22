@@ -32,7 +32,7 @@ LINK_FLAGS += -lpthread
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-TARGETS = jack lv2 vst2 vst3
+TARGETS = jack lv2 vst2 vst3 clap
 
 all: $(TARGETS)
 

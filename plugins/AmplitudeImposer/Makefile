@@ -29,8 +29,10 @@ include ../../dpf/Makefile.plugins.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
+TARGETS += clap
 TARGETS += jack
 TARGETS += ladspa
+TARGETS += lv2_sep
 TARGETS += vst2
 TARGETS += vst3
 
@@ -38,12 +40,6 @@ ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
 ifeq ($(HAVE_LIBLO),true)
 TARGETS += dssi
 endif
-endif
-
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-TARGETS += lv2_sep
-else
-TARGETS += lv2_dsp
 endif
 
 all: $(TARGETS)

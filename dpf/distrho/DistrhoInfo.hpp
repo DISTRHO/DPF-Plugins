@@ -31,7 +31,7 @@ START_NAMESPACE_DISTRHO
    It allows developers to create plugins with custom UIs using a simple C++ API.@n
    The framework facilitates exporting various different plugin formats from the same code-base.
 
-   DPF can build for LADSPA, DSSI, LV2, VST2 and VST3 formats.@n
+   DPF can build for LADSPA, DSSI, LV2, VST2, VST3 and CLAP formats.@n
    A JACK/Standalone mode is also available, allowing you to quickly test plugins.
 
    @section Macros
@@ -341,11 +341,11 @@ START_NAMESPACE_DISTRHO
 
           switch (index)
           {
-          case 0;
+          case 0:
               parameter.name   = "Gain Right";
               parameter.symbol = "gainR";
               break;
-          case 1;
+          case 1:
               parameter.name   = "Gain Left";
               parameter.symbol = "gainL";
               break;
@@ -373,12 +373,12 @@ START_NAMESPACE_DISTRHO
       {
           switch (index)
           {
-          case 0;
+          case 0:
               return fGainL;
-          case 1;
+          case 1:
               return fGainR;
-         default:
-               return 0.f;
+          default:
+              return 0.f;
           }
       }
 
@@ -389,10 +389,10 @@ START_NAMESPACE_DISTRHO
       {
           switch (index)
           {
-          case 0;
+          case 0:
               fGainL = value;
               break;
-          case 1;
+          case 1:
               fGainR = value;
               break;
           }
@@ -475,6 +475,8 @@ START_NAMESPACE_DISTRHO
     - @ref DISTRHO_PLUGIN_NUM_INPUTS
     - @ref DISTRHO_PLUGIN_NUM_OUTPUTS
     - @ref DISTRHO_PLUGIN_URI
+   
+   Additionally, @ref DISTRHO_PLUGIN_CLAP_ID is required if building CLAP plugins.
    @{
  */
 
@@ -628,6 +630,8 @@ START_NAMESPACE_DISTRHO
    Setting this macro allows to skip a temporary UI from being created in certain VST2 and VST3 hosts.
    (which would normally be done for knowing the UI size before host creates a window for it)
 
+   Value must match 1x scale factor.
+
    When this macro is defined, the companion DISTRHO_UI_DEFAULT_HEIGHT macro must be defined as well.
  */
 #define DISTRHO_UI_DEFAULT_WIDTH 300
@@ -636,6 +640,8 @@ START_NAMESPACE_DISTRHO
    Default UI height to use when creating initial and temporary windows.@n
    Setting this macro allows to skip a temporary UI from being created in certain VST2 and VST3 hosts.
    (which would normally be done for knowing the UI size before host creates a window for it)
+
+   Value must match 1x scale factor.
 
    When this macro is defined, the companion DISTRHO_UI_DEFAULT_WIDTH macro must be defined as well.
  */
@@ -810,6 +816,12 @@ START_NAMESPACE_DISTRHO
 */
 #define DISTRHO_PLUGIN_CLAP_FEATURES "audio-effect", "stereo"
 
+/**
+   The plugin id when exporting in CLAP format, in reverse URI form.
+   @note This macro is required when building CLAP plugins
+*/
+#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.effect"
+
 /** @} */
 
 /* ------------------------------------------------------------------------------------------------------------
@@ -863,15 +875,6 @@ START_NAMESPACE_DISTRHO
    @note This is experimental and incomplete, contributions are welcome and appreciated.
  */
 #define DGL_USE_OPENGL3
-
-/**
-   Whether to use the GPLv2+ vestige header instead of the official Steinberg VST2 SDK.@n
-   This is a boolean, and enabled (set to 1) by default.@n
-   Set this to 0 in order to create non-GPL binaries.
-   (but then at your own discretion in regards to Steinberg licensing)@n
-   When set to 0, DPF will import the VST2 definitions from `"vst/aeffectx.h"` (not shipped with DPF).
- */
-#define VESTIGE_HEADER 1
 
 /** @} */
 

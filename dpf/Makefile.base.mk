@@ -35,7 +35,11 @@ DPF_MAKEFILE_BASE_INCLUDED = true
 # ---------------------------------------------------------------------------------------------------------------------
 # Auto-detect target compiler if not defined
 
+ifeq ($(shell echo '\#test' | grep -- '\#test'),\#test)
 TARGET_COMPILER = $(shell echo '\#ifdef __clang__\nclang\n\#else\ngcc\n\#endif' | $(CC) -E -P -x c - 2>/dev/null)
+else
+TARGET_COMPILER = $(shell echo '#ifdef __clang__\nclang\n#else\ngcc\n#endif' | $(CC) -E -P -x c - 2>/dev/null)
+endif
 
 ifneq ($(CLANG),true)
 ifneq ($(GCC),true)
@@ -118,6 +122,9 @@ endif
 ifneq (,$(filter aarch64%,$(TARGET_PROCESSOR)))
 CPU_ARM64 = true
 CPU_ARM_OR_ARM64 = true
+endif
+ifneq (,$(filter riscv64%,$(TARGET_PROCESSOR)))
+CPU_RISCV64 = true
 endif
 
 ifeq ($(CPU_ARM),true)
@@ -246,8 +253,7 @@ else ifeq ($(WASM),true)
 LINK_OPTS += -O3
 LINK_OPTS += -Wl,--gc-sections
 else
-LINK_OPTS += -Wl,-O1,--gc-sections
-LINK_OPTS += -Wl,--as-needed
+LINK_OPTS += -Wl,-O1,--as-needed,--gc-sections
 endif
 
 ifneq ($(SKIP_STRIPPING),true)
@@ -658,6 +664,8 @@ features:
 	$(call print_available,CPU_ARM_OR_ARM64)
 	$(call print_available,CPU_I386)
 	$(call print_available,CPU_I386_OR_X86_64)
+	$(call print_available,CPU_RISCV64)
+	$(call print_available,CPU_X86_64)
 	@echo === Detected OS
 	$(call print_available,BSD)
 	$(call print_available,HAIKU)
@@ -677,6 +685,7 @@ features:
 	$(call print_available,HAVE_DBUS)
 	$(call print_available,HAVE_CAIRO)
 	$(call print_available,HAVE_DGL)
+	$(call print_available,HAVE_JACK)
 	$(call print_available,HAVE_LIBLO)
 	$(call print_available,HAVE_OPENGL)
 	$(call print_available,HAVE_PULSEAUDIO)
@@ -688,6 +697,53 @@ features:
 	$(call print_available,HAVE_XCURSOR)
 	$(call print_available,HAVE_XEXT)
 	$(call print_available,HAVE_XRANDR)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Extra rules for MOD Audio stuff
+
+# NOTE: note path must be absolute
+MOD_WORKDIR ?= $(HOME)/mod-workdir
+MOD_ENVIRONMENT = \
+	AR=${1}/host/usr/bin/${2}-gcc-ar \
+	CC=${1}/host/usr/bin/${2}-gcc \
+	CPP=${1}/host/usr/bin/${2}-cpp \
+	CXX=${1}/host/usr/bin/${2}-g++ \
+	LD=${1}/host/usr/bin/${2}-ld \
+	PKG_CONFIG=${1}/host/usr/bin/pkg-config \
+	STRIP=${1}/host/usr/bin/${2}-strip \
+	CFLAGS="-I${1}/staging/usr/include $(EXTRA_MOD_FLAGS)" \
+	CPPFLAGS= \
+	CXXFLAGS="-I${1}/staging/usr/include $(EXTRA_MOD_FLAGS)" \
+	LDFLAGS="-L${1}/staging/usr/lib $(EXTRA_MOD_FLAGS)" \
+	EXE_WRAPPER="qemu-${3}-static -L ${1}/target" \
+	NOOPT=true
+
+modduo:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-static,arm-mod-linux-gnueabihf.static,arm)
+
+modduox:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-static,aarch64-mod-linux-gnueabi.static,aarch64)
+
+moddwarf:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf,aarch64-mod-linux-gnu,aarch64)
+
+modpush:
+	tar -C bin -cz $(subst bin/,,$(wildcard bin/*.lv2)) | base64 | curl -F 'package=@-' http://192.168.51.1/sdk/install && echo
+
+ifneq (,$(findstring modduo-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo,arm-mod-linux-gnueabihf,arm) $(subst modduo-,,$(MAKECMDGOALS))
+endif
+
+ifneq (,$(findstring modduox-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox,aarch64-mod-linux-gnueabi,aarch64) $(subst modduox-,,$(MAKECMDGOALS))
+endif
+
+ifneq (,$(findstring moddwarf-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf,aarch64-mod-linux-gnu,aarch64) $(subst moddwarf-,,$(MAKECMDGOALS))
+endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Protect against multiple inclusion

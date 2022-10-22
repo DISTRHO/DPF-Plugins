@@ -28,11 +28,7 @@ include ../../dpf/Makefile.plugins.mk
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-TARGETS += jack
-TARGETS += ladspa
-TARGETS += lv2_sep
-TARGETS += vst2
-TARGETS += vst3
+TARGETS = jack ladspa lv2_sep vst2 vst3 clap
 
 ifeq ($(HAVE_DGL),true)
 ifeq ($(HAVE_LIBLO),true)

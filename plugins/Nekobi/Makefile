@@ -35,24 +35,6 @@ LINK_FLAGS += -pthread
 # --------------------------------------------------------------
 # Enable all possible plugin types
 
-TARGETS += jack
-TARGETS += dssi_dsp
-
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-ifeq ($(HAVE_LIBLO),true)
-TARGETS += dssi_ui
-endif
-endif
-
-ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-TARGETS += lv2_sep
-else
-TARGETS += lv2_dsp
-endif
-
-TARGETS += vst2
-TARGETS += vst3
-
-all: $(TARGETS)
+all: jack dssi lv2_sep vst2 vst3 clap
 
 # --------------------------------------------------------------

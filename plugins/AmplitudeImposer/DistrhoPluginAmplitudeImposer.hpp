@@ -42,7 +42,6 @@ public:
     
     enum PortGroups {
         kPortGroupAmpEnv,
-        kPortGroupAudio,
         kPortGroupCount
     };
 

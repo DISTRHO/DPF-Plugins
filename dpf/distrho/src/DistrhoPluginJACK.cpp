@@ -49,6 +49,10 @@
 # include <unistd.h>
 #endif
 
+#ifdef __SSE2_MATH__
+# include <xmmintrin.h>
+#endif
+
 #ifndef JACK_METADATA_ORDER
 # define JACK_METADATA_ORDER "http://jackaudio.org/metadata/order"
 #endif
@@ -216,6 +220,7 @@ public:
 #endif
         }
 
+        jackbridge_set_thread_init_callback(fClient, jackThreadInitCallback, this);
         jackbridge_set_buffer_size_callback(fClient, jackBufferSizeCallback, this);
         jackbridge_set_sample_rate_callback(fClient, jackSampleRateCallback, this);
         jackbridge_set_process_callback(fClient, jackProcessCallback, this);
@@ -687,6 +692,26 @@ private:
 
     #define thisPtr ((PluginJack*)ptr)
 
+    static void jackThreadInitCallback(void*)
+    {
+       #if defined(__SSE2_MATH__)
+        _mm_setcsr(_mm_getcsr() | 0x8040);
+       #elif defined(__aarch64__)
+        uint64_t c;
+        __asm__ __volatile__("mrs %0, fpcr          \n"
+                             "orr %0, %0, #0x1000000\n"
+                             "msr fpcr, %0          \n"
+                             "isb                   \n"
+                             : "=r"(c) :: "memory");
+       #elif defined(__arm__)
+        uint32_t c;
+        __asm__ __volatile__("vmrs %0, fpscr         \n"
+                             "orr  %0, %0, #0x1000000\n"
+                             "vmsr fpscr, %0         \n"
+                             : "=r"(c) :: "memory");
+       #endif
+    }
+
     static int jackBufferSizeCallback(jack_nframes_t nframes, void* ptr)
     {
         thisPtr->jackBufferSize(nframes);
@@ -841,7 +866,7 @@ bool runSelfTests()
         plugin.setSampleRate(48000);
         plugin.activate();
 
-        float buffer[128];
+        float buffer[128] = {};
         const float* inputs[DISTRHO_PLUGIN_NUM_INPUTS > 0 ? DISTRHO_PLUGIN_NUM_INPUTS : 1];
         float* outputs[DISTRHO_PLUGIN_NUM_OUTPUTS > 0 ? DISTRHO_PLUGIN_NUM_OUTPUTS : 1];
         for (int i=0; i<DISTRHO_PLUGIN_NUM_INPUTS; ++i)

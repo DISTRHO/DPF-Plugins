@@ -18,9 +18,10 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_BRAND "DISTRHO"
-#define DISTRHO_PLUGIN_NAME  "Nekobi"
-#define DISTRHO_PLUGIN_URI   "http://distrho.sf.net/plugins/Nekobi"
+#define DISTRHO_PLUGIN_BRAND   "DISTRHO"
+#define DISTRHO_PLUGIN_NAME    "Nekobi"
+#define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/Nekobi"
+#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.Nekobi"
 
 #define DISTRHO_PLUGIN_HAS_UI        1
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1

@@ -25,47 +25,73 @@
 # include "../extra/RingBuffer.hpp"
 #endif
 
-#ifndef __cdecl
-# define __cdecl
-#endif
-
-#ifndef VESTIGE_HEADER
-# define VESTIGE_HEADER 1
-#endif
-#define VST_FORCE_DEPRECATED 0
-
 #include <clocale>
 #include <map>
 #include <string>
 #include <vector>
 
-#if VESTIGE_HEADER
-# include "vestige/vestige.h"
-#define effFlagsProgramChunks (1 << 5)
-#define effSetProgramName 4
-#define effGetParamLabel 6
-#define effGetParamDisplay 7
-#define effGetChunk 23
-#define effSetChunk 24
-#define effCanBeAutomated 26
-#define effGetProgramNameIndexed 29
-#define effGetPlugCategory 35
-#define effVendorSpecific 50
-#define effEditKeyDown 59
-#define effEditKeyUp 60
-#define kVstVersion 2400
-struct ERect {
-    int16_t top, left, bottom, right;
-};
-#else
-# include "vst/aeffectx.h"
+#ifndef __cdecl
+# define __cdecl
 #endif
+
+#include "xaymar-vst2/vst.h"
 
 START_NAMESPACE_DISTRHO
 
-typedef std::map<const String, String> StringMap;
+// --------------------------------------------------------------------------------------------------------------------
 
-static constexpr const int kVstMidiEventSize = static_cast<int>(sizeof(VstMidiEvent));
+extern "C" {
+
+// define the midi stuff ourselves
+typedef struct _VstMidiEvent {
+    int32_t type;
+    int32_t byteSize;
+    int32_t deltaFrames;
+    int32_t _ignore1[3];
+    char midiData[4];
+    char _ignore2[4];
+} VstMidiEvent;
+
+typedef union _VstEvent {
+    int32_t type;
+    VstMidiEvent midi; // type 1
+} VstEvent;
+
+typedef struct _HostVstEvents {
+    int numEvents;
+    void* reserved;
+    const VstEvent* events[];
+} HostVstEvents;
+
+typedef struct _PluginVstEvents {
+    int numEvents;
+    void* reserved;
+    VstEvent* events[1];
+} PluginVstEvents;
+
+// info from online documentation of VST provided by Steinberg
+typedef struct _VstTimeInfo {
+    double samplePos;
+    double sampleRate;
+    double nanoSeconds;
+    double ppqPos;
+    double tempo;
+    double barStartPos;
+    double cycleStartPos;
+    double cycleEndPos;
+    int32_t timeSigNumerator;
+    int32_t timeSigDenominator;
+    int32_t smpteOffset;
+    int32_t smpteFrameRate;
+    int32_t samplesToNextClock;
+    int32_t flags;
+} VstTimeInfo;
+
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+typedef std::map<const String, String> StringMap;
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static const writeMidiFunc writeMidiCallback = nullptr;
@@ -74,7 +100,7 @@ static const writeMidiFunc writeMidiCallback = nullptr;
 static const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 struct ParameterAndNotesHelper
 {
@@ -122,7 +148,7 @@ struct ParameterAndNotesHelper
 };
 
 #if DISTRHO_PLUGIN_HAS_UI
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static const sendNoteFunc sendNoteCallback = nullptr;
@@ -134,8 +160,8 @@ static const setStateFunc setStateCallback = nullptr;
 class UIVst
 {
 public:
-    UIVst(const audioMasterCallback audioMaster,
-          AEffect* const effect,
+    UIVst(const vst_host_callback audioMaster,
+          vst_effect* const effect,
           ParameterAndNotesHelper* const uiHelper,
           PluginExporter* const plugin,
           const intptr_t winId, const float scaleFactor)
@@ -209,12 +235,12 @@ public:
     // -------------------------------------------------------------------
     // functions called from the plugin side, may block
 
-# if DISTRHO_PLUGIN_WANT_STATE
+   #if DISTRHO_PLUGIN_WANT_STATE
     void setStateFromPlugin(const char* const key, const char* const value)
     {
         fUI.stateChanged(key, value);
     }
-# endif
+   #endif
 
 # if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     int handlePluginKeyEvent(const bool down, const int32_t index, const intptr_t value)
@@ -257,7 +283,7 @@ public:
     // -------------------------------------------------------------------
 
 protected:
-    inline intptr_t hostCallback(const int32_t opcode,
+    inline intptr_t hostCallback(const VST_HOST_OPCODE opcode,
                                  const int32_t index = 0,
                                  const intptr_t value = 0,
                                  void* const ptr = nullptr,
@@ -268,7 +294,7 @@ protected:
 
     void editParameter(const uint32_t index, const bool started) const
     {
-        hostCallback(started ? audioMasterBeginEdit : audioMasterEndEdit, index);
+        hostCallback(started ? VST_HOST_OPCODE_2B : VST_HOST_OPCODE_2C, index);
     }
 
     void setParameterValue(const uint32_t index, const float realValue)
@@ -277,7 +303,7 @@ protected:
         const float perValue(ranges.getNormalizedValue(realValue));
 
         fPlugin->setParameterValue(index, realValue);
-        hostCallback(audioMasterAutomate, index, 0, nullptr, perValue);
+        hostCallback(VST_HOST_OPCODE_00, index, 0, nullptr, perValue);
     }
 
     void setSize(uint width, uint height)
@@ -287,7 +313,7 @@ protected:
         width /= scaleFactor;
         height /= scaleFactor;
 # endif
-        hostCallback(audioMasterSizeWindow, width, height);
+        hostCallback(VST_HOST_OPCODE_0F, width, height);
     }
 
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -311,8 +337,8 @@ protected:
 
 private:
     // Vst stuff
-    const audioMasterCallback fAudioMaster;
-    AEffect* const fEffect;
+    const vst_host_callback fAudioMaster;
+    vst_effect* const fEffect;
     ParameterAndNotesHelper* const fUiHelper;
     PluginExporter* const fPlugin;
 
@@ -363,12 +389,12 @@ private:
 };
 #endif // DISTRHO_PLUGIN_HAS_UI
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 class PluginVst : public ParameterAndNotesHelper
 {
 public:
-    PluginVst(const audioMasterCallback audioMaster, AEffect* const effect)
+    PluginVst(const vst_host_callback audioMaster, vst_effect* const effect)
         : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
           fAudioMaster(audioMaster),
           fEffect(effect)
@@ -452,10 +478,10 @@ public:
 
         switch (opcode)
         {
-        case effGetProgram:
+        case VST_EFFECT_OPCODE_03: // get program
             return 0;
 
-        case effSetProgramName:
+        case VST_EFFECT_OPCODE_04: // set program name
             if (char* const programName = (char*)ptr)
             {
                 strncpy(fProgramName, programName, 32);
@@ -463,7 +489,7 @@ public:
             }
             break;
 
-        case effGetProgramName:
+        case VST_EFFECT_OPCODE_05: // get program name
             if (char* const programName = (char*)ptr)
             {
                 strncpy(programName, fProgramName, 24);
@@ -471,7 +497,7 @@ public:
             }
             break;
 
-        case effGetProgramNameIndexed:
+        case VST_EFFECT_OPCODE_1D: // get program name indexed
             if (char* const programName = (char*)ptr)
             {
                 strncpy(programName, fProgramName, 24);
@@ -479,7 +505,7 @@ public:
             }
             break;
 
-        case effGetParamDisplay:
+        case VST_EFFECT_OPCODE_PARAM_GETVALUE:
             if (ptr != nullptr && index < static_cast<int32_t>(fPlugin.getParameterCount()))
             {
                 const uint32_t hints = fPlugin.getParameterHints(index);
@@ -517,7 +543,7 @@ public:
             }
             break;
 
-        case effSetSampleRate:
+        case VST_EFFECT_OPCODE_SET_SAMPLE_RATE:
             fPlugin.setSampleRate(opt, true);
 
 #if DISTRHO_PLUGIN_HAS_UI
@@ -526,26 +552,26 @@ public:
 #endif
             break;
 
-        case effSetBlockSize:
+        case VST_EFFECT_OPCODE_SET_BLOCK_SIZE:
             fPlugin.setBufferSize(value, true);
             break;
 
-        case effMainsChanged:
+        case VST_EFFECT_OPCODE_SUSPEND:
             if (value != 0)
             {
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
                 fMidiEventCount = 0;
 
                 // tell host we want MIDI events
-                hostCallback(audioMasterWantMidi);
+                hostCallback(VST_HOST_OPCODE_06);
 #endif
 
                 // deactivate for possible changes
                 fPlugin.deactivateIfNeeded();
 
                 // check if something changed
-                const uint32_t bufferSize = static_cast<uint32_t>(hostCallback(audioMasterGetBlockSize));
-                const double   sampleRate = static_cast<double>(hostCallback(audioMasterGetSampleRate));
+                const uint32_t bufferSize = static_cast<uint32_t>(hostCallback(VST_HOST_OPCODE_11));
+                const double   sampleRate = static_cast<double>(hostCallback(VST_HOST_OPCODE_10));
 
                 if (bufferSize != 0)
                     fPlugin.setBufferSize(bufferSize, true);
@@ -562,7 +588,7 @@ public:
             break;
 
 #if DISTRHO_PLUGIN_HAS_UI
-        case effEditGetRect:
+        case VST_EFFECT_OPCODE_WINDOW_GETRECT:
             if (fVstUI != nullptr)
             {
                 fVstRect.right  = fVstUI->getWidth();
@@ -595,12 +621,13 @@ public:
                 fVstRect.bottom /= scaleFactor;
                #endif
             }
-            *(ERect**)ptr = &fVstRect;
+            *(vst_rect**)ptr = &fVstRect;
             return 1;
 
-        case effEditOpen:
-            delete fVstUI; // hosts which don't pair effEditOpen/effEditClose calls (Minihost Modular)
+        case VST_EFFECT_OPCODE_WINDOW_CREATE:
+            delete fVstUI; // for hosts which don't pair create/destroy calls (Minihost Modular)
             fVstUI = nullptr;
+
             {
 # if DISTRHO_OS_MAC
                 if (! fUsingNsView)
@@ -611,25 +638,28 @@ public:
 # endif
                 fVstUI = new UIVst(fAudioMaster, fEffect, this, &fPlugin, (intptr_t)ptr, fLastScaleFactor);
 
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
+               #if DISTRHO_PLUGIN_WANT_FULL_STATE
                 // Update current state from plugin side
                 for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
                 {
                     const String& key = cit->first;
                     fStateMap[key] = fPlugin.getStateValue(key);
                 }
-# endif
+               #endif
 
-# if DISTRHO_PLUGIN_WANT_STATE
+               #if DISTRHO_PLUGIN_WANT_STATE
                 // Set state
                 for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
                 {
                     const String& key   = cit->first;
                     const String& value = cit->second;
 
+                    // TODO skip DSP only states
+
                     fVstUI->setStateFromPlugin(key, value);
                 }
-# endif
+               #endif
+
                 for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
                     setParameterValueFromPlugin(i, fPlugin.getParameterValue(i));
 
@@ -638,7 +668,7 @@ public:
             }
             break;
 
-        case effEditClose:
+        case VST_EFFECT_OPCODE_WINDOW_DESTROY:
             if (fVstUI != nullptr)
             {
                 delete fVstUI;
@@ -647,18 +677,18 @@ public:
             }
             break;
 
-        case effEditIdle:
+        case VST_EFFECT_OPCODE_13: // window idle
             if (fVstUI != nullptr)
                 fVstUI->idle();
             break;
 
 # if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-        case effEditKeyDown:
+        case VST_EFFECT_OPCODE_3B: // key down
             if (fVstUI != nullptr)
                 return fVstUI->handlePluginKeyEvent(true, index, value);
             break;
 
-        case effEditKeyUp:
+        case VST_EFFECT_OPCODE_3C: // key up
             if (fVstUI != nullptr)
                 return fVstUI->handlePluginKeyEvent(false, index, value);
             break;
@@ -666,7 +696,7 @@ public:
 #endif // DISTRHO_PLUGIN_HAS_UI
 
 #if DISTRHO_PLUGIN_WANT_STATE
-        case effGetChunk:
+        case VST_EFFECT_OPCODE_17: // get chunk
         {
             if (ptr == nullptr)
                 return 0;
@@ -753,7 +783,7 @@ public:
             return ret;
         }
 
-        case effSetChunk:
+        case VST_EFFECT_OPCODE_18: // set chunk
         {
             if (value <= 1 || ptr == nullptr)
                 return 0;
@@ -777,7 +807,10 @@ public:
 
 # if DISTRHO_PLUGIN_HAS_UI
                 if (fVstUI != nullptr)
+                {
+                    // TODO skip DSP only states
                     fVstUI->setStateFromPlugin(key, value);
+                }
 # endif
 
                 // get next key
@@ -834,39 +867,41 @@ public:
 #endif // DISTRHO_PLUGIN_WANT_STATE
 
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        case effProcessEvents:
+        case VST_EFFECT_OPCODE_19: // process events
             if (! fPlugin.isActive())
             {
                 // host has not activated the plugin yet, nasty!
-                vst_dispatcher(effMainsChanged, 0, 1, nullptr, 0.0f);
+                vst_dispatcher(VST_EFFECT_OPCODE_SUSPEND, 0, 1, nullptr, 0.0f);
             }
 
-            if (const VstEvents* const events = (const VstEvents*)ptr)
+            if (const HostVstEvents* const events = (const HostVstEvents*)ptr)
             {
                 if (events->numEvents == 0)
                     break;
 
                 for (int i=0, count=events->numEvents; i < count; ++i)
                 {
-                    const VstMidiEvent* const vstMidiEvent((const VstMidiEvent*)events->events[i]);
+                    const VstEvent* const vstEvent = events->events[i];
 
-                    if (vstMidiEvent == nullptr)
+                    if (vstEvent == nullptr)
                         break;
-                    if (vstMidiEvent->type != kVstMidiType)
+                    if (vstEvent->type != 1)
                         continue;
                     if (fMidiEventCount >= kMaxMidiEvents)
                         break;
 
+                    const VstMidiEvent& vstMidiEvent(events->events[i]->midi);
+
                     MidiEvent& midiEvent(fMidiEvents[fMidiEventCount++]);
-                    midiEvent.frame  = vstMidiEvent->deltaFrames;
+                    midiEvent.frame  = vstMidiEvent.deltaFrames;
                     midiEvent.size   = 3;
-                    std::memcpy(midiEvent.data, vstMidiEvent->midiData, sizeof(uint8_t)*3);
+                    std::memcpy(midiEvent.data, vstMidiEvent.midiData, sizeof(uint8_t)*3);
                 }
             }
             break;
 #endif
 
-        case effCanBeAutomated:
+        case VST_EFFECT_OPCODE_PARAM_ISAUTOMATABLE:
             if (index < static_cast<int32_t>(fPlugin.getParameterCount()))
             {
                 const uint32_t hints(fPlugin.getParameterHints(index));
@@ -877,7 +912,7 @@ public:
             }
             break;
 
-        case effCanDo:
+        case VST_EFFECT_OPCODE_SUPPORTS:
             if (const char* const canDo = (const char*)ptr)
             {
 #if DISTRHO_OS_MAC && DISTRHO_PLUGIN_HAS_UI
@@ -916,9 +951,9 @@ public:
             }
             break;
 
-        case effVendorSpecific:
+        case VST_EFFECT_OPCODE_CUSTOM:
 #if DISTRHO_PLUGIN_HAS_UI && !defined(DISTRHO_OS_MAC)
-            if (index == CCONST('P', 'r', 'e', 'S') && value == CCONST('A', 'e', 'C', 's'))
+            if (index == d_cconst('P', 'r', 'e', 'S') && value == d_cconst('A', 'e', 'C', 's'))
             {
                 if (d_isEqual(fLastScaleFactor, opt))
                     break;
@@ -940,13 +975,13 @@ public:
         return 0;
     }
 
-    float vst_getParameter(const int32_t index)
+    float vst_getParameter(const uint32_t index)
     {
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
         return ranges.getNormalizedValue(fPlugin.getParameterValue(index));
     }
 
-    void vst_setParameter(const int32_t index, const float value)
+    void vst_setParameter(const uint32_t index, const float value)
     {
         const uint32_t hints = fPlugin.getParameterHints(index);
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
@@ -978,7 +1013,7 @@ public:
         if (! fPlugin.isActive())
         {
             // host has not activated the plugin yet, nasty!
-            vst_dispatcher(effMainsChanged, 0, 1, nullptr, 0.0f);
+            vst_dispatcher(VST_EFFECT_OPCODE_SUSPEND, 0, 1, nullptr, 0.0f);
         }
 
         if (sampleFrames <= 0)
@@ -988,22 +1023,22 @@ public:
         }
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
-        static const int kWantVstTimeFlags(kVstTransportPlaying|kVstPpqPosValid|kVstTempoValid|kVstTimeSigValid);
+        static constexpr const int kWantVstTimeFlags = 0x2602;
 
-        if (const VstTimeInfo* const vstTimeInfo = (const VstTimeInfo*)hostCallback(audioMasterGetTime, 0, kWantVstTimeFlags))
+        if (const VstTimeInfo* const vstTimeInfo = (const VstTimeInfo*)hostCallback(VST_HOST_OPCODE_07, 0, kWantVstTimeFlags))
         {
             fTimePosition.frame   = vstTimeInfo->samplePos;
-            fTimePosition.playing = vstTimeInfo->flags & kVstTransportPlaying;
+            fTimePosition.playing = vstTimeInfo->flags & 0x2;
 
             // ticksPerBeat is not possible with VST2
             fTimePosition.bbt.ticksPerBeat = 1920.0;
 
-            if (vstTimeInfo->flags & kVstTempoValid)
+            if (vstTimeInfo->flags & 0x400)
                 fTimePosition.bbt.beatsPerMinute = vstTimeInfo->tempo;
             else
                 fTimePosition.bbt.beatsPerMinute = 120.0;
 
-            if ((vstTimeInfo->flags & (kVstPpqPosValid|kVstTimeSigValid)) == (kVstPpqPosValid|kVstTimeSigValid))
+            if ((vstTimeInfo->flags & 0x2200) == 0x2200)
             {
                 const double ppqPos    = std::abs(vstTimeInfo->ppqPos);
                 const int    ppqPerBar = vstTimeInfo->timeSigNumerator * 4 / vstTimeInfo->timeSigDenominator;
@@ -1083,8 +1118,8 @@ private:
     PluginExporter fPlugin;
 
     // VST stuff
-    const audioMasterCallback fAudioMaster;
-    AEffect* const fEffect;
+    const vst_host_callback fAudioMaster;
+    vst_effect* const fEffect;
 
     // Temporary data
     char fProgramName[32];
@@ -1100,9 +1135,9 @@ private:
 
     // UI stuff
 #if DISTRHO_PLUGIN_HAS_UI
-    UIVst* fVstUI;
-    ERect  fVstRect;
-    float  fLastScaleFactor;
+    UIVst*   fVstUI;
+    vst_rect fVstRect;
+    float    fLastScaleFactor;
 # if DISTRHO_OS_MAC
     bool fUsingNsView;
 # endif
@@ -1119,7 +1154,7 @@ private:
     // -------------------------------------------------------------------
     // host callback
 
-    intptr_t hostCallback(const int32_t opcode,
+    intptr_t hostCallback(const VST_HOST_OPCODE opcode,
                           const int32_t index = 0,
                           const intptr_t value = 0,
                           void* const ptr = nullptr,
@@ -1177,8 +1212,12 @@ private:
             }
 
             const ParameterRanges& ranges(fPlugin.getParameterRanges(i));
-            hostCallback(audioMasterAutomate, i, 0, nullptr, ranges.getNormalizedValue(curValue));
+            hostCallback(VST_HOST_OPCODE_00, i, 0, nullptr, ranges.getNormalizedValue(curValue));
         }
+
+       #if DISTRHO_PLUGIN_WANT_LATENCY
+        fEffect->delay = fPlugin.getLatency();
+       #endif
     }
 
 #if DISTRHO_PLUGIN_HAS_UI
@@ -1192,7 +1231,7 @@ private:
 #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
     bool requestParameterValueChange(const uint32_t index, const float value)
     {
-        hostCallback(audioMasterAutomate, index, 0, nullptr, value);
+        hostCallback(VST_HOST_OPCODE_00, index, 0, nullptr, value);
         return true;
     }
 
@@ -1208,23 +1247,20 @@ private:
         if (midiEvent.size > 4)
             return true;
 
-        VstEvents vstEvents;
-        std::memset(&vstEvents, 0, sizeof(VstEvents));
-
-        VstMidiEvent vstMidiEvent;
-        std::memset(&vstMidiEvent, 0, sizeof(VstMidiEvent));
+        PluginVstEvents vstEvents = {};
+        VstMidiEvent vstMidiEvent = {};
 
         vstEvents.numEvents = 1;
         vstEvents.events[0] = (VstEvent*)&vstMidiEvent;
 
-        vstMidiEvent.type = kVstMidiType;
-        vstMidiEvent.byteSize    = kVstMidiEventSize;
+        vstMidiEvent.type = 1;
+        vstMidiEvent.byteSize    = static_cast<int32_t>(sizeof(VstMidiEvent));;
         vstMidiEvent.deltaFrames = midiEvent.frame;
 
         for (uint8_t i=0; i<midiEvent.size; ++i)
             vstMidiEvent.midiData[i] = midiEvent.data[i];
 
-        return hostCallback(audioMasterProcessEvents, 0, 0, &vstEvents) == 1;
+        return hostCallback(VST_HOST_OPCODE_08, 0, 0, &vstEvents) == 1;
     }
 
     static bool writeMidiCallback(void* ptr, const MidiEvent& midiEvent)
@@ -1266,69 +1302,84 @@ private:
 #endif
 };
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
-struct VstObject {
-    audioMasterCallback audioMaster;
-    PluginVst* plugin;
+struct ExtendedAEffect : vst_effect {
+    char _padding[63];
+    char valid;
+    vst_host_callback audioMaster;
+    PluginVst* pluginPtr;
 };
-
-#define validObject  effect != nullptr && effect->object != nullptr
-#define validPlugin  effect != nullptr && effect->object != nullptr && ((VstObject*)effect->object)->plugin != nullptr
-#define vstObjectPtr (VstObject*)effect->object
-#define pluginPtr    (vstObjectPtr)->plugin
 
 static ScopedPointer<PluginExporter> sPlugin;
 
-static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t index, intptr_t value, void* ptr, float opt)
-{
-    // first internal init
-    const bool doInternalInit = (opcode == -1729 && index == 0xdead && value == 0xf00d);
+static struct Cleanup {
+    std::vector<ExtendedAEffect*> effects;
 
-    if (doInternalInit || opcode == effOpen)
+    ~Cleanup()
     {
-        if (sPlugin == nullptr)
+        for (std::vector<ExtendedAEffect*>::iterator it = effects.begin(), end = effects.end(); it != end; ++it)
         {
-            // set valid but dummy values
-            d_nextBufferSize = 512;
-            d_nextSampleRate = 44100.0;
-            d_nextPluginIsDummy = true;
-            d_nextCanRequestParameterValueChanges = true;
-
-            // Create dummy plugin to get data from
-            sPlugin = new PluginExporter(nullptr, nullptr, nullptr, nullptr);
-
-            // unset
-            d_nextBufferSize = 0;
-            d_nextSampleRate = 0.0;
-            d_nextPluginIsDummy = false;
-            d_nextCanRequestParameterValueChanges = false;
+            ExtendedAEffect* const exteffect = *it;
+            delete exteffect->pluginPtr;
+            delete exteffect;
         }
 
-        if (doInternalInit)
-        {
-            *(PluginExporter**)ptr = sPlugin.get();
-            return 0;
-        }
+        sPlugin = nullptr;
     }
+} sCleanup;
 
+// --------------------------------------------------------------------------------------------------------------------
+
+static inline
+ExtendedAEffect* getExtendedEffect(vst_effect* const effect)
+{
+    if (effect == nullptr)
+        return nullptr;
+
+    ExtendedAEffect* const exteffect = static_cast<ExtendedAEffect*>(effect);
+    DISTRHO_SAFE_ASSERT_RETURN(exteffect->valid == 101, nullptr);
+    DISTRHO_SAFE_ASSERT_RETURN(exteffect->audioMaster != nullptr, nullptr);
+
+    return exteffect;
+}
+
+static inline
+PluginVst* getEffectPlugin(vst_effect* const effect)
+{
+    if (effect == nullptr)
+        return nullptr;
+
+    ExtendedAEffect* const exteffect = static_cast<ExtendedAEffect*>(effect);
+    DISTRHO_SAFE_ASSERT_RETURN(exteffect->valid == 101, nullptr);
+    DISTRHO_SAFE_ASSERT_RETURN(exteffect->audioMaster != nullptr, nullptr);
+
+    return exteffect->pluginPtr;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+static intptr_t VST_FUNCTION_INTERFACE vst_dispatcherCallback(vst_effect* const effect,
+                                                              const VST_EFFECT_OPCODE opcode,
+                                                              const int32_t index,
+                                                              const intptr_t value,
+                                                              void* const ptr,
+                                                              const float opt)
+{
     // handle base opcodes
     switch (opcode)
     {
-    case effOpen:
-        if (VstObject* const obj = vstObjectPtr)
+    case VST_EFFECT_OPCODE_CREATE:
+        if (ExtendedAEffect* const exteffect = getExtendedEffect(effect))
         {
-            // this must always be valid
-            DISTRHO_SAFE_ASSERT_RETURN(obj->audioMaster != nullptr, 0);
-
-            // some hosts call effOpen twice
-            if (obj->plugin != nullptr)
+            // some hosts call open/create twice
+            if (exteffect->pluginPtr != nullptr)
                 return 1;
 
-            audioMasterCallback audioMaster = (audioMasterCallback)obj->audioMaster;
+            const vst_host_callback audioMaster = exteffect->audioMaster;
 
-            d_nextBufferSize = audioMaster(effect, audioMasterGetBlockSize, 0, 0, nullptr, 0.0f);
-            d_nextSampleRate = audioMaster(effect, audioMasterGetSampleRate, 0, 0, nullptr, 0.0f);
+            d_nextBufferSize = audioMaster(effect, VST_HOST_OPCODE_11, 0, 0, nullptr, 0.0f);
+            d_nextSampleRate = audioMaster(effect, VST_HOST_OPCODE_10, 0, 0, nullptr, 0.0f);
             d_nextCanRequestParameterValueChanges = true;
 
             // some hosts are not ready at this point or return 0 buffersize/samplerate
@@ -1337,35 +1388,37 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
             if (d_nextSampleRate <= 0.0)
                 d_nextSampleRate = 44100.0;
 
-            obj->plugin = new PluginVst(audioMaster, effect);
+            exteffect->pluginPtr = new PluginVst(audioMaster, effect);
             return 1;
         }
         return 0;
 
-    case effClose:
-        if (VstObject* const obj = vstObjectPtr)
+    case VST_EFFECT_OPCODE_DESTROY:
+        if (ExtendedAEffect* const exteffect = getExtendedEffect(effect))
         {
-            if (obj->plugin != nullptr)
+            // delete plugin object
+            if (exteffect->pluginPtr != nullptr)
             {
-                delete obj->plugin;
-                obj->plugin = nullptr;
+                delete exteffect->pluginPtr;
+                exteffect->pluginPtr = nullptr;
             }
 
-#if 0
-            /* This code invalidates the object created in VSTPluginMain
-             * Probably not safe against all hosts */
-            obj->audioMaster = nullptr;
-            effect->object = nullptr;
-            delete obj;
-#endif
+            // delete effect too, if it comes from us
+            const std::vector<ExtendedAEffect*>::iterator it = std::find(sCleanup.effects.begin(), sCleanup.effects.end(), exteffect);
+            if (it != sCleanup.effects.end())
+            {
+                delete exteffect;
+                sCleanup.effects.erase(it);
+            }
 
-            sPlugin = nullptr;
+            // delete global plugin instance too if this is the last loaded effect
+            if (sCleanup.effects.empty())
+                sPlugin = nullptr;
             return 1;
         }
-        //delete effect;
         return 0;
 
-    case effGetParamLabel:
+    case VST_EFFECT_OPCODE_PARAM_GETLABEL:
         if (ptr != nullptr && index < static_cast<int32_t>(sPlugin->getParameterCount()))
         {
             strncpy((char*)ptr, sPlugin->getParameterUnit(index), 8);
@@ -1373,7 +1426,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetParamName:
+    case VST_EFFECT_OPCODE_PARAM_GETNAME:
         if (ptr != nullptr && index < static_cast<int32_t>(sPlugin->getParameterCount()))
         {
             const String& shortName(sPlugin->getParameterShortName(index));
@@ -1385,25 +1438,25 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetParameterProperties:
+    case VST_EFFECT_OPCODE_38: // FIXME VST_EFFECT_OPCODE_GET_PARAMETER_PROPERTIES is wrong by 1
         if (ptr != nullptr && index < static_cast<int32_t>(sPlugin->getParameterCount()))
         {
-            if (VstParameterProperties* const properties = (VstParameterProperties*)ptr)
+            if (vst_parameter_properties* const properties = (vst_parameter_properties*)ptr)
             {
-                memset(properties, 0, sizeof(VstParameterProperties));
+                memset(properties, 0, sizeof(vst_parameter_properties));
 
                 // full name
-                strncpy(properties->label,
+                strncpy(properties->name,
                         sPlugin->getParameterName(index),
-                        sizeof(properties->label));
+                        sizeof(properties->name));
 
                 // short name
                 const String& shortName(sPlugin->getParameterShortName(index));
 
                 if (shortName.isNotEmpty())
-                    strncpy(properties->shortLabel,
+                    strncpy(properties->label,
                             sPlugin->getParameterShortName(index),
-                            sizeof(properties->shortLabel));
+                            sizeof(properties->label));
 
                 // parameter hints
                 const uint32_t hints = sPlugin->getParameterHints(index);
@@ -1413,20 +1466,20 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
 
                 if (hints & kParameterIsBoolean)
                 {
-                    properties->flags |= kVstParameterIsSwitch;
+                    properties->flags |= VST_PARAMETER_FLAGS_SWITCH;
                 }
 
                 if (hints & kParameterIsInteger)
                 {
                     const ParameterRanges& ranges(sPlugin->getParameterRanges(index));
-                    properties->flags |= kVstParameterUsesIntegerMinMax;
-                    properties->minInteger = static_cast<int32_t>(ranges.min);
-                    properties->maxInteger = static_cast<int32_t>(ranges.max);
+                    properties->flags |= VST_PARAMETER_FLAGS_INTEGER_LIMITS;
+                    properties->min_value_i32 = static_cast<int32_t>(ranges.min);
+                    properties->max_value_i32 = static_cast<int32_t>(ranges.max);
                 }
 
                 if (hints & kParameterIsLogarithmic)
                 {
-                    properties->flags |= kVstParameterCanRamp;
+                    properties->flags |= VST_PARAMETER_FLAGS_UNKNOWN6; // can ramp
                 }
 
                 // parameter group (category in vst)
@@ -1441,10 +1494,11 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
 
                         if (portGroup.groupId == groupId)
                         {
+                            properties->flags |= VST_PARAMETER_FLAGS_CATEGORY;
                             properties->category = i + 1;
-                            strncpy(properties->categoryLabel,
+                            strncpy(properties->category_label,
                                     portGroup.name.buffer(),
-                                    sizeof(properties->categoryLabel));
+                                    sizeof(properties->category_label));
                             break;
                         }
                     }
@@ -1453,7 +1507,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
                     {
                         for (uint32_t i=0, count=sPlugin->getParameterCount(); i < count; ++i)
                             if (sPlugin->getParameterGroupId(i) == groupId)
-                                ++properties->numParametersInCategory;
+                                ++properties->num_parameters_in_category;
                     }
                 }
 
@@ -1462,14 +1516,14 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetPlugCategory:
-#if DISTRHO_PLUGIN_IS_SYNTH
-        return kPlugCategSynth;
-#else
-        return kPlugCategEffect;
-#endif
+    case VST_EFFECT_OPCODE_EFFECT_CATEGORY:
+       #if DISTRHO_PLUGIN_IS_SYNTH
+        return VST_CATEGORY_02;
+       #else
+        return VST_CATEGORY_01;
+       #endif
 
-    case effGetEffectName:
+    case VST_EFFECT_OPCODE_EFFECT_NAME:
         if (char* const cptr = (char*)ptr)
         {
             strncpy(cptr, sPlugin->getName(), 32);
@@ -1477,7 +1531,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetVendorString:
+    case VST_EFFECT_OPCODE_VENDOR_NAME:
         if (char* const cptr = (char*)ptr)
         {
             strncpy(cptr, sPlugin->getMaker(), 32);
@@ -1485,7 +1539,7 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetProductString:
+    case VST_EFFECT_OPCODE_PRODUCT_NAME:
         if (char* const cptr = (char*)ptr)
         {
             strncpy(cptr, sPlugin->getLabel(), 32);
@@ -1493,82 +1547,75 @@ static intptr_t vst_dispatcherCallback(AEffect* effect, int32_t opcode, int32_t 
         }
         return 0;
 
-    case effGetVendorVersion:
+    case VST_EFFECT_OPCODE_VENDOR_VERSION:
         return sPlugin->getVersion();
 
-    case effGetVstVersion:
-        return kVstVersion;
-    };
+    case VST_EFFECT_OPCODE_VST_VERSION:
+        return VST_VERSION_2_4_0_0;
+
+    default:
+        break;
+    }
 
     // handle advanced opcodes
-    if (validPlugin)
+    if (PluginVst* const pluginPtr = getEffectPlugin(effect))
         return pluginPtr->vst_dispatcher(opcode, index, value, ptr, opt);
 
     return 0;
 }
 
-static float vst_getParameterCallback(AEffect* effect, int32_t index)
+static float VST_FUNCTION_INTERFACE vst_getParameterCallback(vst_effect* const effect,
+                                                             const uint32_t index)
 {
-    if (validPlugin)
+    if (PluginVst* const pluginPtr = getEffectPlugin(effect))
         return pluginPtr->vst_getParameter(index);
     return 0.0f;
 }
 
-static void vst_setParameterCallback(AEffect* effect, int32_t index, float value)
+static void VST_FUNCTION_INTERFACE vst_setParameterCallback(vst_effect* const effect,
+                                                            const uint32_t index,
+                                                            const float value)
 {
-    if (validPlugin)
+    if (PluginVst* const pluginPtr = getEffectPlugin(effect))
         pluginPtr->vst_setParameter(index, value);
 }
 
-static void vst_processCallback(AEffect* effect, float** inputs, float** outputs, int32_t sampleFrames)
+static void VST_FUNCTION_INTERFACE vst_processCallback(vst_effect* const effect,
+                                                       const float* const* const inputs,
+                                                       float** const outputs,
+                                                       const int32_t sampleFrames)
 {
-    if (validPlugin)
+    if (PluginVst* const pluginPtr = getEffectPlugin(effect))
         pluginPtr->vst_processReplacing(const_cast<const float**>(inputs), outputs, sampleFrames);
 }
 
-static void vst_processReplacingCallback(AEffect* effect, float** inputs, float** outputs, int32_t sampleFrames)
+static void VST_FUNCTION_INTERFACE vst_processReplacingCallback(vst_effect* const effect,
+                                                                const float* const* const inputs,
+                                                                float** const outputs,
+                                                                const int32_t sampleFrames)
 {
-    if (validPlugin)
+    if (PluginVst* const pluginPtr = getEffectPlugin(effect))
         pluginPtr->vst_processReplacing(const_cast<const float**>(inputs), outputs, sampleFrames);
 }
-
-#undef pluginPtr
-#undef validObject
-#undef validPlugin
-#undef vstObjectPtr
-
-static struct Cleanup {
-    std::vector<AEffect*> effects;
-
-    ~Cleanup()
-    {
-        for (std::vector<AEffect*>::iterator it = effects.begin(), end = effects.end(); it != end; ++it)
-        {
-            AEffect* const effect = *it;
-            delete (VstObject*)effect->object;
-            delete effect;
-        }
-    }
-} sCleanup;
 
 // -----------------------------------------------------------------------
 
 END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
-#if DISTRHO_OS_MAC || DISTRHO_OS_WASM || DISTRHO_OS_WINDOWS
-const AEffect* VSTPluginMain(audioMasterCallback audioMaster);
+#if defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WASM) || defined(DISTRHO_OS_WINDOWS)
+const vst_effect* VSTPluginMain(vst_host_callback audioMaster);
 #else
-const AEffect* VSTPluginMain(audioMasterCallback audioMaster) asm ("main");
+const vst_effect* VSTPluginMain(vst_host_callback audioMaster) asm ("main");
 #endif
 
 DISTRHO_PLUGIN_EXPORT
-const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
+const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
 {
     USE_NAMESPACE_DISTRHO
 
     // old version
-    if (audioMaster(nullptr, audioMasterVersion, 0, 0, nullptr, 0.0f) == 0)
+    if (audioMaster(nullptr, VST_HOST_OPCODE_01 /* version */, 0, 0, nullptr, 0.0f) == 0)
         return nullptr;
 
     // find plugin bundle
@@ -1577,7 +1624,7 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
     {
         String tmpPath(getBinaryFilename());
         tmpPath.truncate(tmpPath.rfind(DISTRHO_OS_SEP));
-#ifdef DISTRHO_OS_MAC
+       #ifdef DISTRHO_OS_MAC
         if (tmpPath.endsWith("/MacOS"))
         {
             tmpPath.truncate(tmpPath.rfind('/'));
@@ -1588,38 +1635,56 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
                 d_nextBundlePath = bundlePath.buffer();
             }
         }
-#else
+       #else
         if (tmpPath.endsWith(".vst"))
         {
             bundlePath = tmpPath;
             d_nextBundlePath = bundlePath.buffer();
         }
-#endif
+       #endif
     }
 
     // first internal init
-    PluginExporter* plugin = nullptr;
-    vst_dispatcherCallback(nullptr, -1729, 0xdead, 0xf00d, &plugin, 0.0f);
-    DISTRHO_SAFE_ASSERT_RETURN(plugin != nullptr, nullptr);
+    if (sPlugin == nullptr)
+    {
+        // set valid but dummy values
+        d_nextBufferSize = 512;
+        d_nextSampleRate = 44100.0;
+        d_nextPluginIsDummy = true;
+        d_nextCanRequestParameterValueChanges = true;
 
-    AEffect* const effect(new AEffect);
-    std::memset(effect, 0, sizeof(AEffect));
+        // Create dummy plugin to get data from
+        sPlugin = new PluginExporter(nullptr, nullptr, nullptr, nullptr);
+
+        // unset
+        d_nextBufferSize = 0;
+        d_nextSampleRate = 0.0;
+        d_nextPluginIsDummy = false;
+        d_nextCanRequestParameterValueChanges = false;
+    }
+
+    ExtendedAEffect* const effect = new ExtendedAEffect;
+    std::memset(effect, 0, sizeof(ExtendedAEffect));
 
     // vst fields
-    effect->magic    = kEffectMagic;
-    effect->uniqueID = plugin->getUniqueId();
-    effect->version  = plugin->getVersion();
+   #ifdef WORDS_BIGENDIAN
+    effect->magic_number = 0x50747356;
+   #else
+    effect->magic_number = 0x56737450;
+   #endif
+    effect->unique_id    = sPlugin->getUniqueId();
+    effect->version      = sPlugin->getVersion();
 
     // VST doesn't support parameter outputs. we can fake them, but it is a hack. Disabled by default.
 #ifdef DPF_VST_SHOW_PARAMETER_OUTPUTS
-    const int numParams = plugin->getParameterCount();
+    const int numParams = sPlugin->getParameterCount();
 #else
     int numParams = 0;
     bool outputsReached = false;
 
-    for (uint32_t i=0, count=plugin->getParameterCount(); i < count; ++i)
+    for (uint32_t i=0, count=sPlugin->getParameterCount(); i < count; ++i)
     {
-        if (plugin->isParameterInput(i))
+        if (sPlugin->isParameterInput(i))
         {
             // parameter outputs must be all at the end
             DISTRHO_SAFE_ASSERT_BREAK(! outputsReached);
@@ -1631,37 +1696,36 @@ const AEffect* VSTPluginMain(audioMasterCallback audioMaster)
 #endif
 
     // plugin fields
-    effect->numParams   = numParams;
-    effect->numPrograms = 1;
-    effect->numInputs   = DISTRHO_PLUGIN_NUM_INPUTS;
-    effect->numOutputs  = DISTRHO_PLUGIN_NUM_OUTPUTS;
+    effect->num_params   = numParams;
+    effect->num_programs = 1;
+    effect->num_inputs   = DISTRHO_PLUGIN_NUM_INPUTS;
+    effect->num_outputs  = DISTRHO_PLUGIN_NUM_OUTPUTS;
 
     // plugin flags
-    effect->flags |= effFlagsCanReplacing;
-#if DISTRHO_PLUGIN_IS_SYNTH
-    effect->flags |= effFlagsIsSynth;
-#endif
-#if DISTRHO_PLUGIN_HAS_UI
-    effect->flags |= effFlagsHasEditor;
-#endif
-#if DISTRHO_PLUGIN_WANT_STATE
-    effect->flags |= effFlagsProgramChunks;
-#endif
+    effect->flags |= 1 << 4; // uses process_float
+   #if DISTRHO_PLUGIN_IS_SYNTH
+    effect->flags |= 1 << 8;
+   #endif
+   #if DISTRHO_PLUGIN_HAS_UI
+    effect->flags |= 1 << 0;
+   #endif
+   #if DISTRHO_PLUGIN_WANT_STATE
+    effect->flags |= 1 << 5;
+   #endif
 
     // static calls
-    effect->dispatcher   = vst_dispatcherCallback;
-    effect->process      = vst_processCallback;
-    effect->getParameter = vst_getParameterCallback;
-    effect->setParameter = vst_setParameterCallback;
-    effect->processReplacing = vst_processReplacingCallback;
+    effect->control       = vst_dispatcherCallback;
+    effect->process       = vst_processCallback;
+    effect->get_parameter = vst_getParameterCallback;
+    effect->set_parameter = vst_setParameterCallback;
+    effect->process_float = vst_processReplacingCallback;
 
-    // pointers
-    VstObject* const obj = new VstObject();
-    obj->audioMaster = audioMaster;
-    obj->plugin      = nullptr;
+    // special values
+    effect->valid       = 101;
+    effect->audioMaster = audioMaster;
+    effect->pluginPtr   = nullptr;
 
     // done
-    effect->object = obj;
     sCleanup.effects.push_back(effect);
 
     return effect;
