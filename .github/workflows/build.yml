@@ -15,7 +15,7 @@ jobs:
   linux-arm64:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Fix GitHub's mess
@@ -44,10 +44,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-linux-arm64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-linux-arm64-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
       - name: Create release archive
@@ -70,7 +70,7 @@ jobs:
   linux-armhf:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Fix GitHub's mess
@@ -99,10 +99,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-linux-armhf-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-linux-armhf-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
       - name: Create release archive
@@ -125,7 +125,7 @@ jobs:
   linux-i686:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Fix GitHub's mess
@@ -152,10 +152,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-linux-i686-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-linux-i686-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
       - name: Create release archive
@@ -175,10 +175,65 @@ jobs:
           files: |
             ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-i686.tar.xz
 
+  linux-riscv64:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Fix GitHub's mess
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
+          sudo apt-get update -qq
+          sudo apt-get install -yqq --allow-downgrades libgd3/focal libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
+          sudo apt-get purge -yqq libclang* libgbm* libllvm* libmono* moby* mono* php* libgdiplus libpcre2-posix3 libzip4
+      - name: Set up dependencies
+        run: |
+          sudo dpkg --add-architecture riscv64
+          sudo sed -i "s/deb http/deb [arch=amd64] http/" /etc/apt/sources.list
+          echo "deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/ports-riscv64.list
+          echo "deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-riscv64.list
+          echo "deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports focal-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ports-riscv64.list
+          sudo apt-get update -qq
+          sudo apt-get install -yqq g++-riscv64-linux-gnu libasound2-dev:riscv64 libcairo2-dev:riscv64 libdbus-1-dev:riscv64 libgl1-mesa-dev:riscv64 libglapi-mesa:riscv64 libglvnd0:riscv64 liblo-dev:riscv64 libpulse-dev:riscv64 libx11-dev:riscv64 libxcursor-dev:riscv64 libxext-dev:riscv64 libxrandr-dev:riscv64 qemu-user-static
+      - name: Build linux riscv64 cross-compiled
+        env:
+          CC: riscv64-linux-gnu-gcc
+          CXX: riscv64-linux-gnu-g++
+          LDFLAGS: -static-libgcc -static-libstdc++
+          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+        run: |
+          make features
+          make WITH_LTO=true -j $(nproc)
+      - name: Set sha8
+        id: slug
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.repository.name }}-linux-riscv64-${{ github.event.pull_request.number || env.SHA8 }}
+          path: |
+            bin/*
+      - name: Create release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp utils/README-Linux.txt bin/README.txt
+          tar chJf ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-riscv64.tar.xz \
+              --transform="s,^bin/,${{ github.event.repository.name }}-${{ github.ref_name }}/," \
+              bin/*
+      - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-linux-riscv64.tar.xz
+
   linux-x86_64:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Set up dependencies
@@ -193,10 +248,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-linux-x86_64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-linux-x86_64-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
       - name: Create release archive
@@ -219,7 +274,7 @@ jobs:
   macos-universal:
     runs-on: macos-11
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build macOS universal
@@ -233,10 +288,10 @@ jobs:
           ./dpf/utils/package-osx-bundles.sh
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-macOS-universal-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             *-macOS.pkg
             bin/*
@@ -262,7 +317,7 @@ jobs:
   win32:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Fix GitHub's mess
@@ -288,10 +343,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-win32-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
             !bin/*-ladspa.dll
@@ -316,7 +371,7 @@ jobs:
   win64:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Fix GitHub's mess
@@ -341,10 +396,10 @@ jobs:
           make WITH_LTO=true -j $(nproc)
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+        run: echo "SHA8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: ${{ github.event.repository.name }}-win64-${{ github.event.pull_request.number || env.SHA8 }}
           path: |
             bin/*
             !bin/*-ladspa.dll
@@ -369,7 +424,7 @@ jobs:
   plugin-validation:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Set up dependencies
@@ -461,4 +516,15 @@ jobs:
                     --track-origins=yes \
                     --suppressions=./dpf/utils/valgrind-dpf.supp \
                     /usr/lib/carla/carla-bridge-native vst3 ./bin/${p} "" 1>/dev/null; \
+            done
+      - name: Test CLAP plugins
+        run: |
+            for p in $(ls bin/ | grep clap); do \
+                env CARLA_BRIDGE_DUMMY=1 CARLA_BRIDGE_TESTING=native \
+                    valgrind \
+                    --error-exitcode=255 \
+                    --leak-check=full \
+                    --track-origins=yes \
+                    --suppressions=./dpf/utils/valgrind-dpf.supp \
+                    /usr/lib/carla/carla-bridge-native clap ./bin/${p} "" 1>/dev/null; \
             done
