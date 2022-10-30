@@ -64,7 +64,7 @@ ifeq ($(HAVE_OPENGL),true)
 	# glBars (needs OpenGL)
 	$(MAKE) all -C plugins/glBars
 
-	# ProM (needs OpenGL + ProjectM)
+	# ProM (needs OpenGL, ProjectM can be from system or vendored)
 	$(MAKE) all -C plugins/ProM
 endif # HAVE_OPENGL
 
@@ -178,7 +178,9 @@ ifneq ($(MACOS),true)
 endif
 
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
+ifeq ($(HAVE_LIBLO),true)
 	cp -r  bin/*-dssi $(DESTDIR)$(PREFIX)/lib/dssi/
+endif # HAVE_LIBLO
 endif # HAVE_CAIRO_OR_OPENGL
 	cp -rL bin/*.lv2  $(DESTDIR)$(PREFIX)/lib/lv2/
 ifeq ($(HAVE_OPENGL),true)
