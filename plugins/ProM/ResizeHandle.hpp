@@ -25,16 +25,6 @@ START_NAMESPACE_DGL
 class ResizeHandle : public TopLevelWidget
 {
 public:
-    /** Constructor for placing this handle on top of a window. */
-    explicit ResizeHandle(Window& window)
-        : TopLevelWidget(window),
-          handleSize(16),
-          hasCursor(false),
-          isResizing(false)
-    {
-        resetArea();
-    }
-
     /** Overloaded constructor, will fetch the window from an existing top-level widget. */
     explicit ResizeHandle(TopLevelWidget* const tlw)
         : TopLevelWidget(tlw->getWindow()),
@@ -56,31 +46,27 @@ public:
 protected:
     void onDisplay() override
     {
-        // TODO implement gl3 stuff in DPF
-#ifndef DGL_USE_OPENGL3
         const GraphicsContext& context(getGraphicsContext());
         const double lineWidth = 1.0 * getScaleFactor();
 
-       #if defined(DGL_OPENGL) && !defined(DGL_USE_OPENGL3)
         glMatrixMode(GL_MODELVIEW);
-       #endif
+        glLineWidth(lineWidth);
 
         // draw white lines, 1px wide
-        Color(1.0f, 1.0f, 1.0f).setFor(context);
-        l1.draw(context, lineWidth);
-        l2.draw(context, lineWidth);
-        l3.draw(context, lineWidth);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawLine(l1);
+        drawLine(l2);
+        drawLine(l3);
 
         // draw black lines, offset by 1px and 1px wide
-        Color(0.0f, 0.0f, 0.0f).setFor(context);
+        glColor3f(0.0f, 0.0f, 0.0f);
         Line<double> l1b(l1), l2b(l2), l3b(l3);
         l1b.moveBy(lineWidth, lineWidth);
         l2b.moveBy(lineWidth, lineWidth);
         l3b.moveBy(lineWidth, lineWidth);
-        l1b.draw(context, lineWidth);
-        l2b.draw(context, lineWidth);
-        l3b.draw(context, lineWidth);
-#endif
+        drawLine(l1b);
+        drawLine(l2b);
+        drawLine(l3b);
     }
 
     bool onMouse(const MouseEvent& ev) override
@@ -199,6 +185,25 @@ private:
         linesize -= size / 3;
         l3.setStartPos(x + linesize + offset, y + offset);
         l3.setEndPos(x + offset, y + linesize + offset);
+    }
+
+    void drawLine(const Line<double>& line)
+    {
+        drawLine(line.getStartPos(), line.getEndPos());
+    }
+
+    void drawLine(const Point<double>& posStart, const Point<double>& posEnd)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(posStart != posEnd,);
+
+        glBegin(GL_LINES);
+
+        {
+            glVertex2d(posStart.getX(), posStart.getY());
+            glVertex2d(posEnd.getX(), posEnd.getY());
+        }
+
+        glEnd();
     }
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResizeHandle)

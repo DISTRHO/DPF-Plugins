@@ -376,7 +376,7 @@ nekobee_voice_render(nekobee_synth_t *synth, nekobee_voice_t *voice,
 
     osc_index += sample_count;
 
-    if (do_control_update) {
+    if (do_control_update || osc_index > MINBLEP_BUFFER_LENGTH - (XSYNTH_NUGGET_SIZE + LONGEST_DD_PULSE_LENGTH)) {
         /* do those things should be done only once per control-calculation
          * interval ("nugget"), such as voice check-for-dead, pitch envelope
          * calculations, volume envelope phase transition checks, etc. */
