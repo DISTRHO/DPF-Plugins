@@ -18,6 +18,8 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
+#include "DistrhoArtworkNekobi.hpp"
+
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "Nekobi"
 #define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/Nekobi"
@@ -28,5 +30,8 @@
 #define DISTRHO_PLUGIN_IS_SYNTH      1
 #define DISTRHO_PLUGIN_NUM_INPUTS    0
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   1
+
+#define DISTRHO_UI_DEFAULT_WIDTH DistrhoArtworkNekobi::backgroundWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT DistrhoArtworkNekobi::backgroundHeight
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

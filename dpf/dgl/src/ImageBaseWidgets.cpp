@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -61,13 +61,20 @@ void ImageBaseAboutWindow<ImageType>::setImage(const ImageType& image)
     if (img == image)
         return;
 
-    img = image;
-
     if (image.isInvalid())
+    {
+        img = image;
         return;
+    }
+
+    reinit();
+
+    img = image;
 
     setSize(image.getSize());
     setGeometryConstraints(image.getWidth(), image.getHeight(), true, true);
+
+    done();
 }
 
 template <class ImageType>
@@ -428,6 +435,7 @@ struct ImageBaseSlider<ImageType>::PrivateData {
     bool  usingDefault;
 
     bool dragging;
+    bool checkable;
     bool inverted;
     bool valueIsSet;
     double startedX;
@@ -449,6 +457,7 @@ struct ImageBaseSlider<ImageType>::PrivateData {
           valueTmp(value),
           usingDefault(false),
           dragging(false),
+          checkable(false),
           inverted(false),
           valueIsSet(false),
           startedX(0.0),
@@ -551,6 +560,16 @@ template <class ImageType>
 void ImageBaseSlider<ImageType>::setEndPos(int x, int y) noexcept
 {
     setEndPos(Point<int>(x, y));
+}
+
+template <class ImageType>
+void ImageBaseSlider<ImageType>::setCheckable(bool checkable) noexcept
+{
+    if (pData->checkable == checkable)
+        return;
+
+    pData->checkable = checkable;
+    repaint();
 }
 
 template <class ImageType>
@@ -670,6 +689,14 @@ bool ImageBaseSlider<ImageType>::onMouse(const MouseEvent& ev)
         if ((ev.mod & kModifierShift) != 0 && pData->usingDefault)
         {
             setValue(pData->valueDef, true);
+            pData->valueTmp = pData->value;
+            return true;
+        }
+
+        if (pData->checkable)
+        {
+            const float value = d_isEqual(pData->valueTmp, pData->minimum) ? pData->maximum : pData->minimum;
+            setValue(value, true);
             pData->valueTmp = pData->value;
             return true;
         }

@@ -540,9 +540,9 @@ void puglWin32ShowCentered(PuglView* const view)
         GetWindowRect(impl->hwnd, &rectChild) &&
         GetWindowRect((HWND)view->transientParent, &rectParent))
     {
-        SetWindowPos(impl->hwnd, (HWND)view->transientParent,
-                     rectParent.left + (rectChild.right-rectChild.left)/2,
-                     rectParent.top + (rectChild.bottom-rectChild.top)/2,
+        SetWindowPos(impl->hwnd, HWND_TOP,
+                     rectParent.left + (rectParent.right-rectParent.left)/2 - (rectChild.right-rectChild.left)/2,
+                     rectParent.top + (rectParent.bottom-rectParent.top)/2 - (rectChild.bottom-rectChild.top)/2,
                      0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
     }
     else
@@ -564,8 +564,7 @@ void puglWin32ShowCentered(PuglView* const view)
         mInfo.cbSize = sizeof(mInfo);
 
         if (GetMonitorInfo(MonitorFromWindow(impl->hwnd, MONITOR_DEFAULTTOPRIMARY), &mInfo))
-            SetWindowPos(impl->hwnd,
-                         HWND_TOP,
+            SetWindowPos(impl->hwnd, HWND_TOP,
                          mInfo.rcWork.left + (mInfo.rcWork.right - mInfo.rcWork.left - view->frame.width) / 2,
                          mInfo.rcWork.top + (mInfo.rcWork.bottom - mInfo.rcWork.top - view->frame.height) / 2,
                          0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);

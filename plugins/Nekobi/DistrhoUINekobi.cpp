@@ -1,6 +1,6 @@
 /*
  * DISTRHO Nekobi Plugin, based on Nekobee by Sean Bolton and others.
- * Copyright (C) 2013-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2013-2022 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -40,6 +40,7 @@ DistrhoUINekobi::DistrhoUINekobi()
     fSliderWaveform->setId(DistrhoPluginNekobi::paramWaveform);
     fSliderWaveform->setStartPos(133, 40);
     fSliderWaveform->setEndPos(133, 60);
+    fSliderWaveform->setCheckable(true);
     fSliderWaveform->setRange(0.0f, 1.0f);
     fSliderWaveform->setStep(1.0f);
     fSliderWaveform->setValue(0.0f);
