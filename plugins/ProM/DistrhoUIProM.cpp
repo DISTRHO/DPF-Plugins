@@ -297,6 +297,14 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
     return true;
 }
 
+bool DistrhoUIProM::onMouse(const MouseEvent& ev)
+{
+    if (ev.press)
+        getWindow().focus();
+
+    return false;
+}
+
 // -----------------------------------------------------------------------
 
 UI* createUI()

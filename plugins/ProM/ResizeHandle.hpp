@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include "TopLevelWidget.hpp"
-#include "Color.hpp"
+#include "NanoVG.hpp"
 
 START_NAMESPACE_DGL
 
 /** Resize handle for DPF windows, will sit on bottom-right. */
-class ResizeHandle : public TopLevelWidget
+class ResizeHandle : public NanoTopLevelWidget
 {
 public:
     /** Overloaded constructor, will fetch the window from an existing top-level widget. */
     explicit ResizeHandle(TopLevelWidget* const tlw)
-        : TopLevelWidget(tlw->getWindow()),
+        : NanoTopLevelWidget(tlw->getWindow()),
           handleSize(16),
           hasCursor(false),
           isResizing(false)
@@ -44,22 +43,19 @@ public:
     }
 
 protected:
-    void onDisplay() override
+    void onNanoDisplay() override
     {
-        const GraphicsContext& context(getGraphicsContext());
         const double lineWidth = 1.0 * getScaleFactor();
-
-        glMatrixMode(GL_MODELVIEW);
-        glLineWidth(lineWidth);
+        strokeWidth(lineWidth);
 
         // draw white lines, 1px wide
-        glColor3f(1.0f, 1.0f, 1.0f);
+        strokeColor(Color(1.0f, 1.0f, 1.0f));
         drawLine(l1);
         drawLine(l2);
         drawLine(l3);
 
         // draw black lines, offset by 1px and 1px wide
-        glColor3f(0.0f, 0.0f, 0.0f);
+        strokeColor(Color(0.0f, 0.0f, 0.0f));
         Line<double> l1b(l1), l2b(l2), l3b(l3);
         l1b.moveBy(lineWidth, lineWidth);
         l2b.moveBy(lineWidth, lineWidth);
@@ -67,6 +63,14 @@ protected:
         drawLine(l1b);
         drawLine(l2b);
         drawLine(l3b);
+    }
+
+    void drawLine(const Line<double>& line)
+    {
+        beginPath();
+        moveTo(line.getStartPos().getX(), line.getStartPos().getY());
+        lineTo(line.getEndPos().getX(), line.getEndPos().getY());
+        stroke();
     }
 
     bool onMouse(const MouseEvent& ev) override
@@ -155,7 +159,7 @@ private:
     void resetArea()
     {
         const double scaleFactor = getScaleFactor();
-        const uint margin = 0.0 * scaleFactor;
+        const uint margin = 1.5 * scaleFactor;
         const uint size = handleSize * scaleFactor;
 
         area = Rectangle<uint>(getWidth() - size - margin,
@@ -185,25 +189,6 @@ private:
         linesize -= size / 3;
         l3.setStartPos(x + linesize + offset, y + offset);
         l3.setEndPos(x + offset, y + linesize + offset);
-    }
-
-    void drawLine(const Line<double>& line)
-    {
-        drawLine(line.getStartPos(), line.getEndPos());
-    }
-
-    void drawLine(const Point<double>& posStart, const Point<double>& posEnd)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(posStart != posEnd,);
-
-        glBegin(GL_LINES);
-
-        {
-            glVertex2d(posStart.getX(), posStart.getY());
-            glVertex2d(posEnd.getX(), posEnd.getY());
-        }
-
-        glEnd();
     }
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResizeHandle)
