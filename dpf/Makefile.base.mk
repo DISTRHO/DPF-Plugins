@@ -272,7 +272,7 @@ BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
 ifeq ($(DEBUG),true)
-BASE_FLAGS += -DDEBUG -O0 -g
+BASE_FLAGS += -DDEBUG -O0 -g -fsanitize=address
 LINK_OPTS   =
 ifeq ($(WASM),true)
 LINK_OPTS  += -sASSERTIONS=1
@@ -284,7 +284,10 @@ endif
 
 ifeq ($(WITH_LTO),true)
 BASE_FLAGS += -fno-strict-aliasing -flto
-LINK_OPTS  += -fno-strict-aliasing -flto -Werror=odr -Werror=lto-type-mismatch
+LINK_OPTS  += -fno-strict-aliasing -flto -Werror=odr
+ifeq ($(GCC),true)
+LINK_OPTS  += -Werror=lto-type-mismatch
+endif
 endif
 
 BUILD_C_FLAGS   = $(BASE_FLAGS) -std=gnu99 $(CFLAGS)
@@ -574,11 +577,11 @@ BUILD_CXX_FLAGS += -DDGL_WINDOWS_ICON_ID=$(WINDOWS_ICON_ID)
 endif
 
 ifeq ($(USE_GLES2),true)
-BUILD_CXX_FLAGS += -DDGL_USE_GLES -DDGL_USE_GLES2
+BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3 -DDGL_USE_GLES -DDGL_USE_GLES2
 endif
 
 ifeq ($(USE_GLES3),true)
-BUILD_CXX_FLAGS += -DDGL_USE_GLES -DDGL_USE_GLES3
+BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3 -DDGL_USE_GLES -DDGL_USE_GLES3
 endif
 
 ifeq ($(USE_OPENGL3),true)
@@ -716,6 +719,9 @@ MOD_ENVIRONMENT = \
 	CXXFLAGS="-I${1}/staging/usr/include $(EXTRA_MOD_FLAGS)" \
 	LDFLAGS="-L${1}/staging/usr/lib $(EXTRA_MOD_FLAGS)" \
 	EXE_WRAPPER="qemu-${3}-static -L ${1}/target" \
+	HAVE_CAIRO=false \
+	HAVE_OPENGL=false \
+	MOD_BUILD=true \
 	NOOPT=true
 
 modduo:

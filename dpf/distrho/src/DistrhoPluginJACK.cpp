@@ -16,7 +16,7 @@
 
 #include "DistrhoPluginInternal.hpp"
 
-#if !defined(DISTRHO_OS_WINDOWS) && !defined(STATIC_BUILD)
+#ifndef STATIC_BUILD
 # include "../DistrhoPluginUtils.hpp"
 #endif
 
@@ -703,7 +703,7 @@ private:
                              "msr fpcr, %0          \n"
                              "isb                   \n"
                              : "=r"(c) :: "memory");
-       #elif defined(__arm__)
+       #elif defined(__arm__) && !defined(__SOFTFP__)
         uint32_t c;
         __asm__ __volatile__("vmrs %0, fpscr         \n"
                              "orr  %0, %0, #0x1000000\n"
@@ -954,14 +954,14 @@ int main(int argc, char* argv[])
 
     initSignalHandler();
 
-   #if !defined(DISTRHO_OS_WINDOWS) && !defined(STATIC_BUILD)
+   #ifndef STATIC_BUILD
     // find plugin bundle
     static String bundlePath;
     if (bundlePath.isEmpty())
     {
         String tmpPath(getBinaryFilename());
         tmpPath.truncate(tmpPath.rfind(DISTRHO_OS_SEP));
-       #ifdef DISTRHO_OS_MAC
+      #if defined(DISTRHO_OS_MAC)
         if (tmpPath.endsWith("/MacOS"))
         {
             tmpPath.truncate(tmpPath.rfind('/'));
@@ -972,13 +972,18 @@ int main(int argc, char* argv[])
                 d_nextBundlePath = bundlePath.buffer();
             }
         }
+      #else
+       #ifdef DISTRHO_OS_WINDOWS
+        const DWORD attr = GetFileAttributesA(tmpPath + DISTRHO_OS_SEP_STR "resources");
+        if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY) != 0)
        #else
         if (access(tmpPath + DISTRHO_OS_SEP_STR "resources", F_OK) == 0)
+       #endif
         {
             bundlePath = tmpPath;
             d_nextBundlePath = bundlePath.buffer();
         }
-       #endif
+      #endif
     }
    #endif
 

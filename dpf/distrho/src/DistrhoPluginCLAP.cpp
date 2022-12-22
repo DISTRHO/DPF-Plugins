@@ -89,7 +89,7 @@ struct ClapEventQueue
     };
 
     struct Queue {
-        Mutex lock;
+        RecursiveMutex lock;
         uint allocated;
         uint used;
         Event* events;
@@ -106,7 +106,7 @@ struct ClapEventQueue
 
         void addEventFromUI(const Event& event)
         {
-            const MutexLocker cml(lock);
+            const RecursiveMutexLocker crml(lock);
 
             if (events == nullptr)
             {
@@ -827,9 +827,9 @@ public:
        #if DISTRHO_PLUGIN_HAS_UI
         if (const clap_output_events_t* const outputEvents = process->out_events)
         {
-            const MutexTryLocker cmtl(fEventQueue.lock);
+            const RecursiveMutexTryLocker crmtl(fEventQueue.lock);
 
-            if (cmtl.wasLocked())
+            if (crmtl.wasLocked())
             {
                 // reuse the same struct for gesture and parameters, they are compatible up to where it matters
                 clap_event_param_value_t clapEvent = {
@@ -1129,7 +1129,7 @@ public:
             if (hints & (kParameterIsBoolean|kParameterIsInteger))
                 info->flags |= CLAP_PARAM_IS_STEPPED;
 
-            DISTRHO_NAMESPACE::strncpy(info->name, fPlugin.getParameterName(index), CLAP_NAME_SIZE);
+            d_strncpy(info->name, fPlugin.getParameterName(index), CLAP_NAME_SIZE);
 
             uint wrtn;
             if (groupId != kPortGroupNone)
@@ -1145,7 +1145,7 @@ public:
                 wrtn = 0;
             }
 
-            DISTRHO_NAMESPACE::strncpy(info->module + wrtn, fPlugin.getParameterSymbol(index), CLAP_PATH_SIZE - wrtn);
+            d_strncpy(info->module + wrtn, fPlugin.getParameterSymbol(index), CLAP_PATH_SIZE - wrtn);
         }
 
         info->id = index;
@@ -1182,7 +1182,7 @@ public:
         {
             if (d_isEqual(static_cast<double>(enumValues.values[i].value), value))
             {
-                DISTRHO_NAMESPACE::strncpy(display, enumValues.values[i].label, size);
+                d_strncpy(display, enumValues.values[i].label, size);
                 return true;
             }
         }
@@ -1328,7 +1328,7 @@ public:
         const BusInfo& busInfo(busInfos[index]);
 
         info->id = busInfo.groupId;
-        DISTRHO_NAMESPACE::strncpy(info->name, busInfo.name, CLAP_NAME_SIZE);
+        d_strncpy(info->name, busInfo.name, CLAP_NAME_SIZE);
 
         info->flags = busInfo.isMain ? CLAP_AUDIO_PORT_IS_MAIN : 0x0;
         info->channel_count = busInfo.numChannels;
@@ -1893,16 +1893,15 @@ private:
                     case kPortGroupMono:
                         if (busInfo.isMain)
                         {
-                            DISTRHO_NAMESPACE::strncpy(busInfo.name,
-                                                       isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
+                            d_strncpy(busInfo.name, isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
                             break;
                         }
                     // fall-through
                     default:
                         if (group.name.isNotEmpty())
-                            DISTRHO_NAMESPACE::strncpy(busInfo.name, group.name, CLAP_NAME_SIZE);
+                            d_strncpy(busInfo.name, group.name, CLAP_NAME_SIZE);
                         else
-                            DISTRHO_NAMESPACE::strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
+                            d_strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
                         break;
                     }
 
@@ -1935,7 +1934,7 @@ private:
                         nonGroupSidechainId++
                     };
 
-                    DISTRHO_NAMESPACE::strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
+                    d_strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
 
                     busInfos.push_back(busInfo);
                 }
@@ -1961,12 +1960,11 @@ private:
 
                     if (busInfo.isMain)
                     {
-                        DISTRHO_NAMESPACE::strncpy(busInfo.name,
-                                                   isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
+                        d_strncpy(busInfo.name, isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
                     }
                     else
                     {
-                        DISTRHO_NAMESPACE::strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
+                        d_strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
                     }
 
                     busInfos.push_back(busInfo);
@@ -2312,37 +2310,37 @@ static const clap_plugin_note_ports_t clap_plugin_note_ports = {
 // --------------------------------------------------------------------------------------------------------------------
 // plugin parameters
 
-static CLAP_ABI uint32_t clap_plugin_params_count(const clap_plugin_t* const plugin)
+static uint32_t CLAP_ABI clap_plugin_params_count(const clap_plugin_t* const plugin)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getParameterCount();
 }
 
-static CLAP_ABI bool clap_plugin_params_get_info(const clap_plugin_t* const plugin, const uint32_t index, clap_param_info_t* const info)
+static bool CLAP_ABI clap_plugin_params_get_info(const clap_plugin_t* const plugin, const uint32_t index, clap_param_info_t* const info)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getParameterInfo(index, info);
 }
 
-static CLAP_ABI bool clap_plugin_params_get_value(const clap_plugin_t* const plugin, const clap_id param_id, double* const value)
+static bool CLAP_ABI clap_plugin_params_get_value(const clap_plugin_t* const plugin, const clap_id param_id, double* const value)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getParameterValue(param_id, value);
 }
 
-static CLAP_ABI bool clap_plugin_params_value_to_text(const clap_plugin_t* plugin, const clap_id param_id, const double value, char* const display, const uint32_t size)
+static bool CLAP_ABI clap_plugin_params_value_to_text(const clap_plugin_t* plugin, const clap_id param_id, const double value, char* const display, const uint32_t size)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getParameterStringForValue(param_id, value, display, size);
 }
 
-static CLAP_ABI bool clap_plugin_params_text_to_value(const clap_plugin_t* plugin, const clap_id param_id, const char* const display, double* const value)
+static bool CLAP_ABI clap_plugin_params_text_to_value(const clap_plugin_t* plugin, const clap_id param_id, const char* const display, double* const value)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getParameterValueForString(param_id, display, value);
 }
 
-static CLAP_ABI void clap_plugin_params_flush(const clap_plugin_t* plugin, const clap_input_events_t* in, const clap_output_events_t* out)
+static void CLAP_ABI clap_plugin_params_flush(const clap_plugin_t* plugin, const clap_input_events_t* in, const clap_output_events_t* out)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->flushParameters(in, out, 0);
@@ -2361,7 +2359,7 @@ static const clap_plugin_params_t clap_plugin_params = {
 // --------------------------------------------------------------------------------------------------------------------
 // plugin latency
 
-static CLAP_ABI uint32_t clap_plugin_latency_get(const clap_plugin_t* const plugin)
+static uint32_t CLAP_ABI clap_plugin_latency_get(const clap_plugin_t* const plugin)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->getLatency();
@@ -2376,13 +2374,13 @@ static const clap_plugin_latency_t clap_plugin_latency = {
 // --------------------------------------------------------------------------------------------------------------------
 // plugin state
 
-static CLAP_ABI bool clap_plugin_state_save(const clap_plugin_t* const plugin, const clap_ostream_t* const stream)
+static bool CLAP_ABI clap_plugin_state_save(const clap_plugin_t* const plugin, const clap_ostream_t* const stream)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->stateSave(stream);
 }
 
-static CLAP_ABI bool clap_plugin_state_load(const clap_plugin_t* const plugin, const clap_istream_t* const stream)
+static bool CLAP_ABI clap_plugin_state_load(const clap_plugin_t* const plugin, const clap_istream_t* const stream)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->stateLoad(stream);
@@ -2397,19 +2395,19 @@ static const clap_plugin_state_t clap_plugin_state = {
 // --------------------------------------------------------------------------------------------------------------------
 // plugin
 
-static CLAP_ABI bool clap_plugin_init(const clap_plugin_t* const plugin)
+static bool CLAP_ABI clap_plugin_init(const clap_plugin_t* const plugin)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->init();
 }
 
-static CLAP_ABI void clap_plugin_destroy(const clap_plugin_t* const plugin)
+static void CLAP_ABI clap_plugin_destroy(const clap_plugin_t* const plugin)
 {
     delete static_cast<PluginCLAP*>(plugin->plugin_data);
     std::free(const_cast<clap_plugin_t*>(plugin));
 }
 
-static CLAP_ABI bool clap_plugin_activate(const clap_plugin_t* const plugin,
+static bool CLAP_ABI clap_plugin_activate(const clap_plugin_t* const plugin,
                                           const double sample_rate,
                                           uint32_t,
                                           const uint32_t max_frames_count)
@@ -2422,35 +2420,35 @@ static CLAP_ABI bool clap_plugin_activate(const clap_plugin_t* const plugin,
     return true;
 }
 
-static CLAP_ABI void clap_plugin_deactivate(const clap_plugin_t* const plugin)
+static void CLAP_ABI clap_plugin_deactivate(const clap_plugin_t* const plugin)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     instance->deactivate();
 }
 
-static CLAP_ABI bool clap_plugin_start_processing(const clap_plugin_t*)
+static bool CLAP_ABI clap_plugin_start_processing(const clap_plugin_t*)
 {
     // nothing to do
     return true;
 }
 
-static CLAP_ABI void clap_plugin_stop_processing(const clap_plugin_t*)
+static void CLAP_ABI clap_plugin_stop_processing(const clap_plugin_t*)
 {
     // nothing to do
 }
 
-static CLAP_ABI void clap_plugin_reset(const clap_plugin_t*)
+static void CLAP_ABI clap_plugin_reset(const clap_plugin_t*)
 {
     // nothing to do
 }
 
-static CLAP_ABI clap_process_status clap_plugin_process(const clap_plugin_t* const plugin, const clap_process_t* const process)
+static clap_process_status CLAP_ABI clap_plugin_process(const clap_plugin_t* const plugin, const clap_process_t* const process)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     return instance->process(process) ? CLAP_PROCESS_CONTINUE : CLAP_PROCESS_ERROR;
 }
 
-static CLAP_ABI const void* clap_plugin_get_extension(const clap_plugin_t*, const char* const id)
+static const void* CLAP_ABI clap_plugin_get_extension(const clap_plugin_t*, const char* const id)
 {
     if (std::strcmp(id, CLAP_EXT_PARAMS) == 0)
         return &clap_plugin_params;
@@ -2481,7 +2479,7 @@ static CLAP_ABI const void* clap_plugin_get_extension(const clap_plugin_t*, cons
     return nullptr;
 }
 
-static void clap_plugin_on_main_thread(const clap_plugin_t* const plugin)
+static void CLAP_ABI clap_plugin_on_main_thread(const clap_plugin_t* const plugin)
 {
     PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
     instance->onMainThread();
@@ -2490,12 +2488,13 @@ static void clap_plugin_on_main_thread(const clap_plugin_t* const plugin)
 // --------------------------------------------------------------------------------------------------------------------
 // plugin factory
 
-static uint32_t clap_get_plugin_count(const clap_plugin_factory_t*)
+static uint32_t CLAP_ABI clap_get_plugin_count(const clap_plugin_factory_t*)
 {
     return 1;
 }
 
-static const clap_plugin_descriptor_t* clap_get_plugin_descriptor(const clap_plugin_factory_t*, const uint32_t index)
+static const clap_plugin_descriptor_t* CLAP_ABI clap_get_plugin_descriptor(const clap_plugin_factory_t*,
+                                                                           const uint32_t index)
 {
     DISTRHO_SAFE_ASSERT_UINT_RETURN(index == 0, index, nullptr);
 
@@ -2528,9 +2527,9 @@ static const clap_plugin_descriptor_t* clap_get_plugin_descriptor(const clap_plu
     return &descriptor;
 }
 
-static const clap_plugin_t* clap_create_plugin(const clap_plugin_factory_t* const factory,
-                                               const clap_host_t* const host,
-                                               const char*)
+static const clap_plugin_t* CLAP_ABI clap_create_plugin(const clap_plugin_factory_t* const factory,
+                                                        const clap_host_t* const host,
+                                                        const char*)
 {
     clap_plugin_t* const pluginptr = static_cast<clap_plugin_t*>(std::malloc(sizeof(clap_plugin_t)));
     DISTRHO_SAFE_ASSERT_RETURN(pluginptr != nullptr, nullptr);
@@ -2571,7 +2570,7 @@ static const clap_plugin_factory_t clap_plugin_factory = {
 // --------------------------------------------------------------------------------------------------------------------
 // plugin entry
 
-static bool clap_plugin_entry_init(const char* const plugin_path)
+static bool CLAP_ABI clap_plugin_entry_init(const char* const plugin_path)
 {
     static String bundlePath;
     bundlePath = plugin_path;
@@ -2599,12 +2598,12 @@ static bool clap_plugin_entry_init(const char* const plugin_path)
     return true;
 }
 
-static void clap_plugin_entry_deinit(void)
+static void CLAP_ABI clap_plugin_entry_deinit(void)
 {
     sPlugin = nullptr;
 }
 
-static const void* clap_plugin_entry_get_factory(const char* const factory_id)
+static const void* CLAP_ABI clap_plugin_entry_get_factory(const char* const factory_id)
 {
     if (std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0)
         return &clap_plugin_factory;

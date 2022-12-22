@@ -1,5 +1,6 @@
 # DISTRHO Plugin Framework (DPF)
 # Copyright (C) 2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
+# Copyright (C) 2022 Filipe Coelho <falktx@falktx.com>
 #
 # SPDX-License-Identifier: ISC
 
@@ -22,7 +23,7 @@
 # add_subdirectory(DPF)
 #
 # dpf_add_plugin(MyPlugin
-#   TARGETS lv2 vst2 vst3
+#   TARGETS clap lv2 vst2 vst3
 #   UI_TYPE opengl
 #   FILES_DSP
 #       src/MyPlugin.cpp
@@ -71,7 +72,7 @@ include(CMakeParseArguments)
 #
 #   `TARGETS` <tgt1>...<tgtN>
 #       a list of one of more of the following target types:
-#       `jack`, `ladspa`, `dssi`, `lv2`, `vst2`, `vst3`
+#       `jack`, `ladspa`, `dssi`, `lv2`, `vst2`, `vst3`, `clap`
 #
 #   `UI_TYPE` <type>
 #       the user interface type: `opengl` (default), `cairo`
@@ -90,7 +91,7 @@ include(CMakeParseArguments)
 #       list of sources which are part of both DSP and UI
 #
 function(dpf_add_plugin NAME)
-  set(options MONOLITHIC)
+  set(options MONOLITHIC NO_SHARED_RESOURCES)
   set(oneValueArgs UI_TYPE)
   set(multiValueArgs TARGETS FILES_DSP FILES_UI FILES_COMMON)
   cmake_parse_arguments(_dpf_plugin "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -102,10 +103,10 @@ function(dpf_add_plugin NAME)
   set(_dgl_library)
   if(_dpf_plugin_FILES_UI)
     if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
-      dpf__add_dgl_cairo()
+      dpf__add_dgl_cairo("${_dpf_plugin_NO_SHARED_RESOURCES}")
       set(_dgl_library dgl-cairo)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
-      dpf__add_dgl_opengl()
+      dpf__add_dgl_opengl("${_dpf_plugin_NO_SHARED_RESOURCES}")
       set(_dgl_library dgl-opengl)
     else()
       message(FATAL_ERROR "Unrecognized UI type for plugin: ${_dpf_plugin_UI_TYPE}")
@@ -162,6 +163,8 @@ function(dpf_add_plugin NAME)
       dpf__build_vst2("${NAME}" "${_dgl_library}")
     elseif(_target STREQUAL "vst3")
       dpf__build_vst3("${NAME}" "${_dgl_library}")
+    elseif(_target STREQUAL "clap")
+      dpf__build_clap("${NAME}" "${_dgl_library}")
     else()
       message(FATAL_ERROR "Unrecognized target type for plugin: ${_target}")
     endif()
@@ -179,7 +182,7 @@ endfunction()
 # dpf__build_jack
 # ------------------------------------------------------------------------------
 #
-# Add build rules for a JACK program.
+# Add build rules for a JACK/Standalone program.
 #
 function(dpf__build_jack NAME DGL_LIBRARY)
   dpf__create_dummy_source_list(_no_srcs)
@@ -192,11 +195,51 @@ function(dpf__build_jack NAME DGL_LIBRARY)
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     OUTPUT_NAME "${NAME}")
 
+  target_compile_definitions("${NAME}" PUBLIC "HAVE_JACK")
+
+  find_package(PkgConfig)
+  pkg_check_modules(SDL2 "sdl2")
+  if(SDL2_FOUND)
+    target_compile_definitions("${NAME}" PUBLIC "HAVE_SDL2")
+    target_include_directories("${NAME}-jack" PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries("${NAME}-jack" PRIVATE ${SDL2_LIBRARIES})
+    dpf__target_link_directories("${NAME}-jack" ${SDL2_LIBRARY_DIRS})
+  endif()
+
+  if(APPLE OR WIN32)
+    target_compile_definitions("${NAME}" PUBLIC "HAVE_RTAUDIO")
+  else()
+    find_package(Threads)
+    pkg_check_modules(ALSA "alsa")
+    pkg_check_modules(PULSEAUDIO "libpulse-simple")
+    if(ALSA_FOUND)
+      target_compile_definitions("${NAME}" PUBLIC "HAVE_ALSA")
+      target_include_directories("${NAME}-jack" PRIVATE ${ALSA_INCLUDE_DIRS})
+      target_link_libraries("${NAME}-jack" PRIVATE ${ALSA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+      dpf__target_link_directories("${NAME}-jack" ${ALSA_LIBRARY_DIRS})
+    endif()
+    if(PULSEAUDIO_FOUND)
+      target_compile_definitions("${NAME}" PUBLIC "HAVE_PULSEAUDIO")
+      target_include_directories("${NAME}-jack" PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
+      target_link_libraries("${NAME}-jack" PRIVATE ${PULSEAUDIO_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+      dpf__target_link_directories("${NAME}-jack" ${PULSEAUDIO_LIBRARY_DIRS})
+    endif()
+    if(ALSA_FOUND OR PULSEAUDIO_FOUND)
+      target_compile_definitions("${NAME}" PUBLIC "HAVE_RTAUDIO")
+    endif()
+  endif()
+
   # for RtAudio native fallback
   if(APPLE)
     find_library(APPLE_COREAUDIO_FRAMEWORK "CoreAudio")
     find_library(APPLE_COREFOUNDATION_FRAMEWORK "CoreFoundation")
-    target_link_libraries("${NAME}-jack" PRIVATE "${APPLE_COREAUDIO_FRAMEWORK}" "${APPLE_COREFOUNDATION_FRAMEWORK}")
+    find_library(APPLE_COREMIDI_FRAMEWORK "CoreMIDI")
+    target_link_libraries("${NAME}-jack" PRIVATE
+      "${APPLE_COREAUDIO_FRAMEWORK}"
+      "${APPLE_COREFOUNDATION_FRAMEWORK}"
+      "${APPLE_COREMIDI_FRAMEWORK}")
+  elseif(WIN32)
+    target_link_libraries("${NAME}-jack" PRIVATE "dsound" "ole32" "winmm")
   endif()
 endfunction()
 
@@ -233,8 +276,6 @@ function(dpf__build_dssi NAME DGL_LIBRARY)
     return()
   endif()
 
-  link_directories(${LIBLO_LIBRARY_DIRS})
-
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-dssi" ${_no_srcs})
@@ -255,8 +296,10 @@ function(dpf__build_dssi NAME DGL_LIBRARY)
       RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}-dssi/$<0:>"
       OUTPUT_NAME "${NAME}_ui")
 
+    target_compile_definitions("${NAME}" PUBLIC "HAVE_LIBLO")
     target_include_directories("${NAME}-dssi-ui" PRIVATE ${LIBLO_INCLUDE_DIRS})
     target_link_libraries("${NAME}-dssi-ui" PRIVATE ${LIBLO_LIBRARIES})
+    dpf__target_link_directories("${NAME}-dssi-ui" ${LIBLO_LIBRARY_DIRS})
   endif()
 endfunction()
 
@@ -306,6 +349,7 @@ function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
 
   add_custom_command(TARGET "${NAME}-lv2" POST_BUILD
     COMMAND
+    ${CMAKE_CROSSCOMPILING_EMULATOR}
     "$<TARGET_FILE:lv2_ttl_generator>"
     "$<TARGET_FILE:${NAME}-lv2>"
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.lv2"
@@ -432,12 +476,45 @@ function(dpf__build_vst3 NAME DGL_LIBRARY)
   endif()
 endfunction()
 
+# dpf__build_clap
+# ------------------------------------------------------------------------------
+#
+# Add build rules for a VST2 plugin.
+#
+function(dpf__build_clap NAME DGL_LIBRARY)
+  dpf__create_dummy_source_list(_no_srcs)
+
+  dpf__add_module("${NAME}-clap" ${_no_srcs})
+  dpf__add_plugin_main("${NAME}-clap" "clap")
+  dpf__add_ui_main("${NAME}-clap" "clap" "${DGL_LIBRARY}")
+  dpf__set_module_export_list("${NAME}-clap" "clap")
+  target_link_libraries("${NAME}-clap" PRIVATE "${NAME}-dsp" "${NAME}-ui")
+  set_target_properties("${NAME}-clap" PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/clap/$<0:>"
+    OUTPUT_NAME "${NAME}"
+    PREFIX ""
+    SUFFIX ".clap")
+
+  if(APPLE)
+    set_target_properties("${NAME}-clap" PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.clap/Contents/MacOS/$<0:>"
+      OUTPUT_NAME "${NAME}"
+      SUFFIX "")
+    set(INFO_PLIST_PROJECT_NAME "${NAME}")
+    configure_file("${DPF_ROOT_DIR}/utils/plugin.bundle/Contents/Info.plist"
+      "${PROJECT_BINARY_DIR}/bin/${NAME}.clap/Contents/Info.plist" @ONLY)
+    file(COPY "${DPF_ROOT_DIR}/utils/plugin.bundle/Contents/PkgInfo"
+      DESTINATION "${PROJECT_BINARY_DIR}/bin/${NAME}.clap/Contents")
+  endif()
+endfunction()
+
 # dpf__add_dgl_cairo
 # ------------------------------------------------------------------------------
 #
 # Add the Cairo variant of DGL, if not already available.
 #
-function(dpf__add_dgl_cairo)
+function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
   if(TARGET dgl-cairo)
     return()
   endif()
@@ -455,7 +532,6 @@ function(dpf__add_dgl_cairo)
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Resources.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
@@ -465,11 +541,16 @@ function(dpf__add_dgl_cairo)
     "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
     "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Cairo.cpp")
+  if(NO_SHARED_RESOURCES)
+    target_compile_definitions(dgl-cairo PUBLIC "DGL_NO_SHARED_RESOURCES")
+  else()
+    target_sources(dgl-cairo PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
+  endif()
   if(NOT APPLE)
     target_sources(dgl-cairo PRIVATE
       "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
   else()
-    target_sources(dgl-opengl PRIVATE
+    target_sources(dgl-cairo PRIVATE
       "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
   endif()
   target_include_directories(dgl-cairo PUBLIC
@@ -497,7 +578,7 @@ endfunction()
 #
 # Add the OpenGL variant of DGL, if not already available.
 #
-function(dpf__add_dgl_opengl)
+function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
   if(TARGET dgl-opengl)
     return()
   endif()
@@ -516,7 +597,6 @@ function(dpf__add_dgl_opengl)
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Resources.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
@@ -527,6 +607,11 @@ function(dpf__add_dgl_opengl)
     "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/OpenGL.cpp"
     "${DPF_ROOT_DIR}/dgl/src/NanoVG.cpp")
+  if(NO_SHARED_RESOURCES)
+    target_compile_definitions(dgl-opengl PUBLIC "DGL_NO_SHARED_RESOURCES")
+  else()
+    target_sources(dgl-opengl PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
+  endif()
   if(NOT APPLE)
     target_sources(dgl-opengl PRIVATE
       "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
@@ -700,6 +785,9 @@ function(dpf__set_target_defaults NAME)
     target_compile_options("${NAME}" PUBLIC "/UTF-8")
     target_compile_definitions("${NAME}" PUBLIC "_CRT_SECURE_NO_WARNINGS")
   endif()
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    target_compile_options("${NAME}" PUBLIC "-fno-gnu-unique")
+  endif()
 endfunction()
 
 # dpf__add_plugin_main
@@ -781,6 +869,20 @@ macro(dpf__create_dummy_source_list VAR)
   set("${VAR}")
   if(CMAKE_VERSION VERSION_LESS "3.11")
     dpf__ensure_sources_non_empty("${VAR}")
+  endif()
+endmacro()
+
+# dpf__target_link_directories
+# ------------------------------------------------------------------------------
+#
+# Call `target_link_directories` if cmake >= 3.13,
+# otherwise fallback to global `link_directories`.
+#
+macro(dpf__target_link_directories NAME DIRS)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
+    target_link_directories("${NAME}" PUBLIC ${DIRS})
+  else()
+    link_directories(${DIRS})
   endif()
 endmacro()
 

@@ -49,7 +49,7 @@ void DistrhoPlugin3BandSplitter::initAudioPort(bool input, uint32_t index, Audio
         switch (index)
         {
         case 0:
-            port.name   = "Inpput Left";
+            port.name   = "Input Left";
             port.symbol = "in_left";
             break;
         case 1:

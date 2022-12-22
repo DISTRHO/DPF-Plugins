@@ -89,7 +89,7 @@ void fillInPredefinedPortGroupData(const uint32_t groupId, PortGroup& portGroup)
 }
 
 static inline
-void strncpy(char* const dst, const char* const src, const size_t length)
+void d_strncpy(char* const dst, const char* const src, const size_t length)
 {
     DISTRHO_SAFE_ASSERT_RETURN(length > 0,);
 
@@ -858,6 +858,15 @@ public:
 
         return fData->states[index].description;
     }
+
+   #ifdef __MOD_DEVICES__
+    const String& getStateFileTypes(const uint32_t index) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
+
+        return fData->states[index].fileTypes;
+    }
+   #endif
 
 # if DISTRHO_PLUGIN_WANT_FULL_STATE
     String getStateValue(const char* const key) const

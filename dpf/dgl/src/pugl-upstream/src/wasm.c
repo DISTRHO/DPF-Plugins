@@ -178,7 +178,10 @@ puglKeyCallback(const int eventType, const EmscriptenKeyboardEvent* const keyEve
 
   const PuglKey special = keyCodeToSpecial(keyEvent->keyCode, keyEvent->location);
 
-  uint key = keyEvent->keyCode;
+  uint key = keyEvent->key[0] >= ' ' && keyEvent->key[0] <= '~' && keyEvent->key[1] == '\0'
+           ? keyEvent->key[0]
+           : keyEvent->keyCode;
+
   if (key >= 'A' && key <= 'Z' && !keyEvent->shiftKey)
       key += 'a' - 'A';
 
@@ -250,6 +253,11 @@ puglMouseCallback(const int eventType, const EmscriptenMouseEvent* const mouseEv
                                             mouseEvent->metaKey);
 
   const double scaleFactor = view->world->impl->scaleFactor;
+
+  // workaround missing pointer lock callback, see https://github.com/emscripten-core/emscripten/issues/9681
+  EmscriptenPointerlockChangeEvent e;
+  if (emscripten_get_pointerlock_status(&e) == EMSCRIPTEN_RESULT_SUCCESS)
+      view->impl->pointerLocked = e.isActive;
 
   switch (eventType) {
   case EMSCRIPTEN_EVENT_MOUSEDOWN:
