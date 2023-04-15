@@ -163,7 +163,7 @@ struct WebBridge : NativeBridge {
                 if (WAB.audioContext.state === 'suspended')
                     WAB.audioContext.resume();
             });
-        }, DISTRHO_PLUGIN_NUM_INPUTS, DISTRHO_PLUGIN_NUM_OUTPUTS, bufferSize, audioBufferStorage, WebAudioCallback, this);
+        }, DISTRHO_PLUGIN_NUM_INPUTS_2, DISTRHO_PLUGIN_NUM_OUTPUTS_2, bufferSize, audioBufferStorage, WebAudioCallback, this);
 
         return true;
     }
@@ -217,11 +217,11 @@ struct WebBridge : NativeBridge {
             constraints['audio'] = true;
             constraints['video'] = false;
             constraints['autoGainControl'] = {};
-            constraints['autoGainControl']['exact'] = false;
+            constraints['autoGainControl']['ideal'] = false;
             constraints['echoCancellation'] = {};
-            constraints['echoCancellation']['exact'] = false;
+            constraints['echoCancellation']['ideal'] = false;
             constraints['noiseSuppression'] = {};
-            constraints['noiseSuppression']['exact'] = false;
+            constraints['noiseSuppression']['ideal'] = false;
             constraints['channelCount'] = {};
             constraints['channelCount']['min'] = 0;
             constraints['channelCount']['ideal'] = numInputs;
@@ -236,6 +236,25 @@ struct WebBridge : NativeBridge {
             constraints['googAutoGainControl'] = false;
 
             var success = function(stream) {
+                var track = stream.getAudioTracks()[0];
+
+                // try to force as much as we can
+                track.applyConstraints({'autoGainControl': { 'exact': false } })
+                .then(function(){console.log("Mic/Input auto-gain control has been disabled")})
+                .catch(function(){console.log("Cannot disable Mic/Input auto-gain")});
+
+                track.applyConstraints({'echoCancellation': { 'exact': false } })
+                .then(function(){console.log("Mic/Input echo-cancellation has been disabled")})
+                .catch(function(){console.log("Cannot disable Mic/Input echo-cancellation")});
+
+                track.applyConstraints({'noiseSuppression': { 'exact': false } })
+                .then(function(){console.log("Mic/Input noise-suppression has been disabled")})
+                .catch(function(){console.log("Cannot disable Mic/Input noise-suppression")});
+
+                track.applyConstraints({'googAutoGainControl': { 'exact': false } })
+                .then(function(){})
+                .catch(function(){});
+
                 WAB.captureStreamNode = WAB.audioContext['createMediaStreamSource'](stream);
                 WAB.captureStreamNode.connect(WAB.processor);
             };
@@ -247,7 +266,7 @@ struct WebBridge : NativeBridge {
             } else if (navigator.webkitGetUserMedia !== undefined) {
                 navigator.webkitGetUserMedia(constraints, success, fail);
             }
-        }, DISTRHO_PLUGIN_NUM_INPUTS);
+        }, DISTRHO_PLUGIN_NUM_INPUTS_2);
 
         return true;
     }
@@ -279,7 +298,7 @@ struct WebBridge : NativeBridge {
                 WAB.captureStreamNode.disconnect(WAB.processor);
 
             return 1;
-        }, DISTRHO_PLUGIN_NUM_INPUTS, DISTRHO_PLUGIN_NUM_OUTPUTS, newBufferSize) != 0;
+        }, DISTRHO_PLUGIN_NUM_INPUTS_2, DISTRHO_PLUGIN_NUM_OUTPUTS_2, newBufferSize) != 0;
 
         if (!success)
             return false;
@@ -292,9 +311,10 @@ struct WebBridge : NativeBridge {
             bufferSizeCallback(newBufferSize, jackBufferSizeArg);
 
         EM_ASM({
-            var numInputs = $0;
-            var numOutputs = $1;
-            var bufferSize = $2;
+            var numInputsR = $0;
+            var numInputs = $1;
+            var numOutputs = $2;
+            var bufferSize = $3;
             var WAB = Module['WebAudioBridge'];
 
             // store the new processor
@@ -309,13 +329,13 @@ struct WebBridge : NativeBridge {
                     var buffer = e['inputBuffer']['getChannelData'](i);
                     for (var j = 0; j < bufferSize; ++j) {
                         // setValue($3 + ((bufferSize * i) + j) * 4, buffer[j], 'float');
-                        HEAPF32[$3 + (((bufferSize * i) + j) << 2) >> 2] = buffer[j];
+                        HEAPF32[$4 + (((bufferSize * i) + j) << 2) >> 2] = buffer[j];
                     }
                 }
-                dynCall('vi', $4, [$5]);
+                dynCall('vi', $5, [$6]);
                 for (var i = 0; i < numOutputs; ++i) {
                     var buffer = e['outputBuffer']['getChannelData'](i);
-                    var offset = bufferSize * (numInputs + i);
+                    var offset = bufferSize * (numInputsR + i);
                     for (var j = 0; j < bufferSize; ++j) {
                         buffer[j] = HEAPF32[$3 + ((offset + j) << 2) >> 2];
                     }
@@ -329,7 +349,7 @@ struct WebBridge : NativeBridge {
             if (WAB.captureStreamNode)
                 WAB.captureStreamNode.connect(WAB.processor);
 
-        }, DISTRHO_PLUGIN_NUM_INPUTS, DISTRHO_PLUGIN_NUM_OUTPUTS, bufferSize, audioBufferStorage, WebAudioCallback, this);
+        }, DISTRHO_PLUGIN_NUM_INPUTS, DISTRHO_PLUGIN_NUM_INPUTS_2, DISTRHO_PLUGIN_NUM_OUTPUTS_2, bufferSize, audioBufferStorage, WebAudioCallback, this);
 
         return true;
     }
@@ -452,7 +472,7 @@ struct WebBridge : NativeBridge {
         }
         else
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
                 std::memset(self->audioBuffers[DISTRHO_PLUGIN_NUM_INPUTS + i], 0, sizeof(float)*numFrames);
         }
     }

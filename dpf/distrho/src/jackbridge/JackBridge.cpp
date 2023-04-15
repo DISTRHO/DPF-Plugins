@@ -934,8 +934,27 @@ jack_client_t* jackbridge_client_open(const char* client_name, uint32_t options,
     delete nativeBridge;
    #endif
 #endif
+
     if (status != nullptr)
-        *status = JackServerError;
+    {
+        int err = JackServerError;
+
+       #if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
+        if (nativeBridge != nullptr)
+        {
+            err
+            #ifdef HAVE_JACK
+             |=
+            #else
+             =
+            #endif
+            JackBridgeNativeFailed;
+        }
+       #endif
+
+        *status = static_cast<jack_status_t>(err);
+    }
+
     return nullptr;
 }
 

@@ -75,10 +75,10 @@ include(CMakeParseArguments)
 #       `jack`, `ladspa`, `dssi`, `lv2`, `vst2`, `vst3`, `clap`
 #
 #   `UI_TYPE` <type>
-#       the user interface type: `opengl` (default), `cairo`
+#       the user interface type: `opengl` (default), `cairo`, `external`
 #
-#   `MONOLITHIC`
-#       build LV2 as a single binary for UI and DSP
+#   `FILES_COMMON` <file1>...<fileN>
+#       list of sources which are part of both DSP and UI
 #
 #   `FILES_DSP` <file1>...<fileN>
 #       list of sources which are part of the DSP
@@ -87,13 +87,19 @@ include(CMakeParseArguments)
 #       list of sources which are part of the UI
 #       empty indicates the plugin does not have UI
 #
-#   `FILES_COMMON` <file1>...<fileN>
-#       list of sources which are part of both DSP and UI
+#   `MODGUI_CLASS_NAME`
+#       class name to use for modgui builds
+#
+#   `MONOLITHIC`
+#       build LV2 as a single binary for UI and DSP
+#
+#   `NO_SHARED_RESOURCES`
+#       do not build DPF shared resources (fonts, etc)
 #
 function(dpf_add_plugin NAME)
   set(options MONOLITHIC NO_SHARED_RESOURCES)
-  set(oneValueArgs UI_TYPE)
-  set(multiValueArgs TARGETS FILES_DSP FILES_UI FILES_COMMON)
+  set(oneValueArgs MODGUI_CLASS_NAME UI_TYPE)
+  set(multiValueArgs FILES_COMMON FILES_DSP FILES_UI TARGETS)
   cmake_parse_arguments(_dpf_plugin "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   if("${_dpf_plugin_UI_TYPE}" STREQUAL "")
@@ -101,6 +107,7 @@ function(dpf_add_plugin NAME)
   endif()
 
   set(_dgl_library)
+  set(_dgl_external OFF)
   if(_dpf_plugin_FILES_UI)
     if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
       dpf__add_dgl_cairo("${_dpf_plugin_NO_SHARED_RESOURCES}")
@@ -108,9 +115,16 @@ function(dpf_add_plugin NAME)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
       dpf__add_dgl_opengl("${_dpf_plugin_NO_SHARED_RESOURCES}")
       set(_dgl_library dgl-opengl)
+    elseif(_dpf_plugin_UI_TYPE STREQUAL "external")
+      set(_dgl_external ON)
     else()
       message(FATAL_ERROR "Unrecognized UI type for plugin: ${_dpf_plugin_UI_TYPE}")
     endif()
+  endif()
+
+  set(_dgl_has_ui OFF)
+  if(_dgl_library OR _dgl_external)
+    set(_dgl_has_ui ON)
   endif()
 
   ###
@@ -123,23 +137,36 @@ function(dpf_add_plugin NAME)
   target_include_directories("${NAME}" PUBLIC
     "${DPF_ROOT_DIR}/distrho")
 
+  if(_dpf_plugin_MODGUI_CLASS_NAME)
+    target_compile_definitions("${NAME}" PUBLIC "DISTRHO_PLUGIN_MODGUI_CLASS_NAME=\"${_dpf_plugin_MODGUI_CLASS_NAME}\"")
+  endif()
+
   if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
     target_link_libraries("${NAME}" PRIVATE "dl")
   endif()
 
-  if(_dgl_library)
+  if(_dgl_library AND NOT _dgl_external)
     # make sure that all code will see DGL_* definitions
     target_link_libraries("${NAME}" PUBLIC
       "${_dgl_library}-definitions"
-      dgl-system-libs-definitions)
+      dgl-system-libs-definitions
+      dgl-system-libs)
   endif()
 
   dpf__add_static_library("${NAME}-dsp" ${_dpf_plugin_FILES_DSP})
   target_link_libraries("${NAME}-dsp" PUBLIC "${NAME}")
 
-  if(_dgl_library)
+  if(_dgl_library AND NOT _dgl_external)
     dpf__add_static_library("${NAME}-ui" ${_dpf_plugin_FILES_UI})
     target_link_libraries("${NAME}-ui" PUBLIC "${NAME}" ${_dgl_library})
+    if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
+      target_link_libraries("${NAME}-ui" PRIVATE "dl")
+    endif()
+    # add the files containing Objective-C classes
+    dpf__add_plugin_specific_ui_sources("${NAME}-ui")
+  elseif(_dgl_external)
+    dpf__add_static_library("${NAME}-ui" ${_dpf_plugin_FILES_UI})
+    target_link_libraries("${NAME}-ui" PUBLIC "${NAME}")
     if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
       target_link_libraries("${NAME}-ui" PRIVATE "dl")
     endif()
@@ -152,19 +179,19 @@ function(dpf_add_plugin NAME)
   ###
   foreach(_target ${_dpf_plugin_TARGETS})
     if(_target STREQUAL "jack")
-      dpf__build_jack("${NAME}" "${_dgl_library}")
+      dpf__build_jack("${NAME}" "${_dgl_has_ui}")
     elseif(_target STREQUAL "ladspa")
       dpf__build_ladspa("${NAME}")
     elseif(_target STREQUAL "dssi")
-      dpf__build_dssi("${NAME}" "${_dgl_library}")
+      dpf__build_dssi("${NAME}" "${_dgl_has_ui}")
     elseif(_target STREQUAL "lv2")
-      dpf__build_lv2("${NAME}" "${_dgl_library}" "${_dpf_plugin_MONOLITHIC}")
+      dpf__build_lv2("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_MONOLITHIC}")
     elseif(_target STREQUAL "vst2")
-      dpf__build_vst2("${NAME}" "${_dgl_library}")
+      dpf__build_vst2("${NAME}" "${_dgl_has_ui}")
     elseif(_target STREQUAL "vst3")
-      dpf__build_vst3("${NAME}" "${_dgl_library}")
+      dpf__build_vst3("${NAME}" "${_dgl_has_ui}")
     elseif(_target STREQUAL "clap")
-      dpf__build_clap("${NAME}" "${_dgl_library}")
+      dpf__build_clap("${NAME}" "${_dgl_has_ui}")
     else()
       message(FATAL_ERROR "Unrecognized target type for plugin: ${_target}")
     endif()
@@ -184,26 +211,27 @@ endfunction()
 #
 # Add build rules for a JACK/Standalone program.
 #
-function(dpf__build_jack NAME DGL_LIBRARY)
+function(dpf__build_jack NAME HAS_UI)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_executable("${NAME}-jack" ${_no_srcs})
   dpf__add_plugin_main("${NAME}-jack" "jack")
-  dpf__add_ui_main("${NAME}-jack" "jack" "${DGL_LIBRARY}")
+  dpf__add_ui_main("${NAME}-jack" "jack" "${HAS_UI}")
   target_link_libraries("${NAME}-jack" PRIVATE "${NAME}-dsp" "${NAME}-ui")
   set_target_properties("${NAME}-jack" PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     OUTPUT_NAME "${NAME}")
 
   target_compile_definitions("${NAME}" PUBLIC "HAVE_JACK")
+  target_compile_definitions("${NAME}-jack" PRIVATE "HAVE_GETTIMEOFDAY")
 
   find_package(PkgConfig)
   pkg_check_modules(SDL2 "sdl2")
   if(SDL2_FOUND)
     target_compile_definitions("${NAME}" PUBLIC "HAVE_SDL2")
-    target_include_directories("${NAME}-jack" PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries("${NAME}-jack" PRIVATE ${SDL2_LIBRARIES})
-    dpf__target_link_directories("${NAME}-jack" ${SDL2_LIBRARY_DIRS})
+    target_include_directories("${NAME}-jack" PRIVATE ${SDL2_STATIC_INCLUDE_DIRS})
+    target_link_libraries("${NAME}-jack" PRIVATE ${SDL2_STATIC_LIBRARIES})
+    dpf__target_link_directories("${NAME}-jack" "${SDL2_STATIC_LIBRARY_DIRS}")
   endif()
 
   if(APPLE OR WIN32)
@@ -216,13 +244,13 @@ function(dpf__build_jack NAME DGL_LIBRARY)
       target_compile_definitions("${NAME}" PUBLIC "HAVE_ALSA")
       target_include_directories("${NAME}-jack" PRIVATE ${ALSA_INCLUDE_DIRS})
       target_link_libraries("${NAME}-jack" PRIVATE ${ALSA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-      dpf__target_link_directories("${NAME}-jack" ${ALSA_LIBRARY_DIRS})
+      dpf__target_link_directories("${NAME}-jack" "${ALSA_LIBRARY_DIRS}")
     endif()
     if(PULSEAUDIO_FOUND)
       target_compile_definitions("${NAME}" PUBLIC "HAVE_PULSEAUDIO")
       target_include_directories("${NAME}-jack" PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
       target_link_libraries("${NAME}-jack" PRIVATE ${PULSEAUDIO_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-      dpf__target_link_directories("${NAME}-jack" ${PULSEAUDIO_LIBRARY_DIRS})
+      dpf__target_link_directories("${NAME}-jack" "${PULSEAUDIO_LIBRARY_DIRS}")
     endif()
     if(ALSA_FOUND OR PULSEAUDIO_FOUND)
       target_compile_definitions("${NAME}" PUBLIC "HAVE_RTAUDIO")
@@ -239,7 +267,10 @@ function(dpf__build_jack NAME DGL_LIBRARY)
       "${APPLE_COREFOUNDATION_FRAMEWORK}"
       "${APPLE_COREMIDI_FRAMEWORK}")
   elseif(WIN32)
-    target_link_libraries("${NAME}-jack" PRIVATE "dsound" "ole32" "winmm")
+    target_link_libraries("${NAME}-jack" PRIVATE "ksuser" "mfplat" "mfuuid" "ole32" "winmm" "wmcodecdspuuid")
+    if(HAS_UI AND MINGW)
+      set_target_properties("${NAME}-jack" PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
   endif()
 endfunction()
 
@@ -267,7 +298,7 @@ endfunction()
 #
 # Add build rules for a DSSI plugin.
 #
-function(dpf__build_dssi NAME DGL_LIBRARY)
+function(dpf__build_dssi NAME HAS_UI)
   find_package(PkgConfig)
   pkg_check_modules(LIBLO "liblo")
   if(NOT LIBLO_FOUND)
@@ -288,9 +319,9 @@ function(dpf__build_dssi NAME DGL_LIBRARY)
     OUTPUT_NAME "${NAME}-dssi"
     PREFIX "")
 
-  if(DGL_LIBRARY)
+  if(HAS_UI)
     dpf__add_executable("${NAME}-dssi-ui" ${_no_srcs})
-    dpf__add_ui_main("${NAME}-dssi-ui" "dssi" "${DGL_LIBRARY}")
+    dpf__add_ui_main("${NAME}-dssi-ui" "dssi" "${HAS_UI}")
     target_link_libraries("${NAME}-dssi-ui" PRIVATE "${NAME}-ui")
     set_target_properties("${NAME}-dssi-ui" PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}-dssi/$<0:>"
@@ -299,7 +330,7 @@ function(dpf__build_dssi NAME DGL_LIBRARY)
     target_compile_definitions("${NAME}" PUBLIC "HAVE_LIBLO")
     target_include_directories("${NAME}-dssi-ui" PRIVATE ${LIBLO_INCLUDE_DIRS})
     target_link_libraries("${NAME}-dssi-ui" PRIVATE ${LIBLO_LIBRARIES})
-    dpf__target_link_directories("${NAME}-dssi-ui" ${LIBLO_LIBRARY_DIRS})
+    dpf__target_link_directories("${NAME}-dssi-ui" "${LIBLO_LIBRARY_DIRS}")
   endif()
 endfunction()
 
@@ -308,12 +339,12 @@ endfunction()
 #
 # Add build rules for an LV2 plugin.
 #
-function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
+function(dpf__build_lv2 NAME HAS_UI MONOLITHIC)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-lv2" ${_no_srcs})
   dpf__add_plugin_main("${NAME}-lv2" "lv2")
-  if(DGL_LIBRARY AND MONOLITHIC)
+  if(HAS_UI AND MONOLITHIC)
     dpf__set_module_export_list("${NAME}-lv2" "lv2")
   else()
     dpf__set_module_export_list("${NAME}-lv2" "lv2-dsp")
@@ -325,15 +356,15 @@ function(dpf__build_lv2 NAME DGL_LIBRARY MONOLITHIC)
     OUTPUT_NAME "${NAME}_dsp"
     PREFIX "")
 
-  if(DGL_LIBRARY)
+  if(HAS_UI)
     if(MONOLITHIC)
-      dpf__add_ui_main("${NAME}-lv2" "lv2" "${DGL_LIBRARY}")
+      dpf__add_ui_main("${NAME}-lv2" "lv2" "${HAS_UI}")
       target_link_libraries("${NAME}-lv2" PRIVATE "${NAME}-ui")
       set_target_properties("${NAME}-lv2" PROPERTIES
         OUTPUT_NAME "${NAME}")
     else()
       dpf__add_module("${NAME}-lv2-ui" ${_no_srcs})
-      dpf__add_ui_main("${NAME}-lv2-ui" "lv2" "${DGL_LIBRARY}")
+      dpf__add_ui_main("${NAME}-lv2-ui" "lv2" "${HAS_UI}")
       dpf__set_module_export_list("${NAME}-lv2-ui" "lv2-ui")
       target_link_libraries("${NAME}-lv2-ui" PRIVATE "${NAME}-ui")
       set_target_properties("${NAME}-lv2-ui" PROPERTIES
@@ -361,12 +392,12 @@ endfunction()
 #
 # Add build rules for a VST2 plugin.
 #
-function(dpf__build_vst2 NAME DGL_LIBRARY)
+function(dpf__build_vst2 NAME HAS_UI)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-vst2" ${_no_srcs})
   dpf__add_plugin_main("${NAME}-vst2" "vst2")
-  dpf__add_ui_main("${NAME}-vst2" "vst2" "${DGL_LIBRARY}")
+  dpf__add_ui_main("${NAME}-vst2" "vst2" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-vst2" "vst2")
   target_link_libraries("${NAME}-vst2" PRIVATE "${NAME}-dsp" "${NAME}-ui")
   set_target_properties("${NAME}-vst2" PROPERTIES
@@ -439,14 +470,14 @@ endfunction()
 #
 # Add build rules for a VST3 plugin.
 #
-function(dpf__build_vst3 NAME DGL_LIBRARY)
+function(dpf__build_vst3 NAME HAS_UI)
   dpf__determine_vst3_package_architecture(vst3_arch)
 
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-vst3" ${_no_srcs})
   dpf__add_plugin_main("${NAME}-vst3" "vst3")
-  dpf__add_ui_main("${NAME}-vst3" "vst3" "${DGL_LIBRARY}")
+  dpf__add_ui_main("${NAME}-vst3" "vst3" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-vst3" "vst3")
   target_link_libraries("${NAME}-vst3" PRIVATE "${NAME}-dsp" "${NAME}-ui")
   set_target_properties("${NAME}-vst3" PROPERTIES
@@ -481,12 +512,12 @@ endfunction()
 #
 # Add build rules for a VST2 plugin.
 #
-function(dpf__build_clap NAME DGL_LIBRARY)
+function(dpf__build_clap NAME HAS_UI)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-clap" ${_no_srcs})
   dpf__add_plugin_main("${NAME}-clap" "clap")
-  dpf__add_ui_main("${NAME}-clap" "clap" "${DGL_LIBRARY}")
+  dpf__add_ui_main("${NAME}-clap" "clap" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-clap" "clap")
   target_link_libraries("${NAME}-clap" PRIVATE "${NAME}-dsp" "${NAME}-ui")
   set_target_properties("${NAME}-clap" PROPERTIES
@@ -532,6 +563,7 @@ function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
@@ -597,6 +629,7 @@ function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
     "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
     "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
@@ -661,34 +694,42 @@ function(dpf__add_dgl_system_libs)
   endif()
   add_library(dgl-system-libs INTERFACE)
   add_library(dgl-system-libs-definitions INTERFACE)
-  if(HAIKU)
-    target_link_libraries(dgl-system-libs INTERFACE "be")
-  elseif(WIN32)
-    target_link_libraries(dgl-system-libs INTERFACE "gdi32" "comdlg32")
-  elseif(APPLE)
+  if(APPLE)
     find_library(APPLE_COCOA_FRAMEWORK "Cocoa")
     find_library(APPLE_COREVIDEO_FRAMEWORK "CoreVideo")
     target_link_libraries(dgl-system-libs INTERFACE "${APPLE_COCOA_FRAMEWORK}" "${APPLE_COREVIDEO_FRAMEWORK}")
+  elseif(EMSCRIPTEN)
+  elseif(HAIKU)
+    target_link_libraries(dgl-system-libs INTERFACE "be")
+  elseif(WIN32)
+    target_link_libraries(dgl-system-libs INTERFACE "gdi32" "comdlg32")
   else()
+    find_package(PkgConfig)
+    pkg_check_modules(DBUS "dbus-1")
+    if(DBUS_FOUND)
+      target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_DBUS")
+      target_include_directories(dgl-system-libs INTERFACE "${DBUS_INCLUDE_DIRS}")
+      target_link_libraries(dgl-system-libs INTERFACE "${DBUS_LIBRARIES}")
+    endif()
     find_package(X11 REQUIRED)
+    target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_X11")
     target_include_directories(dgl-system-libs INTERFACE "${X11_INCLUDE_DIR}")
     target_link_libraries(dgl-system-libs INTERFACE "${X11_X11_LIB}")
-    target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_X11")
     if(X11_Xcursor_FOUND)
-      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xcursor_LIB}")
       target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_XCURSOR")
+      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xcursor_LIB}")
     endif()
     if(X11_Xext_FOUND)
-      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xext_LIB}")
       target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_XEXT")
+      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xext_LIB}")
     endif()
     if(X11_Xrandr_FOUND)
-      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xrandr_LIB}")
       target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_XRANDR")
+      target_link_libraries(dgl-system-libs INTERFACE "${X11_Xrandr_LIB}")
     endif()
     if(X11_XSync_FOUND)
-      target_link_libraries(dgl-system-libs INTERFACE "${X11_XSync_LIB}")
       target_compile_definitions(dgl-system-libs-definitions INTERFACE "HAVE_XSYNC")
+      target_link_libraries(dgl-system-libs INTERFACE "${X11_XSync_LIB}")
     endif()
    endif()
 

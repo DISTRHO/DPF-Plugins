@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -22,7 +22,7 @@
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 # error Cannot use MIDI Output with LADSPA or DSSI
 #endif
-#if DISTRHO_PLUGIN_WANT_FULL_STATE
+#if DISTRHO_PLUGIN_WANT_FULL_STATE && !defined(DISTRHO_PLUGIN_WANT_FULL_STATE_WITH_LADSPA)
 # error Cannot use full state with LADSPA or DSSI
 #endif
 
@@ -618,13 +618,19 @@ static const struct DescriptorInitializer
             else
                 portDescriptors[port] |= LADSPA_PORT_INPUT;
 
+            const uint32_t hints = plugin.getParameterHints(i);
+
             {
                 const ParameterRanges& ranges(plugin.getParameterRanges(i));
                 const float defValue = ranges.def;
 
-                portRangeHints[port].HintDescriptor = LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE;
-                portRangeHints[port].LowerBound     = ranges.min;
-                portRangeHints[port].UpperBound     = ranges.max;
+                // LADSPA doesn't allow bounded hints on toggles
+                portRangeHints[port].HintDescriptor = hints & kParameterIsBoolean
+                                                    ? 0
+                                                    : LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE;
+
+                portRangeHints[port].LowerBound = ranges.min;
+                portRangeHints[port].UpperBound = ranges.max;
 
                 /**/ if (d_isZero(defValue))
                     portRangeHints[port].HintDescriptor |= LADSPA_HINT_DEFAULT_0;
@@ -654,8 +660,6 @@ static const struct DescriptorInitializer
             }
 
             {
-                const uint32_t hints = plugin.getParameterHints(i);
-
                 if (hints & kParameterIsBoolean)
                 {
                     portRangeHints[port].HintDescriptor |= LADSPA_HINT_TOGGLED;

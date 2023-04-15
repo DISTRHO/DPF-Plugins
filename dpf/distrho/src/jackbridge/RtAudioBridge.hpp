@@ -28,9 +28,9 @@
 # define RTAUDIO_API_TYPE MACOSX_CORE
 # define RTMIDI_API_TYPE MACOSX_CORE
 #elif defined(DISTRHO_OS_WINDOWS) && !defined(_MSC_VER)
-# define __WINDOWS_DS__
+# define __WINDOWS_WASAPI__
 # define __WINDOWS_MM__
-# define RTAUDIO_API_TYPE WINDOWS_DS
+# define RTAUDIO_API_TYPE WINDOWS_WASAPI
 # define RTMIDI_API_TYPE WINDOWS_MM
 #else
 # if defined(HAVE_PULSEAUDIO)
@@ -50,7 +50,9 @@
 # include "rtmidi/RtMidi.h"
 # include "../../extra/ScopedPointer.hpp"
 # include "../../extra/String.hpp"
+# include "../../extra/ScopedDenormalDisable.hpp"
 
+using DISTRHO_NAMESPACE::ScopedDenormalDisable;
 using DISTRHO_NAMESPACE::ScopedPointer;
 using DISTRHO_NAMESPACE::String;
 
@@ -281,13 +283,20 @@ struct RtAudioBridge : NativeBridge {
         return ok;
     }
 
-    bool _open(const bool withInput)
+    bool _open(const bool withInput, RtAudio* tryingAgain = nullptr)
     {
         ScopedPointer<RtAudio> rtAudio;
 
-        try {
-            rtAudio = new RtAudio(RtAudio::RTAUDIO_API_TYPE);
-        } DISTRHO_SAFE_EXCEPTION_RETURN("new RtAudio()", false);
+        if (tryingAgain == nullptr)
+        {
+            try {
+                rtAudio = new RtAudio(RtAudio::RTAUDIO_API_TYPE);
+            } DISTRHO_SAFE_EXCEPTION_RETURN("new RtAudio()", false);
+        }
+        else
+        {
+            rtAudio = tryingAgain;
+        }
 
         uint rtAudioBufferFrames = nextBufferSize;
 
@@ -300,15 +309,15 @@ struct RtAudioBridge : NativeBridge {
         if (withInput)
         {
             inParams.deviceId = rtAudio->getDefaultInputDevice();
-            inParams.nChannels = DISTRHO_PLUGIN_NUM_INPUTS;
+            inParams.nChannels = DISTRHO_PLUGIN_NUM_INPUTS_2;
             inParamsPtr = &inParams;
         }
        #endif
 
        #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         RtAudio::StreamParameters outParams;
-        outParams.deviceId = rtAudio->getDefaultOutputDevice();
-        outParams.nChannels = DISTRHO_PLUGIN_NUM_OUTPUTS;
+        outParams.deviceId = tryingAgain != nullptr ? 1 : rtAudio->getDefaultOutputDevice();
+        outParams.nChannels = DISTRHO_PLUGIN_NUM_OUTPUTS_2;
         RtAudio::StreamParameters* const outParamsPtr = &outParams;
        #else
         RtAudio::StreamParameters* const outParamsPtr = nullptr;
@@ -330,6 +339,10 @@ struct RtAudioBridge : NativeBridge {
             rtAudio->openStream(outParamsPtr, inParamsPtr, RTAUDIO_FLOAT32, 48000, &rtAudioBufferFrames,
                                 RtAudioCallback, this, &opts, nullptr);
         } catch (const RtAudioError& err) {
+           #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+            if (outParams.deviceId == 0 && rtAudio->getDeviceCount() > 1)
+                return _open(withInput, rtAudio.release());
+           #endif
             d_safe_exception(err.getMessage().c_str(), __FILE__, __LINE__);
             return false;
         } DISTRHO_SAFE_EXCEPTION_RETURN("rtAudio->openStream()", false);
@@ -357,14 +370,14 @@ struct RtAudioBridge : NativeBridge {
         if (self->jackProcessCallback == nullptr)
         {
             if (outputBuffer != nullptr)
-                std::memset((float*)outputBuffer, 0, sizeof(float)*numFrames*DISTRHO_PLUGIN_NUM_OUTPUTS);
+                std::memset((float*)outputBuffer, 0, sizeof(float)*numFrames*DISTRHO_PLUGIN_NUM_OUTPUTS_2);
             return 0;
         }
 
        #if DISTRHO_PLUGIN_NUM_INPUTS > 0
         if (float* const insPtr = static_cast<float*>(inputBuffer))
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_INPUTS; ++i)
+            for (uint i=0; i<DISTRHO_PLUGIN_NUM_INPUTS_2; ++i)
                 self->audioBuffers[i] = insPtr + (i * numFrames);
         }
        #endif
@@ -372,11 +385,12 @@ struct RtAudioBridge : NativeBridge {
        #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         if (float* const outsPtr = static_cast<float*>(outputBuffer))
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
                 self->audioBuffers[DISTRHO_PLUGIN_NUM_INPUTS + i] = outsPtr + (i * numFrames);
         }
        #endif
 
+        const ScopedDenormalDisable sdd;
         self->jackProcessCallback(numFrames, self->jackProcessArg);
 
         return 0;

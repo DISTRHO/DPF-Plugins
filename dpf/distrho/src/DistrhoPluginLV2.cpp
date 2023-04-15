@@ -821,7 +821,7 @@ public:
                 if (options[i].type == fURIDs.atomInt)
                 {
                     const int32_t bufferSize(*(const int32_t*)options[i].value);
-                    fPlugin.setBufferSize(bufferSize);
+                    fPlugin.setBufferSize(bufferSize, true);
                 }
                 else
                 {
@@ -833,7 +833,7 @@ public:
                 if (options[i].type == fURIDs.atomInt)
                 {
                     const int32_t bufferSize(*(const int32_t*)options[i].value);
-                    fPlugin.setBufferSize(bufferSize);
+                    fPlugin.setBufferSize(bufferSize, true);
                 }
                 else
                 {
@@ -846,7 +846,7 @@ public:
                 {
                     const float sampleRate(*(const float*)options[i].value);
                     fSampleRate = sampleRate;
-                    fPlugin.setSampleRate(sampleRate);
+                    fPlugin.setSampleRate(sampleRate, true);
                 }
                 else
                 {
@@ -1070,6 +1070,7 @@ public:
 
             setState(key, filename);
 
+            /* FIXME host should be responsible for updating UI side, not us
             for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
             {
                 if (fPlugin.getStateKey(i) == key)
@@ -1079,6 +1080,7 @@ public:
                     break;
                 }
             }
+            */
 
             return LV2_WORKER_SUCCESS;
         }

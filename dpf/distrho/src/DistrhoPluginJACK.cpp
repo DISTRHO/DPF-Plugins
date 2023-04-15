@@ -152,23 +152,25 @@ public:
           fClient(client)
     {
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0 || DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-        char strBuf[0xff+1];
-        strBuf[0xff] = '\0';
-
 # if DISTRHO_PLUGIN_NUM_INPUTS > 0
         for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
         {
             const AudioPort& port(fPlugin.getAudioPort(true, i));
-            fPortAudioIns[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+            ulong hints = JackPortIsInput;
+            if (port.hints & kAudioPortIsCV)
+                hints |= JackPortIsControlVoltage;
+            fPortAudioIns[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, hints, 0);
             setAudioPortMetadata(port, fPortAudioIns[i], i);
         }
 # endif
 # if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
         {
-            std::snprintf(strBuf, 0xff, "out%i", i+1);
             const AudioPort& port(fPlugin.getAudioPort(false, i));
-            fPortAudioOuts[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+            ulong hints = JackPortIsOutput;
+            if (port.hints & kAudioPortIsCV)
+                hints |= JackPortIsControlVoltage;
+            fPortAudioOuts[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, hints, 0);
             setAudioPortMetadata(port, fPortAudioOuts[i], DISTRHO_PLUGIN_NUM_INPUTS+i);
         }
 # endif
@@ -623,7 +625,8 @@ private:
 
         {
             char strBuf[0xff];
-            snprintf(strBuf, sizeof(0xff)-1, "%u", index);
+            snprintf(strBuf, 0xff - 2, "%u", index);
+            strBuf[0xff - 1] = '\0';
             jackbridge_set_property(fClient, uuid, JACK_METADATA_ORDER, strBuf, "http://www.w3.org/2001/XMLSchema#integer");
         }
 
@@ -807,7 +810,7 @@ public:
 protected:
     void run() override
     {
-        plugin.setBufferSize(256);
+        plugin.setBufferSize(256, true);
         plugin.activate();
 
         float buffer[256];
@@ -862,8 +865,8 @@ bool runSelfTests()
 
         plugin.activate();
         plugin.deactivate();
-        plugin.setBufferSize(128);
-        plugin.setSampleRate(48000);
+        plugin.setBufferSize(128, true);
+        plugin.setSampleRate(48000, true);
         plugin.activate();
 
         float buffer[128] = {};
@@ -1030,6 +1033,12 @@ int main(int argc, char* argv[])
     jack_status_t  status = jack_status_t(0x0);
     jack_client_t* client = jackbridge_client_open(DISTRHO_PLUGIN_NAME, JackNoStartServer, &status);
 
+   #ifdef HAVE_JACK
+    #define STANDALONE_NAME "JACK client"
+   #else
+    #define STANDALONE_NAME "Native audio driver"
+   #endif
+
     if (client == nullptr)
     {
         String errorString;
@@ -1060,20 +1069,22 @@ int main(int argc, char* argv[])
             errorString += "Backend Error;\n";
         if (status & JackClientZombie)
             errorString += "Client is being shutdown against its will;\n";
+        if (status & JackBridgeNativeFailed)
+            errorString += "Native audio driver was unable to start;\n";
 
         if (errorString.isNotEmpty())
         {
             errorString[errorString.length()-2] = '.';
-            d_stderr("Failed to create the JACK client, reason was:\n%s", errorString.buffer());
+            d_stderr("Failed to create the " STANDALONE_NAME ", reason was:\n%s", errorString.buffer());
         }
         else
-            d_stderr("Failed to create the JACK client, cannot continue!");
+            d_stderr("Failed to create the " STANDALONE_NAME ", cannot continue!");
 
        #if defined(DISTRHO_OS_MAC)
         CFStringRef errorTitleRef = CFStringCreateWithCString(nullptr,
            DISTRHO_PLUGIN_NAME ": Error", kCFStringEncodingUTF8);
         CFStringRef errorStringRef = CFStringCreateWithCString(nullptr,
-           String("Failed to create JACK client, reason was:\n" + errorString).buffer(), kCFStringEncodingUTF8);
+           String("Failed to create " STANDALONE_NAME ", reason was:\n" + errorString).buffer(), kCFStringEncodingUTF8);
 
         CFUserNotificationDisplayAlert(0, kCFUserNotificationCautionAlertLevel,
            nullptr, nullptr, nullptr,
@@ -1097,7 +1108,7 @@ int main(int argc, char* argv[])
             FreeLibrary(user32);
         }
 
-        const String win32error = "Failed to create JACK client, reason was:\n" + errorString;
+        const String win32error = "Failed to create " STANDALONE_NAME ", reason was:\n" + errorString;
         MessageBoxA(nullptr, win32error.buffer(), "", MB_ICONERROR);
        #endif
 

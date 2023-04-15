@@ -35,7 +35,9 @@ DPF_MAKEFILE_BASE_INCLUDED = true
 # ---------------------------------------------------------------------------------------------------------------------
 # Auto-detect target compiler if not defined
 
-ifeq ($(shell echo '\#test' | grep -- '\#test'),\#test)
+ifneq ($(shell echo -e escaped-by-default | grep -- '-e escaped-by-default'),-e escaped-by-default)
+TARGET_COMPILER = $(shell echo -e '#ifdef __clang__\nclang\n#else\ngcc\n#endif' | $(CC) -E -P -x c - 2>/dev/null)
+else ifeq ($(shell echo '\#escaped-by-default' | grep -- '\#escaped-by-default'),\#escaped-by-default)
 TARGET_COMPILER = $(shell echo '\#ifdef __clang__\nclang\n\#else\ngcc\n\#endif' | $(CC) -E -P -x c - 2>/dev/null)
 else
 TARGET_COMPILER = $(shell echo '#ifdef __clang__\nclang\n#else\ngcc\n#endif' | $(CC) -E -P -x c - 2>/dev/null)
@@ -272,7 +274,10 @@ BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
 ifeq ($(DEBUG),true)
-BASE_FLAGS += -DDEBUG -O0 -g -fsanitize=address
+BASE_FLAGS += -DDEBUG -O0 -g
+ifneq ($(HAIKU),true)
+BASE_FLAGS += -fsanitize=address
+endif
 LINK_OPTS   =
 ifeq ($(WASM),true)
 LINK_OPTS  += -sASSERTIONS=1
@@ -347,9 +352,11 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Check for required libraries
 
-HAVE_CAIRO  = $(shell $(PKG_CONFIG) --exists cairo && echo true)
+ifneq ($(HAIKU),true)
+HAVE_CAIRO = $(shell $(PKG_CONFIG) --exists cairo && echo true)
+endif
 
-ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
+ifeq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_OPENGL = true
 else
 HAVE_OPENGL  = $(shell $(PKG_CONFIG) --exists gl && echo true)
@@ -402,18 +409,34 @@ endif
 # Set Generic DGL stuff
 
 ifeq ($(HAIKU),true)
+
 DGL_SYSTEM_LIBS += -lbe
+
 else ifeq ($(MACOS),true)
-DGL_SYSTEM_LIBS += -framework Cocoa -framework CoreVideo
+
+DGL_SYSTEM_LIBS += -framework Cocoa
+DGL_SYSTEM_LIBS += -framework CoreVideo
+
 else ifeq ($(WASM),true)
+
+# wasm builds cannot work using regular desktop OpenGL
+ifeq (,$(USE_GLES2)$(USE_GLES3))
+USE_GLES2 = true
+endif
+
 else ifeq ($(WINDOWS),true)
-DGL_SYSTEM_LIBS += -lgdi32 -lcomdlg32
-# -lole32
+
+DGL_SYSTEM_LIBS += -lcomdlg32
+DGL_SYSTEM_LIBS += -lgdi32
+# DGL_SYSTEM_LIBS += -lole32
+
 else
+
 ifeq ($(HAVE_DBUS),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags dbus-1) -DHAVE_DBUS
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs dbus-1)
 endif
+
 ifeq ($(HAVE_X11),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags x11) -DHAVE_X11
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs x11)
@@ -429,7 +452,8 @@ ifeq ($(HAVE_XRANDR),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xrandr) -DHAVE_XRANDR
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xrandr)
 endif
-endif
+endif # HAVE_X11
+
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -444,7 +468,7 @@ CAIRO_LIBS   = $(shell $(PKG_CONFIG) --libs cairo)
 
 HAVE_CAIRO_OR_OPENGL = true
 
-endif
+endif # HAVE_CAIRO
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set OpenGL specific stuff
@@ -454,8 +478,8 @@ ifeq ($(HAVE_OPENGL),true)
 DGL_FLAGS   += -DHAVE_OPENGL
 
 ifeq ($(HAIKU),true)
-OPENGL_FLAGS = $(shell $(PKG_CONFIG) --cflags gl)
-OPENGL_LIBS  = $(shell $(PKG_CONFIG) --libs gl)
+OPENGL_FLAGS =
+OPENGL_LIBS  = -lGL
 else ifeq ($(MACOS),true)
 OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1 -Wno-deprecated-declarations
 OPENGL_LIBS  = -framework OpenGL
@@ -476,12 +500,12 @@ endif
 
 HAVE_CAIRO_OR_OPENGL = true
 
-endif
+endif # HAVE_OPENGL
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Set Stub specific stuff
 
-ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
+ifeq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_STUB = true
 else
 HAVE_STUB = $(HAVE_X11)
@@ -540,7 +564,7 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Backwards-compatible HAVE_DGL
 
-ifeq ($(MACOS_OR_WASM_OR_WINDOWS),true)
+ifeq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_DGL = true
 else ifeq ($(HAVE_OPENGL),true)
 HAVE_DGL = $(HAVE_X11)
@@ -634,6 +658,41 @@ SHARED = -shared
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Set CLAP binary directory
+
+ifeq ($(MACOS),true)
+CLAP_BINARY_DIR = Contents/MacOS
+else
+CLAP_BINARY_DIR =
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set VST2 binary directory
+
+ifeq ($(MACOS),true)
+VST2_BINARY_DIR = Contents/MacOS
+else
+VST2_BINARY_DIR =
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set VST3 binary directory, see https://vst3sdk-doc.diatonic.jp/doc/vstinterfaces/vst3loc.html
+
+ifeq ($(LINUX),true)
+VST3_BINARY_DIR = Contents/$(TARGET_PROCESSOR)-linux
+else ifeq ($(MACOS),true)
+VST3_BINARY_DIR = Contents/MacOS
+else ifeq ($(WASM),true)
+VST3_BINARY_DIR = Contents/wasm
+else ifeq ($(WINDOWS)$(CPU_I386),truetrue)
+VST3_BINARY_DIR = Contents/x86-win
+else ifeq ($(WINDOWS)$(CPU_X86_64),truetrue)
+VST3_BINARY_DIR = Contents/x86_64-win
+else
+VST3_BINARY_DIR =
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Handle the verbosity switch
 
 SILENT =
@@ -713,6 +772,7 @@ MOD_ENVIRONMENT = \
 	CXX=${1}/host/usr/bin/${2}-g++ \
 	LD=${1}/host/usr/bin/${2}-ld \
 	PKG_CONFIG=${1}/host/usr/bin/pkg-config \
+	PKG_CONFIG_PATH="${1}/staging/usr/lib/pkgconfig" \
 	STRIP=${1}/host/usr/bin/${2}-strip \
 	CFLAGS="-I${1}/staging/usr/include $(EXTRA_MOD_FLAGS)" \
 	CPPFLAGS= \
@@ -738,12 +798,12 @@ modpush:
 
 ifneq (,$(findstring modduo-,$(MAKECMDGOALS)))
 $(MAKECMDGOALS):
-	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo,arm-mod-linux-gnueabihf,arm) $(subst modduo-,,$(MAKECMDGOALS))
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-static,arm-mod-linux-gnueabihf.static,arm) $(subst modduo-,,$(MAKECMDGOALS))
 endif
 
 ifneq (,$(findstring modduox-,$(MAKECMDGOALS)))
 $(MAKECMDGOALS):
-	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox,aarch64-mod-linux-gnueabi,aarch64) $(subst modduox-,,$(MAKECMDGOALS))
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-static,aarch64-mod-linux-gnueabi.static,aarch64) $(subst modduox-,,$(MAKECMDGOALS))
 endif
 
 ifneq (,$(findstring moddwarf-,$(MAKECMDGOALS)))
