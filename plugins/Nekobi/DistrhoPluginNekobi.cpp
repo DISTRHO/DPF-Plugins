@@ -18,7 +18,6 @@
 
 #include "DistrhoPluginNekobi.hpp"
 
-extern "C" {
 
 #include "nekobee-src/nekobee_synth.c"
 #include "nekobee-src/nekobee_voice.c"
@@ -31,7 +30,7 @@ extern "C" {
 bool dssp_voicelist_mutex_trylock(nekobee_synth_t* const synth)
 {
     /* Attempt the mutex lock */
-    if (pthread_mutex_trylock(&synth->voicelist_mutex) != 0)
+    if (!synth->voicelist_mutex.try_lock())
     {
         synth->voicelist_mutex_grab_failed = 1;
         return false;
@@ -47,9 +46,9 @@ bool dssp_voicelist_mutex_trylock(nekobee_synth_t* const synth)
     return true;
 }
 
-bool dssp_voicelist_mutex_unlock(nekobee_synth_t* const synth)
+void dssp_voicelist_mutex_unlock(nekobee_synth_t* const synth)
 {
-    return (pthread_mutex_unlock(&synth->voicelist_mutex) == 0);
+    synth->voicelist_mutex.unlock();
 }
 
 // -----------------------------------------------------------------------
@@ -79,7 +78,6 @@ void nekobee_handle_raw_event(nekobee_synth_t* const synth, const uint8_t size, 
     }
 }
 
-} /* extern "C" */
 
 START_NAMESPACE_DISTRHO
 
@@ -109,7 +107,6 @@ DistrhoPluginNekobi::DistrhoPluginNekobi()
 
     fSynth.voice = nekobee_voice_new();
     fSynth.voicelist_mutex_grab_failed = 0;
-    pthread_mutex_init(&fSynth.voicelist_mutex, nullptr);
 
     fSynth.channel_pressure = 0;
     fSynth.pitch_wheel_sensitivity = 0;
@@ -299,7 +296,7 @@ void DistrhoPluginNekobi::setParameterValue(uint32_t index, float value)
         break;
     case paramTuning:
         fParams.tuning = value;
-        fSynth.tuning = (value+12.0f)/24.0f * 1.5 + 0.5f; // FIXME: log?
+        fSynth.tuning = exp2f( value / 12.0f );
         DISTRHO_SAFE_ASSERT(fSynth.tuning >= 0.5f && fSynth.tuning <= 2.0f);
         break;
     case paramCutoff:

@@ -63,8 +63,8 @@
 
 #else  /* !XSYNTH_DEBUG */
 
-#define XDB_MESSAGE(type, fmt...)
-#define GDB_MESSAGE(type, fmt...)
+#define XDB_MESSAGE(type, fmt, ...)
+#define GDB_MESSAGE(type, fmt, ...)
 #define XSYNTH_DEBUG_INIT(x)
 
 #endif  /* XSYNTH_DEBUG */

@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <pthread.h>
+#include <mutex>
 
 #include "nekobee.h"
 #include "nekobee_synth.h"

@@ -26,7 +26,7 @@
 #ifndef _XSYNTH_SYNTH_H
 #define _XSYNTH_SYNTH_H
 
-#include <pthread.h>
+#include <mutex>
 
 #include "nekobee.h"
 #include "nekobee_types.h"
@@ -64,7 +64,7 @@ struct _nekobee_synth_t {
 
     //nekobee_voice_t *voice[XSYNTH_MAX_POLYPHONY];
     nekobee_voice_t *voice;
-    pthread_mutex_t voicelist_mutex;
+    std::mutex      voicelist_mutex;
     int             voicelist_mutex_grab_failed;
 
     /* current non-paramter-mapped controller values */
