@@ -57,3 +57,4 @@ done
 
 rm -rf repos
 rm plugins/common/LICENSE
+rm plugins/*/CMakeLists.txt
