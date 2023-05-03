@@ -29,8 +29,10 @@ include ../../dpf/Makefile.plugins.mk
 # --------------------------------------------------------------
 # Extra flags
 
+ifneq ($(WASM),true)
 BASE_FLAGS += -pthread
 LINK_FLAGS += -pthread
+endif
 
 # --------------------------------------------------------------
 # Enable all possible plugin types

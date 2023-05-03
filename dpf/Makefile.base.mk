@@ -352,7 +352,7 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Check for required libraries
 
-ifneq ($(HAIKU),true)
+ifneq ($(HAIKU)$(WASM),true)
 HAVE_CAIRO = $(shell $(PKG_CONFIG) --exists cairo && echo true)
 endif
 
@@ -763,7 +763,7 @@ features:
 # ---------------------------------------------------------------------------------------------------------------------
 # Extra rules for MOD Audio stuff
 
-# NOTE: note path must be absolute
+# NOTE: path must be absolute
 MOD_WORKDIR ?= $(HOME)/mod-workdir
 MOD_ENVIRONMENT = \
 	AR=${1}/host/usr/bin/${2}-gcc-ar \
