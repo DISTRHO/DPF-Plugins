@@ -224,6 +224,22 @@ enum ParameterDesignation {
 };
 
 /**
+   Parameter designation symbols.@n
+   These are static, hard-coded definitions to ensure consistency across DPF and plugins.
+*/
+namespace ParameterDesignationSymbols {
+   /**
+     Bypass designation symbol.
+    */
+   static constexpr const char bypass[] = "dpf_bypass";
+
+   /**
+     Bypass designation symbol, inverted for LV2 so it becomes "enabled".
+    */
+   static constexpr const char bypass_lv2[] = "lv2_enabled";
+};
+
+/**
    Predefined Port Groups Ids.
 
    This enumeration provides a few commonly used groups for convenient use in plugins.
@@ -332,7 +348,7 @@ struct ParameterRanges {
    /**
       Constructor using custom values.
     */
-    constexpr ParameterRanges(float df, float mn, float mx) noexcept
+    constexpr ParameterRanges(const float df, const float mn, const float mx) noexcept
         : def(df),
           min(mn),
           max(mx) {}
@@ -359,7 +375,7 @@ struct ParameterRanges {
    /**
       Get a fixed value within range.
     */
-    float getFixedValue(const float& value) const noexcept
+    float getFixedValue(const float value) const noexcept
     {
         if (value <= min)
             return min;
@@ -371,7 +387,7 @@ struct ParameterRanges {
    /**
       Get a value normalized to 0.0<->1.0.
     */
-    float getNormalizedValue(const float& value) const noexcept
+    float getNormalizedValue(const float value) const noexcept
     {
         const float normValue = (value - min) / (max - min);
 
@@ -400,7 +416,7 @@ struct ParameterRanges {
    /**
       Get a value normalized to 0.0<->1.0, fixed within range.
     */
-    float getFixedAndNormalizedValue(const float& value) const noexcept
+    float getFixedAndNormalizedValue(const float value) const noexcept
     {
         if (value <= min)
             return 0.0f;
@@ -421,7 +437,7 @@ struct ParameterRanges {
       Get a value normalized to 0.0<->1.0, fixed within range.
       Overloaded function using double precision values.
     */
-    double getFixedAndNormalizedValue(const double& value) const noexcept
+    double getFixedAndNormalizedValue(const double value) const noexcept
     {
         if (value <= min)
             return 0.0;
@@ -441,7 +457,7 @@ struct ParameterRanges {
    /**
       Get a proper value previously normalized to 0.0<->1.0.
     */
-    float getUnnormalizedValue(const float& value) const noexcept
+    float getUnnormalizedValue(const float value) const noexcept
     {
         if (value <= 0.0f)
             return min;
@@ -455,7 +471,7 @@ struct ParameterRanges {
       Get a proper value previously normalized to 0.0<->1.0.
       Overloaded function using double precision values.
     */
-    double getUnnormalizedValue(const double& value) const noexcept
+    double getUnnormalizedValue(const double value) const noexcept
     {
         if (value <= 0.0)
             return min;
@@ -731,7 +747,7 @@ struct Parameter {
             hints      = kParameterIsAutomatable|kParameterIsBoolean|kParameterIsInteger;
             name       = "Bypass";
             shortName  = "Bypass";
-            symbol     = "dpf_bypass";
+            symbol     = ParameterDesignationSymbols::bypass;
             unit       = "";
             midiCC     = 0;
             groupId    = kPortGroupNone;
@@ -749,7 +765,7 @@ struct Parameter {
  */
 static constexpr const Parameter kParameterBypass = {
     kParameterIsAutomatable|kParameterIsBoolean|kParameterIsInteger,
-    "Bypass", "Bypass", "dpf_bypass", "", "", {}, {}, 0, kPortGroupNone,
+    "Bypass", "Bypass", ParameterDesignationSymbols::bypass, "", "", {}, {}, 0, kPortGroupNone,
 };
 #endif
 

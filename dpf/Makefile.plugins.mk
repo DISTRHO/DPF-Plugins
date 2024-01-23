@@ -46,7 +46,7 @@ endif
 DGL_BUILD_DIR = $(DPF_PATH)/build$(BUILD_DIR_SUFFIX)
 
 BUILD_C_FLAGS   += -I.
-BUILD_CXX_FLAGS += -I. -I$(DPF_PATH)/distrho -I$(DPF_PATH)/dgl
+BUILD_CXX_FLAGS += -I. -I$(DPF_PATH)/distrho -I$(DPF_PATH)/dgl -I$(DPF_PATH)/dgl/src/pugl-upstream/include
 
 ifeq ($(HAVE_ALSA),true)
 BASE_FLAGS += -DHAVE_ALSA
@@ -296,9 +296,9 @@ static     = $(TARGET_DIR)/$(NAME).a
 
 ifeq ($(MACOS),true)
 BUNDLE_RESOURCES = Info.plist PkgInfo Resources/empty.lproj
-vst2files += $(BUNDLE_RESOURCES=%:$(TARGET_DIR)/$(NAME).vst/Contents/%)
-vst3files += $(BUNDLE_RESOURCES=%:$(TARGET_DIR)/$(NAME).vst3/Contents/%)
-clapfiles += $(BUNDLE_RESOURCES=%:$(TARGET_DIR)/$(NAME).clap/Contents/%)
+vst2files += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).vst/Contents/%)
+vst3files += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).vst3/Contents/%)
+clapfiles += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).clap/Contents/%)
 endif
 
 ifneq ($(HAVE_DGL),true)

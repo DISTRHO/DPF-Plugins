@@ -274,10 +274,10 @@ BASE_OPTS  = -O2 -ffast-math -fdata-sections -ffunction-sections
 endif
 
 ifeq ($(DEBUG),true)
-BASE_FLAGS += -DDEBUG -O0 -g
-ifneq ($(HAIKU),true)
-BASE_FLAGS += -fsanitize=address
-endif
+BASE_FLAGS += -DDEBUG -DDPF_DEBUG -O0 -g
+# ifneq ($(HAIKU),true)
+# BASE_FLAGS += -fsanitize=address
+# endif
 LINK_OPTS   =
 ifeq ($(WASM),true)
 LINK_OPTS  += -sASSERTIONS=1
@@ -427,6 +427,7 @@ endif
 else ifeq ($(WINDOWS),true)
 
 DGL_SYSTEM_LIBS += -lcomdlg32
+DGL_SYSTEM_LIBS += -ldwmapi
 DGL_SYSTEM_LIBS += -lgdi32
 # DGL_SYSTEM_LIBS += -lole32
 
@@ -598,6 +599,14 @@ endif
 
 ifneq ($(WINDOWS_ICON_ID),)
 BUILD_CXX_FLAGS += -DDGL_WINDOWS_ICON_ID=$(WINDOWS_ICON_ID)
+endif
+
+ifneq ($(X11_WINDOW_ICON_NAME),)
+BUILD_CXX_FLAGS += -DDGL_X11_WINDOW_ICON_NAME=$(X11_WINDOW_ICON_NAME)
+endif
+
+ifneq ($(X11_WINDOW_ICON_SIZE),)
+BUILD_CXX_FLAGS += -DDGL_X11_WINDOW_ICON_SIZE=$(X11_WINDOW_ICON_SIZE)
 endif
 
 ifeq ($(USE_GLES2),true)

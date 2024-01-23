@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
  * Copyright (C) 2019-2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
@@ -290,7 +290,6 @@ static cairo_format_t asCairoImageFormat(const ImageFormat format) noexcept
     case kImageFormatNull:
         break;
     case kImageFormatGrayscale:
-        return CAIRO_FORMAT_A8;
     case kImageFormatBGR:
     case kImageFormatRGB:
         return CAIRO_FORMAT_RGB24;
@@ -375,11 +374,13 @@ CairoImage::~CairoImage()
 void CairoImage::loadFromMemory(const char* const rdata, const Size<uint>& s, const ImageFormat fmt) noexcept
 {
     const cairo_format_t cairoformat = asCairoImageFormat(fmt);
+    DISTRHO_SAFE_ASSERT_RETURN(cairoformat != CAIRO_FORMAT_INVALID,);
+
     const int width  = static_cast<int>(s.getWidth());
     const int height = static_cast<int>(s.getHeight());
     const int stride = cairo_format_stride_for_width(cairoformat, width);
 
-    uchar* const newdata = (uchar*)std::malloc(static_cast<size_t>(width * height * stride * 4));
+    uchar* const newdata = static_cast<uchar*>(std::malloc(static_cast<size_t>(width * height * stride * 4)));
     DISTRHO_SAFE_ASSERT_RETURN(newdata != nullptr,);
 
     cairo_surface_t* const newsurface = cairo_image_surface_create_for_data(newdata, cairoformat, width, height, stride);
@@ -392,19 +393,30 @@ void CairoImage::loadFromMemory(const char* const rdata, const Size<uint>& s, co
     if (datarefcount != nullptr && --(*datarefcount) == 0)
         std::free(surfacedata);
     else
-        datarefcount = (int*)malloc(sizeof(*datarefcount));
+        datarefcount = static_cast<int*>(std::malloc(sizeof(int)));
 
     surface = newsurface;
     surfacedata = newdata;
     *datarefcount = 1;
+
+    const uchar* const urdata = reinterpret_cast<const uchar*>(rdata);
 
     switch (fmt)
     {
     case kImageFormatNull:
         break;
     case kImageFormatGrayscale:
-        // Grayscale to A8
-        // TODO
+        // Grayscale to CAIRO_FORMAT_RGB24
+        for (int h = 0; h < height; ++h)
+        {
+            for (int w = 0; w < width; ++w)
+            {
+                newdata[h*width*4+w*4+0] = urdata[h*width+w];
+                newdata[h*width*4+w*4+1] = urdata[h*width+w];
+                newdata[h*width*4+w*4+2] = urdata[h*width+w];
+                newdata[h*width*4+w*4+3] = 0;
+            }
+        }
         break;
     case kImageFormatBGR:
         // BGR8 to CAIRO_FORMAT_RGB24
@@ -412,42 +424,53 @@ void CairoImage::loadFromMemory(const char* const rdata, const Size<uint>& s, co
         {
             for (int w = 0; w < width; ++w)
             {
-                newdata[h*width*4+w*4+0] = static_cast<uchar>(rdata[h*width*3+w*3+0]);
-                newdata[h*width*4+w*4+1] = static_cast<uchar>(rdata[h*width*3+w*3+1]);
-                newdata[h*width*4+w*4+2] = static_cast<uchar>(rdata[h*width*3+w*3+2]);
+                newdata[h*width*4+w*4+0] = urdata[h*width*3+w*3+0];
+                newdata[h*width*4+w*4+1] = urdata[h*width*3+w*3+1];
+                newdata[h*width*4+w*4+2] = urdata[h*width*3+w*3+2];
                 newdata[h*width*4+w*4+3] = 0;
             }
         }
         break;
     case kImageFormatBGRA:
         // BGRA8 to CAIRO_FORMAT_ARGB32
-        // FIXME something is wrong here...
-        for (int h = 0, t; h < height; ++h)
+        for (int h = 0; h < height; ++h)
         {
             for (int w = 0; w < width; ++w)
             {
-                if ((t = rdata[h*width*4+w*4+3]) != 0)
-                {
-                    newdata[h*width*4+w*4+0] = static_cast<uchar>(rdata[h*width*4+w*4+0]);
-                    newdata[h*width*4+w*4+1] = static_cast<uchar>(rdata[h*width*4+w*4+1]);
-                    newdata[h*width*4+w*4+2] = static_cast<uchar>(rdata[h*width*4+w*4+2]);
-                    newdata[h*width*4+w*4+3] = static_cast<uchar>(t);
-                }
-                else
-                {
-                    // make all pixels zero, cairo does not render full transparency otherwise
-                    memset(&newdata[h*width*4+w*4], 0, 4);
-                }
+                const uchar a = urdata[h*width*4+w*4+3];
+                newdata[h*width*4+w*4+0] = (urdata[h*width*4+w*4+0] * a) >> 8;
+                newdata[h*width*4+w*4+1] = (urdata[h*width*4+w*4+1] * a) >> 8;
+                newdata[h*width*4+w*4+2] = (urdata[h*width*4+w*4+2] * a) >> 8;
+                newdata[h*width*4+w*4+3] = a;
             }
         }
         break;
     case kImageFormatRGB:
         // RGB8 to CAIRO_FORMAT_RGB24
-        // TODO
+        for (int h = 0; h < height; ++h)
+        {
+            for (int w = 0; w < width; ++w)
+            {
+                newdata[h*width*4+w*4+0] = urdata[h*width*3+w*3+2];
+                newdata[h*width*4+w*4+1] = urdata[h*width*3+w*3+1];
+                newdata[h*width*4+w*4+2] = urdata[h*width*3+w*3+0];
+                newdata[h*width*4+w*4+3] = 0;
+            }
+        }
         break;
     case kImageFormatRGBA:
         // RGBA8 to CAIRO_FORMAT_ARGB32
-        // TODO
+        for (int h = 0; h < height; ++h)
+        {
+            for (int w = 0; w < width; ++w)
+            {
+                const uchar a = urdata[h*width*4+w*4+3];
+                newdata[h*width*4+w*4+0] = (urdata[h*width*4+w*4+2] * a) >> 8;
+                newdata[h*width*4+w*4+1] = (urdata[h*width*4+w*4+1] * a) >> 8;
+                newdata[h*width*4+w*4+2] = (urdata[h*width*4+w*4+0] * a) >> 8;
+                newdata[h*width*4+w*4+3] = a;
+            }
+        }
         break;
     }
 
@@ -506,8 +529,7 @@ void CairoImage::loadFromPNG(const char* const pngData, const uint pngSize) noex
 
 void CairoImage::drawAt(const GraphicsContext& context, const Point<int>& pos)
 {
-    if (surface == nullptr)
-        return;
+    DISTRHO_SAFE_ASSERT_RETURN(surface != nullptr,);
 
     cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
 
@@ -615,14 +637,9 @@ static int getBytesPerPixel(const cairo_format_t format) noexcept
     {
     case CAIRO_FORMAT_ARGB32:
     case CAIRO_FORMAT_RGB24:
-    case CAIRO_FORMAT_RGB30:
         return 4;
-    case CAIRO_FORMAT_RGB16_565:
-        return 2;
     case CAIRO_FORMAT_A8:
         return 1;
-    case CAIRO_FORMAT_A1:
-        return 0;
     default:
         DISTRHO_SAFE_ASSERT(false);
         return 0;
@@ -632,10 +649,10 @@ static int getBytesPerPixel(const cairo_format_t format) noexcept
 static cairo_surface_t* getRegion(cairo_surface_t* origsurface, int x, int y, int width, int height) noexcept
 {
     const cairo_format_t format = cairo_image_surface_get_format(origsurface);
-    const int bpp = getBytesPerPixel(format);
+    DISTRHO_SAFE_ASSERT_RETURN(format != CAIRO_FORMAT_INVALID, nullptr);
 
-    if (bpp == 0)
-        return nullptr;
+    const int bpp = getBytesPerPixel(format);
+    DISTRHO_SAFE_ASSERT_RETURN(bpp != 0, nullptr);
 
     const int fullWidth   = cairo_image_surface_get_width(origsurface);
     const int fullHeight  = cairo_image_surface_get_height(origsurface);
@@ -786,16 +803,12 @@ void TopLevelWidget::PrivateData::display()
     cairo_get_matrix(handle, &matrix);
 
     // full viewport size
+    cairo_translate(handle, 0, 0);
+
     if (window.pData->autoScaling)
-    {
-        cairo_translate(handle, 0, 0);
         cairo_scale(handle, autoScaleFactor, autoScaleFactor);
-    }
     else
-    {
-        cairo_translate(handle, 0, 0);
         cairo_scale(handle, 1.0, 1.0);
-    }
 
     // main widget drawing
     self->onDisplay();

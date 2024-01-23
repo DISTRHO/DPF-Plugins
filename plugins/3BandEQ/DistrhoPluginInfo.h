@@ -20,7 +20,7 @@
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "3 Band EQ"
 #define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/3BandEQ"
-#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.MVerb"
+#define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.3BandEQ"
 
 #define DISTRHO_PLUGIN_HAS_UI        1
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1

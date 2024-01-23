@@ -21,7 +21,6 @@
  * - parameter groups via unit ids
  * - test parameter changes from DSP (aka requestParameterValueChange)
  * - implement getParameterNormalized/setParameterNormalized for MIDI CC params ?
- * - float to int safe casting
  * - verify that latency changes works (with and without DPF_VST3_USES_SEPARATE_CONTROLLER)
  * == MIDI
  * - MIDI CC changes (need to store value to give to the host?)
@@ -721,9 +720,9 @@ public:
         }
         else if (hints & kParameterIsInteger)
         {
-            const int ivalue = static_cast<int>(std::round(value));
+            const int ivalue = d_roundToInt(value);
 
-            if (static_cast<int>(fCachedParameterValues[kVst3InternalParameterBaseCount + index]) == ivalue)
+            if (d_roundToInt(fCachedParameterValues[kVst3InternalParameterBaseCount + index]) == ivalue)
                 return;
 
             value = ivalue;
@@ -942,7 +941,9 @@ public:
        #if DISTRHO_PLUGIN_HAS_UI
         const bool connectedToUI = fConnectionFromCtrlToView != nullptr && fConnectedToUI;
        #endif
+        bool componentValuesChanged = false;
         String key, value;
+        bool empty = true;
         bool hasValue = false;
         bool fillingKey = true; // if filling key or value
         char queryingType = 'i'; // can be 'n', 's' or 'p' (none, states, parameters)
@@ -959,8 +960,9 @@ public:
             DISTRHO_SAFE_ASSERT_INT_RETURN(read > 0, read, V3_INTERNAL_ERR);
 
             if (read == 0)
-                return V3_OK;
+                return empty ? V3_INVALID_ARG : V3_OK;
 
+            empty = false;
             for (int32_t i = 0; i < read; ++i)
             {
                 // found terminator, stop here
@@ -1097,11 +1099,28 @@ public:
                                 continue;
 
                             if (fPlugin.getParameterHints(j) & kParameterIsInteger)
+                            {
                                 fvalue = std::atoi(value.buffer());
+                            }
                             else
+                            {
+                                const ScopedSafeLocale ssl;
                                 fvalue = std::atof(value.buffer());
+                            }
 
                             fCachedParameterValues[kVst3InternalParameterBaseCount + j] = fvalue;
+
+                           #if DPF_VST3_USES_SEPARATE_CONTROLLER
+                            // If this is the component make sure the controller also knows about the state change
+                            if (fIsComponent)
+                            {
+                                componentValuesChanged = true;
+                                fParameterValuesChangedDuringProcessing[kVst3InternalParameterBaseCount + j] = true;
+                            }
+                           #else
+                            componentValuesChanged = true;
+                           #endif
+
                            #if DISTRHO_PLUGIN_HAS_UI
                             if (connectedToUI)
                             {
@@ -1121,7 +1140,7 @@ public:
             }
         }
 
-        if (fComponentHandler != nullptr)
+        if (fComponentHandler != nullptr && componentValuesChanged)
             v3_cpp_obj(fComponentHandler)->restart_component(fComponentHandler, V3_RESTART_PARAM_VALUES_CHANGED);
 
        #if DISTRHO_PLUGIN_HAS_UI
@@ -1147,7 +1166,7 @@ public:
        #if DISTRHO_PLUGIN_WANT_STATE
         const uint32_t stateCount = fPlugin.getStateCount();
        #else
-        const uint32_t stateCount = 0;
+        constexpr const uint32_t stateCount = 0;
        #endif
 
         if (stateCount == 0 && paramCount == 0)
@@ -1216,7 +1235,7 @@ public:
                 tmpStr  = fPlugin.getParameterSymbol(i);
                 tmpStr += "\xff";
                 if (fPlugin.getParameterHints(i) & kParameterIsInteger)
-                    tmpStr += String(static_cast<int>(std::round(fPlugin.getParameterValue(i))));
+                    tmpStr += String(d_roundToInt(fPlugin.getParameterValue(i)));
                 else
                     tmpStr += String(fPlugin.getParameterValue(i));
                 tmpStr += "\xff";
@@ -1240,7 +1259,7 @@ public:
         for (int32_t wrtntotal = 0, wrtn; wrtntotal < size; wrtntotal += wrtn)
         {
             wrtn = 0;
-            res = v3_cpp_obj(stream)->write(stream, const_cast<char*>(buffer), size - wrtntotal, &wrtn);
+            res = v3_cpp_obj(stream)->write(stream, const_cast<char*>(buffer) + wrtntotal, size - wrtntotal, &wrtn);
 
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(wrtn > 0, wrtn, V3_INTERNAL_ERR);
@@ -1400,7 +1419,7 @@ public:
 
                 fTimePosition.bbt.valid       = true;
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
-                fTimePosition.bbt.beat        = static_cast<int32_t>(barBeats - rest + 0.5) + 1;
+                fTimePosition.bbt.beat        = d_roundToIntPositive<int32_t>(barBeats - rest) + 1;
                 fTimePosition.bbt.tick        = rest * fTimePosition.bbt.ticksPerBeat;
                 fTimePosition.bbt.beatsPerBar = ctx->time_sig_numerator;
                 fTimePosition.bbt.beatType    = ctx->time_sig_denom;
@@ -1724,10 +1743,10 @@ public:
             break;
         }
 
-        if (hints & kParameterIsAutomatable)
-            flags |= V3_PARAM_CAN_AUTOMATE;
         if (hints & kParameterIsOutput)
             flags |= V3_PARAM_READ_ONLY;
+        else if (hints & kParameterIsAutomatable)
+            flags |= V3_PARAM_CAN_AUTOMATE;
 
         // set up step_count
         int32_t step_count = 0;
@@ -1762,20 +1781,20 @@ public:
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         case kVst3InternalParameterBufferSize:
-            snprintf_i32_utf16(output, static_cast<int>(normalized * DPF_VST3_MAX_BUFFER_SIZE + 0.5), 128);
+            snprintf_i32_utf16(output, d_roundToIntPositive(normalized * DPF_VST3_MAX_BUFFER_SIZE), 128);
             return V3_OK;
         case kVst3InternalParameterSampleRate:
-            snprintf_f32_utf16(output, std::round(normalized * DPF_VST3_MAX_SAMPLE_RATE), 128);
+            snprintf_i32_utf16(output, d_roundToIntPositive(normalized * DPF_VST3_MAX_SAMPLE_RATE), 128);
             return V3_OK;
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-            snprintf_f32_utf16(output, std::round(normalized * DPF_VST3_MAX_LATENCY), 128);
+            snprintf_i32_utf16(output, d_roundToIntPositive(normalized * DPF_VST3_MAX_LATENCY), 128);
             return V3_OK;
        #endif
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         case kVst3InternalParameterProgram:
-            const uint32_t program = std::round(normalized * fProgramCountMinusOne);
+            const uint32_t program = d_roundToIntPositive(normalized * fProgramCountMinusOne);
             strncpy_utf16(output, fPlugin.getProgramName(program), 128);
             return V3_OK;
        #endif
@@ -1785,7 +1804,7 @@ public:
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
         {
-            snprintf_f32_utf16(output, std::round(normalized * 127), 128);
+            snprintf_i32_utf16(output, d_roundToIntPositive(normalized * 127), 128);
             return V3_OK;
         }
        #endif
@@ -2863,7 +2882,7 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(outparamsptr != nullptr,);
 
-        float curValue;
+        float curValue, defValue;
         double normalized;
 
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -2890,12 +2909,14 @@ private:
             }
             else if (fPlugin.isParameterTrigger(i))
             {
-                // NOTE: no trigger support in VST3 parameters, simulate it here
+                // NOTE: no trigger parameter support in VST3, simulate it here
+                defValue = fPlugin.getParameterDefault(i);
                 curValue = fPlugin.getParameterValue(i);
 
-                if (d_isEqual(curValue, fPlugin.getParameterDefault(i)))
+                if (d_isEqual(curValue, defValue))
                     continue;
 
+                curValue = defValue;
                 fPlugin.setParameterValue(i, curValue);
             }
             else if (fParameterValuesChangedDuringProcessing[kVst3InternalParameterBaseCount + i])
@@ -2934,7 +2955,7 @@ private:
     }
 
     bool addParameterDataToHostOutputEvents(v3_param_changes** const outparamsptr,
-                                            v3_param_id paramId,
+                                            const v3_param_id paramId,
                                             const double normalized,
                                             const int32_t offset = 0)
     {
@@ -3035,7 +3056,7 @@ private:
 
     static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
     {
-        return ((PluginVst3*)ptr)->requestParameterValueChange(index, value);
+        return static_cast<PluginVst3*>(ptr)->requestParameterValueChange(index, value);
     }
    #endif
 
@@ -3110,7 +3131,7 @@ private:
 
     static bool writeMidiCallback(void* const ptr, const MidiEvent& midiEvent)
     {
-        return ((PluginVst3*)ptr)->writeMidi(midiEvent);
+        return static_cast<PluginVst3*>(ptr)->writeMidi(midiEvent);
     }
    #endif
 };

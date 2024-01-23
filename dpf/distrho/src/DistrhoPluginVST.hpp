@@ -81,7 +81,7 @@ enum Vst3InternalParameters {
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     kVst3InternalParameterMidiCC_start = kVst3InternalParameterBaseCount,
     kVst3InternalParameterMidiCC_end = kVst3InternalParameterMidiCC_start + 130*16,
-    kVst3InternalParameterCount = kVst3InternalParameterMidiCC_end
+    kVst3InternalParameterCount
    #else
     kVst3InternalParameterCount = kVst3InternalParameterBaseCount
    #endif
@@ -248,7 +248,7 @@ uint translateVstKeyCode(bool& special, const int16_t keychar, const int16_t key
     // 18 print
     // 19 \n (handled below)
     // 20 snapshot
-    case 22: return kKeyDelete; 
+    case 22: return kKeyDelete;
     // 23 help
     // 57 = (handled below)
     // numpad stuff follows
@@ -295,9 +295,9 @@ uint translateVstKeyCode(bool& special, const int16_t keychar, const int16_t key
     case 10: return kKeyHome;
     case  9: return kKeyEnd;
     case 21: return kKeyInsert;
-    case 54: return kKeyShift;
-    case 55: return kKeyControl;
-    case 56: return kKeyAlt;
+    case 54: return kKeyShiftL;
+    case 55: return kKeyControlL;
+    case 56: return kKeyAltL;
     case 58: return kKeyMenu;
     case 52: return kKeyNumLock;
     case 53: return kKeyScrollLock;

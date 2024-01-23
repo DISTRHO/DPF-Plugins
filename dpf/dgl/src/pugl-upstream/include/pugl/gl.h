@@ -1,9 +1,10 @@
-// Copyright 2012-2020 David Robillard <d@drobilla.net>
+// Copyright 2012-2023 David Robillard <d@drobilla.net>
 // SPDX-License-Identifier: ISC
 
 #ifndef PUGL_GL_H
 #define PUGL_GL_H
 
+#include "pugl/attributes.h"
 #include "pugl/pugl.h"
 
 // IWYU pragma: begin_exports
@@ -22,23 +23,12 @@
 #  endif
 #endif
 
-#ifndef PUGL_NO_INCLUDE_GLU_H
-#  ifdef __APPLE__
-#    include <OpenGL/glu.h>
-#  else
-#    ifdef _WIN32
-#      include <windows.h>
-#    endif
-#    include <GL/glu.h>
-#  endif
-#endif
-
 // IWYU pragma: end_exports
 
 PUGL_BEGIN_DECLS
 
 /**
-   @defgroup gl OpenGL
+   @defgroup pugl_gl OpenGL
    OpenGL graphics support.
    @ingroup pugl
    @{

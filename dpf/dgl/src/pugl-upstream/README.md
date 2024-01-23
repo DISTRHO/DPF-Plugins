@@ -2,8 +2,9 @@ Pugl
 ====
 
 Pugl (PlUgin Graphics Library) is a minimal portability layer for GUIs which is
-suitable for use in plugins.  It works on X11, MacOS, and Windows, and includes
-optional support for drawing with Vulkan, OpenGL, and Cairo.
+suitable for use in plugins and applications.  It works on X11, MacOS, and
+Windows, and includes optional support for drawing with Vulkan, OpenGL, and
+Cairo.
 
 Pugl is vaguely similar to libraries like GLUT and GLFW, but has different
 goals and priorities:
@@ -25,6 +26,9 @@ goals and priorities:
  * Suitable for both continuously rendering applications like games, and
    event-driven applications that only draw when necessary.
 
+ * Well-integrated with windowing systems, with support for tracking and
+   manipulating special window types, states, and styles.
+
  * Small, liberally licensed implementation that is suitable for vendoring
    and/or static linking.  Pugl can be installed as a library, or used by
    simply copying the implementation into a project.
@@ -45,15 +49,16 @@ Documentation
 -------------
 
 Pugl is a C library that includes C++ bindings.
-Each API is documented separately:
+The reference documentation refers to the C API:
 
  * [C Documentation (single page)](https://lv2.gitlab.io/pugl/c/singlehtml/)
  * [C Documentation (paginated)](https://lv2.gitlab.io/pugl/c/html/)
- * [C++ Documentation (single page)](https://lv2.gitlab.io/pugl/cpp/singlehtml/)
- * [C++ Documentation (paginated)](https://lv2.gitlab.io/pugl/cpp/html/)
 
 The documentation will also be built from the source if the `docs`
 configuration option is enabled, and both Doxygen and Sphinx are available.
+
+The C++ documentation is currently a work in progress, for now you will have to
+refer to the examples or headers for guidance on using the C++ bindings.
 
 Testing
 -------

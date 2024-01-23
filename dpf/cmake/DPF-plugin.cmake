@@ -380,6 +380,8 @@ function(dpf__build_lv2 NAME HAS_UI MONOLITHIC)
   dpf__add_lv2_ttl_generator()
   add_dependencies("${NAME}-lv2" lv2_ttl_generator)
 
+  separate_arguments(CMAKE_CROSSCOMPILING_EMULATOR)
+
   add_custom_command(TARGET "${NAME}-lv2" POST_BUILD
     COMMAND
     ${CMAKE_CROSSCOMPILING_EMULATOR}
@@ -732,7 +734,7 @@ function(dpf__add_dgl_system_libs)
   elseif(HAIKU)
     target_link_libraries(dgl-system-libs INTERFACE "be")
   elseif(WIN32)
-    target_link_libraries(dgl-system-libs INTERFACE "gdi32" "comdlg32")
+    target_link_libraries(dgl-system-libs INTERFACE "comdlg32" "dwmapi" "gdi32")
   else()
     find_package(PkgConfig)
     pkg_check_modules(DBUS "dbus-1")

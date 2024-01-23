@@ -37,6 +37,7 @@
 #include "lv2/worker.h"
 #include "lv2/lv2_kxstudio_properties.h"
 #include "lv2/lv2_programs.h"
+#include "lv2/control-input-port-change-request.h"
 
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
 # include "mod-license.h"
@@ -90,48 +91,51 @@
 #define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
 #define DISTRHO_LV2_USE_EVENTS_OUT (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
 
-#define DISTRHO_BYPASS_PARAMETER_NAME "lv2_enabled"
+// --------------------------------------------------------------------------------------------------------------------
 
-// -----------------------------------------------------------------------
-static const char* const lv2ManifestPluginExtensionData[] =
-{
+static constexpr const char* const lv2ManifestPluginExtensionData[] = {
     "opts:interface",
-#if DISTRHO_PLUGIN_WANT_STATE
+   #if DISTRHO_PLUGIN_WANT_STATE
     LV2_STATE__interface,
     LV2_WORKER__interface,
-#endif
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
+   #endif
+   #if DISTRHO_PLUGIN_WANT_PROGRAMS
     LV2_PROGRAMS__Interface,
-#endif
-#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+   #endif
+   #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
     MOD_LICENSE__interface,
-#endif
+   #endif
     nullptr
 };
 
-static const char* const lv2ManifestPluginOptionalFeatures[] =
-{
-#if DISTRHO_PLUGIN_IS_RT_SAFE
+static constexpr const char* const lv2ManifestPluginOptionalFeatures[] = {
+   #if DISTRHO_PLUGIN_IS_RT_SAFE
     LV2_CORE__hardRTCapable,
-#endif
+   #endif
     LV2_BUF_SIZE__boundedBlockLength,
+   #if DISTRHO_PLUGIN_WANT_STATE
+    LV2_STATE__mapPath,
+    LV2_STATE__freePath,
+   #endif
+   #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+    LV2_CONTROL_INPUT_PORT_CHANGE_REQUEST_URI,
+   #endif
     nullptr
 };
 
-static const char* const lv2ManifestPluginRequiredFeatures[] =
-{
+static constexpr const char* const lv2ManifestPluginRequiredFeatures[] = {
     "opts:options",
     LV2_URID__map,
-#if DISTRHO_PLUGIN_WANT_STATE
+   #if DISTRHO_PLUGIN_WANT_STATE
     LV2_WORKER__schedule,
-#endif
-#ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
+   #endif
+   #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
     MOD_LICENSE__feature,
-#endif
+   #endif
     nullptr
 };
 
-static const char* const lv2ManifestPluginSupportedOptions[] =
+static constexpr const char* const lv2ManifestPluginSupportedOptions[] =
 {
     LV2_BUF_SIZE__nominalBlockLength,
     LV2_BUF_SIZE__maxBlockLength,
@@ -140,44 +144,40 @@ static const char* const lv2ManifestPluginSupportedOptions[] =
 };
 
 #if DISTRHO_PLUGIN_HAS_UI
-static const char* const lv2ManifestUiExtensionData[] =
-{
+static constexpr const char* const lv2ManifestUiExtensionData[] = {
     "opts:interface",
     "ui:idleInterface",
     "ui:showInterface",
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
+   #if DISTRHO_PLUGIN_WANT_PROGRAMS
     LV2_PROGRAMS__UIInterface,
-#endif
+   #endif
     nullptr
 };
 
-static const char* const lv2ManifestUiOptionalFeatures[] =
-{
-#if DISTRHO_PLUGIN_HAS_EMBED_UI
-# if !DISTRHO_UI_USER_RESIZABLE
+static constexpr const char* const lv2ManifestUiOptionalFeatures[] = {
+  #if DISTRHO_PLUGIN_HAS_EMBED_UI
+   #if !DISTRHO_UI_USER_RESIZABLE
     "ui:noUserResize",
-# endif
+   #endif
     "ui:parent",
     "ui:touch",
-#endif
+  #endif
     "ui:requestValue",
     nullptr
 };
 
-static const char* const lv2ManifestUiRequiredFeatures[] =
-{
+static constexpr const char* const lv2ManifestUiRequiredFeatures[] = {
     "opts:options",
     "ui:idleInterface",
-#if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
+   #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
     LV2_DATA_ACCESS_URI,
     LV2_INSTANCE_ACCESS_URI,
-#endif
+   #endif
     LV2_URID__map,
     nullptr
 };
 
-static const char* const lv2ManifestUiSupportedOptions[] =
-{
+static constexpr const char* const lv2ManifestUiSupportedOptions[] = {
     LV2_PARAMETERS__sampleRate,
     nullptr
 };
@@ -227,7 +227,7 @@ static void addAttribute(DISTRHO_NAMESPACE::String& text,
     }
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 DISTRHO_PLUGIN_EXPORT
 void lv2_generate_ttl(const char* const basename)
@@ -328,10 +328,17 @@ void lv2_generate_ttl(const char* const basename)
         {
             std::snprintf(strBuf, 0xff, "%03i", i+1);
 
+            const String& programName(plugin.getProgramName(i));
+
             presetString  = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
             presetString += "    a pset:Preset ;\n";
             presetString += "    lv2:appliesTo <" DISTRHO_PLUGIN_URI "> ;\n";
-            presetString += "    rdfs:label \"" + plugin.getProgramName(i) + "\" ;\n";
+
+            if (programName.contains('"'))
+                presetString += "    rdfs:label\"\"\"" + programName + "\"\"\" ;\n";
+            else
+                presetString += "    rdfs:label \"" + programName + "\" ;\n";
+
             presetString += "    rdfs:seeAlso <presets.ttl> .\n";
             presetString += "\n";
 
@@ -744,7 +751,7 @@ void lv2_generate_ttl(const char* const basename)
                     case kParameterDesignationBypass:
                         designated = true;
                         pluginString += "        lv2:name \"Enabled\" ;\n";
-                        pluginString += "        lv2:symbol \"" DISTRHO_BYPASS_PARAMETER_NAME "\" ;\n";
+                        pluginString += "        lv2:symbol \"" + String(ParameterDesignationSymbols::bypass_lv2) + "\" ;\n";
                         pluginString += "        lv2:default 1 ;\n";
                         pluginString += "        lv2:minimum 0 ;\n";
                         pluginString += "        lv2:maximum 1 ;\n";
@@ -1246,7 +1253,7 @@ void lv2_generate_ttl(const char* const basename)
         std::cout << " done!" << std::endl;
     }
 
-   #if DISTRHO_PLUGIN_USES_MODGUI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
+   #if DISTRHO_PLUGIN_USES_MODGUI && DISTRHO_PLUGIN_HAS_EMBED_UI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
     {
         std::cout << "Writing modgui.ttl..."; std::cout.flush();
         std::fstream modguiFile("modgui.ttl", std::ios::out);
@@ -1541,7 +1548,7 @@ void lv2_generate_ttl(const char* const basename)
         stylesheetFile.close();
         std::cout << " done!" << std::endl;
     }
-   #endif // DISTRHO_PLUGIN_USES_MODGUI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
+   #endif // DISTRHO_PLUGIN_USES_MODGUI && DISTRHO_PLUGIN_HAS_EMBED_UI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
 
     // ---------------------------------------------
 
@@ -1680,7 +1687,7 @@ void lv2_generate_ttl(const char* const basename)
 
                 if (plugin.getParameterDesignation(j) == kParameterDesignationBypass)
                 {
-                    parameterSymbol = DISTRHO_BYPASS_PARAMETER_NAME;
+                    parameterSymbol = ParameterDesignationSymbols::bypass_lv2;
                     parameterValue = 1.0f - parameterValue;
                 }
 

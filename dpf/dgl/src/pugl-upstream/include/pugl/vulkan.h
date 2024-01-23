@@ -1,4 +1,4 @@
-// Copyright 2012-2020 David Robillard <d@drobilla.net>
+// Copyright 2012-2023 David Robillard <d@drobilla.net>
 // SPDX-License-Identifier: ISC
 
 /*
@@ -10,6 +10,7 @@
 #ifndef PUGL_VULKAN_H
 #define PUGL_VULKAN_H
 
+#include "pugl/attributes.h"
 #include "pugl/pugl.h"
 
 #include <vulkan/vulkan_core.h>
@@ -19,7 +20,7 @@
 PUGL_BEGIN_DECLS
 
 /**
-   @defgroup vulkan Vulkan
+   @defgroup pugl_vulkan Vulkan
    Vulkan graphics support.
 
    Vulkan support differs from OpenGL because almost all most configuration is
@@ -58,11 +59,20 @@ typedef struct PuglVulkanLoaderImpl PuglVulkanLoader;
    This dynamically loads the Vulkan library and gets the load functions from
    it.
 
+   @param world The world the returned loader is a part of.
+
+   @param libraryName The name of the Vulkan library to load, or null.
+   Typically, this is left unset, which will load the standard Vulkan library
+   for the current platform.  It can be set to an alternative name, or an
+   absolute path, to support special packaging scenarios or unusual system
+   configurations.  This name is passed directly to the underlying platform
+   library loading function (`dlopen` or `LoadLibrary`).
+
    @return A new Vulkan loader, or null on failure.
 */
 PUGL_API
 PuglVulkanLoader*
-puglNewVulkanLoader(PuglWorld* world);
+puglNewVulkanLoader(PuglWorld* world, const char* libraryName);
 
 /**
    Free a loader created with puglNewVulkanLoader().
