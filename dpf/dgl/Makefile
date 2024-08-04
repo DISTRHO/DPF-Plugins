@@ -14,6 +14,7 @@ BUILD_CXX_FLAGS += -Isrc/pugl-upstream/include
 LINK_FLAGS      += $(DGL_LIBS)
 
 ifeq ($(MACOS),true)
+BUILD_CXX_FLAGS += -DDISTRHO_MACOS_NAMESPACE_TIME=$(shell date +%s)
 BUILD_CXX_FLAGS += -Wno-deprecated-declarations
 else
 PUGL_EXTRA_FLAGS = -Wno-extra -Wmissing-field-initializers
@@ -90,7 +91,8 @@ endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-OBJS_stub = $(OBJS_common)
+OBJS_stub = $(OBJS_common) \
+	$(BUILD_DIR)/dgl/Stub.cpp.o
 
 ifeq ($(MACOS),true)
 OBJS_stub += $(BUILD_DIR)/dgl/pugl.mm.o
@@ -117,8 +119,6 @@ endif
 
 ifeq ($(HAVE_OPENGL),true)
 TARGETS += $(BUILD_DIR)/libdgl-opengl.a
-# Compat name, to be removed soon
-TARGETS += $(BUILD_DIR)/libdgl.a
 endif
 
 ifeq ($(HAVE_STUB),true)
@@ -138,6 +138,7 @@ opengl:  $(BUILD_DIR)/libdgl-opengl.a
 opengl3: $(BUILD_DIR)/libdgl-opengl3.a
 stub:    $(BUILD_DIR)/libdgl-stub.a
 vulkan:  $(BUILD_DIR)/libdgl-vulkan.a
+web:     $(BUILD_DIR)/libdgl-web.a
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -170,11 +171,6 @@ $(BUILD_DIR)/libdgl-vulkan.a: $(OBJS_vulkan)
 	@echo "Creating libdgl-vulkan.a"
 	$(SILENT)rm -f $@
 	$(SILENT)$(AR) crs $@ $^
-
-# Compat name, to be removed soon
-$(BUILD_DIR)/libdgl.a: $(BUILD_DIR)/libdgl-opengl.a
-	@echo "Symlinking libdgl.a"
-	$(SILENT)ln -sf $< $@
 
 # ---------------------------------------------------------------------------------------------------------------------
 

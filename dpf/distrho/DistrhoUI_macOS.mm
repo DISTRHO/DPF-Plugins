@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -20,9 +20,11 @@
 #include "src/DistrhoPluginChecks.h"
 #include "src/DistrhoDefines.h"
 
-#if DISTRHO_UI_FILE_BROWSER || DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-# import <Cocoa/Cocoa.h>
-#endif
+#define Point CocoaPoint
+#define Size CocoaSize
+#import <Cocoa/Cocoa.h>
+#undef Point
+#undef Size
 
 #if DISTRHO_UI_FILE_BROWSER
 # define DISTRHO_FILE_BROWSER_DIALOG_HPP_INCLUDED
@@ -34,9 +36,19 @@ END_NAMESPACE_DISTRHO
 # include "extra/FileBrowserDialogImpl.cpp"
 #endif
 
-#if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-# include <algorithm>
-# include <cmath>
+#if DISTRHO_UI_WEB_VIEW
+# define DISTRHO_WEB_VIEW_HPP_INCLUDED
+# define WEB_VIEW_NAMESPACE DISTRHO_NAMESPACE
+# define WEB_VIEW_DISTRHO_NAMESPACE
+START_NAMESPACE_DISTRHO
+# include "extra/WebViewImpl.hpp"
+END_NAMESPACE_DISTRHO
+# include "extra/WebViewImpl.cpp"
+#endif
+
+#include <algorithm>
+#include <cmath>
+
 START_NAMESPACE_DISTRHO
 double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
 {
@@ -51,4 +63,3 @@ double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
     return [NSScreen mainScreen].backingScaleFactor;
 }
 END_NAMESPACE_DISTRHO
-#endif

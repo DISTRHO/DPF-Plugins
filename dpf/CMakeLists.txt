@@ -1,5 +1,6 @@
 # DISTRHO Plugin Framework (DPF)
 # Copyright (C) 2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
+# Copyright (C) 2022-2024 Filipe Coelho <falktx@falktx.com>
 #
 # SPDX-License-Identifier: ISC
 
@@ -33,10 +34,11 @@ if(DPF_LIBRARIES)
   if(PKG_CONFIG_FOUND)
     pkg_check_modules(CAIRO "cairo")
     if(CAIRO_FOUND AND (NOT HAIKU))
-      dpf__add_dgl_cairo(FALSE)
+      dpf__add_dgl_cairo(TRUE, TRUE)
     endif()
   endif()
-  dpf__add_dgl_opengl(FALSE)
+  dpf__add_dgl_external(TRUE)
+  dpf__add_dgl_opengl(TRUE, TRUE)
 endif()
 
 if(DPF_EXAMPLES)
@@ -47,9 +49,6 @@ if(DPF_EXAMPLES)
       add_subdirectory("examples/CairoUI")
     endif()
   endif()
-  if((NOT WIN32) AND (NOT APPLE))
-    add_subdirectory("examples/ExternalUI")
-  endif()
   add_subdirectory("examples/EmbedExternalUI")
   add_subdirectory("examples/FileHandling")
   add_subdirectory("examples/Info")
@@ -58,4 +57,5 @@ if(DPF_EXAMPLES)
   add_subdirectory("examples/MidiThrough")
   add_subdirectory("examples/Parameters")
   add_subdirectory("examples/States")
+  add_subdirectory("examples/WebMeters")
 endif()

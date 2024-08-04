@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -38,7 +38,7 @@
 typedef SSIZE_T ssize_t;
 #endif
 
-#if ! defined(CARLA_MATH_UTILS_HPP_INCLUDED) && ! defined(DISTRHO_PROPER_CPP11_SUPPORT)
+#if ! defined(CARLA_MATH_UTILS_HPP_INCLUDED) && ! defined(DISTRHO_PROPER_CPP11_SUPPORT) && ! defined(DISTRHO_OS_MAC)
 namespace std {
 inline float fmin(float __x, float __y)
   { return __builtin_fminf(__x, __y); }
@@ -54,9 +54,6 @@ inline float round(float __x)
 #ifndef M_PI
 # define M_PI 3.14159265358979323846
 #endif
-
-#define DISTRHO_MACRO_AS_STRING_VALUE(MACRO) #MACRO
-#define DISTRHO_MACRO_AS_STRING(MACRO) DISTRHO_MACRO_AS_STRING_VALUE(MACRO)
 
 /* --------------------------------------------------------------------------------------------------------------------
  * misc functions */
@@ -75,6 +72,15 @@ static inline constexpr
 int64_t d_cconst(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d) noexcept
 {
     return (a << 24) | (b << 16) | (c << 8) | (d << 0);
+}
+
+/**
+   Return a 32-bit number from 4 ASCII characters.
+ */
+static inline constexpr
+uint32_t d_cconst(const char str[4])
+{
+    return (str[0] << 24) | (str[1] << 16) | (str[2] << 8) | str[3];
 }
 
 /**
@@ -103,6 +109,27 @@ void d_pass() noexcept {}
    @{
  */
 
+/*
+ * Internal noexcept-safe fopen function.
+ */
+static inline
+FILE* __d_fopen(const char* const filename, FILE* const fallback) noexcept
+{
+    if (std::getenv("DPF_CAPTURE_CONSOLE_OUTPUT") == nullptr)
+        return fallback;
+
+    FILE* ret = nullptr;
+
+    try {
+        ret = std::fopen(filename, "a+");
+    } catch (...) {}
+
+    if (ret == nullptr)
+        ret = fallback;
+
+    return ret;
+}
+
 /**
    Print a string to stdout with newline (gray color).
    Does nothing if DEBUG is not defined.
@@ -113,12 +140,30 @@ void d_pass() noexcept {}
 static inline
 void d_debug(const char* const fmt, ...) noexcept
 {
+    static FILE* const output = __d_fopen("/tmp/dpf.debug.log", stdout);
+
     try {
         va_list args;
         va_start(args, fmt);
-        std::fprintf(stdout, "\x1b[30;1m");
-        std::vfprintf(stdout, fmt, args);
-        std::fprintf(stdout, "\x1b[0m\n");
+
+        if (output == stdout)
+        {
+           #ifdef DISTRHO_OS_MAC
+            std::fprintf(output, "\x1b[37;1m[dpf] ");
+           #else
+            std::fprintf(output, "\x1b[30;1m[dpf] ");
+           #endif
+            std::vfprintf(output, fmt, args);
+            std::fprintf(output, "\x1b[0m\n");
+        }
+        else
+        {
+            std::fprintf(output, "[dpf] ");
+            std::vfprintf(output, fmt, args);
+            std::fprintf(output, "\n");
+        }
+
+        std::fflush(output);
         va_end(args);
     } catch (...) {}
 }
@@ -130,11 +175,18 @@ void d_debug(const char* const fmt, ...) noexcept
 static inline
 void d_stdout(const char* const fmt, ...) noexcept
 {
+    static FILE* const output = __d_fopen("/tmp/dpf.stdout.log", stdout);
+
     try {
         va_list args;
         va_start(args, fmt);
-        std::vfprintf(stdout, fmt, args);
-        std::fprintf(stdout, "\n");
+        std::fprintf(output, "[dpf] ");
+        std::vfprintf(output, fmt, args);
+        std::fprintf(output, "\n");
+       #ifndef DEBUG
+        if (output != stdout)
+       #endif
+            std::fflush(output);
         va_end(args);
     } catch (...) {}
 }
@@ -145,11 +197,18 @@ void d_stdout(const char* const fmt, ...) noexcept
 static inline
 void d_stderr(const char* const fmt, ...) noexcept
 {
+    static FILE* const output = __d_fopen("/tmp/dpf.stderr.log", stderr);
+
     try {
         va_list args;
         va_start(args, fmt);
-        std::vfprintf(stderr, fmt, args);
-        std::fprintf(stderr, "\n");
+        std::fprintf(output, "[dpf] ");
+        std::vfprintf(output, fmt, args);
+        std::fprintf(output, "\n");
+       #ifndef DEBUG
+        if (output != stderr)
+       #endif
+            std::fflush(output);
         va_end(args);
     } catch (...) {}
 }
@@ -160,12 +219,26 @@ void d_stderr(const char* const fmt, ...) noexcept
 static inline
 void d_stderr2(const char* const fmt, ...) noexcept
 {
+    static FILE* const output = __d_fopen("/tmp/dpf.stderr2.log", stderr);
+
     try {
         va_list args;
         va_start(args, fmt);
-        std::fprintf(stderr, "\x1b[31m");
-        std::vfprintf(stderr, fmt, args);
-        std::fprintf(stderr, "\x1b[0m\n");
+
+        if (output == stdout)
+        {
+            std::fprintf(output, "\x1b[31m[dpf] ");
+            std::vfprintf(output, fmt, args);
+            std::fprintf(output, "\x1b[0m\n");
+        }
+        else
+        {
+            std::fprintf(output, "[dpf] ");
+            std::vfprintf(output, fmt, args);
+            std::fprintf(output, "\n");
+        }
+
+        std::fflush(output);
         va_end(args);
     } catch (...) {}
 }
@@ -310,7 +383,7 @@ uint32_t d_nextPowerOf2(uint32_t size) noexcept
 }
 
 /**
-   Round a floating point number to integer.
+   Round a floating point number to an integer.
    Fast operation for values known to be 0 or positive.
  */
 template<typename T>
@@ -321,7 +394,18 @@ int32_t d_roundToIntPositive(const T& value)
 }
 
 /**
-   Round a floating point number to integer.
+   Round a floating point number to an unsigned integer.
+   Fast operation for values known to be 0 or positive.
+ */
+template<typename T>
+static inline constexpr
+uint32_t d_roundToUnsignedInt(const T& value)
+{
+    return static_cast<uint32_t>(value + static_cast<T>(0.5));
+}
+
+/**
+   Round a floating point number to an integer.
    Fast operation for values known to be 0 or negative.
  */
 template<typename T>
@@ -345,13 +429,15 @@ int32_t d_roundToInt(const T& value)
 /** @} */
 
 /* --------------------------------------------------------------------------------------------------------------------
- * math functions */
+ * other stuff */
 
 #ifndef DONT_SET_USING_DISTRHO_NAMESPACE
-  // If your code uses a lot of DISTRHO classes, then this will obviously save you
-  // a lot of typing, but can be disabled by setting DONT_SET_USING_DISTRHO_NAMESPACE.
-  namespace DISTRHO_NAMESPACE {}
-  using namespace DISTRHO_NAMESPACE;
+/**
+   If your code uses a lot of DISTRHO classes, then this will obviously save you a lot of typing,
+   but can be disabled by setting DONT_SET_USING_DISTRHO_NAMESPACE.
+ */
+namespace DISTRHO_NAMESPACE {}
+using namespace DISTRHO_NAMESPACE;
 #endif
 
 #endif // DISTRHO_UTILS_HPP_INCLUDED

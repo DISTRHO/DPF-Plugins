@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -309,6 +309,9 @@ struct Plugin::PrivateData {
 #if DISTRHO_PLUGIN_WANT_STATE
     bool updateStateValueCallback(const char* const key, const char* const value)
     {
+        DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0', false);
+        DISTRHO_SAFE_ASSERT_RETURN(value != nullptr, false);
+
         d_stdout("updateStateValueCallback %p", updateStateValueCallbackFunc);
         if (updateStateValueCallbackFunc != nullptr)
             return updateStateValueCallbackFunc(callbacksPtr, key, value);
@@ -756,6 +759,24 @@ public:
         fPlugin->setParameterValue(index, value);
     }
 
+    /*
+    bool getParameterIndexForSymbol(const char* const symbol, uint32_t& index)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, false);
+
+        for (uint32_t i=0; i < fData->parameterCount; ++i)
+        {
+            if (fData->parameters[i].symbol == symbol)
+            {
+                index = i;
+                return true;
+            }
+        }
+
+        return false;
+    }
+    */
+
     uint32_t getPortGroupCount() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
@@ -868,7 +889,7 @@ public:
     }
    #endif
 
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
+   #if DISTRHO_PLUGIN_WANT_FULL_STATE
     String getStateValue(const char* const key) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, sFallbackString);
@@ -876,7 +897,7 @@ public:
 
         return fPlugin->getState(key);
     }
-# endif
+   #endif
 
     void setState(const char* const key, const char* const value)
     {
@@ -947,7 +968,7 @@ public:
         }
     }
 
-#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+   #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     void run(const float** const inputs, float** const outputs, const uint32_t frames,
              const MidiEvent* const midiEvents, const uint32_t midiEventCount)
     {
@@ -964,7 +985,7 @@ public:
         fPlugin->run(inputs, outputs, frames, midiEvents, midiEventCount);
         fData->isProcessing = false;
     }
-#else
+   #else
     void run(const float** const inputs, float** const outputs, const uint32_t frames)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr,);
@@ -980,7 +1001,21 @@ public:
         fPlugin->run(inputs, outputs, frames);
         fData->isProcessing = false;
     }
-#endif
+   #endif
+
+    // -------------------------------------------------------------------
+
+   #ifdef DISTRHO_PLUGIN_TARGET_AU
+    void setAudioPortIO(const uint16_t numInputs, const uint16_t numOutputs)
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
+
+        if (fIsActive) fPlugin->deactivate();
+        fPlugin->ioChanged(numInputs, numOutputs);
+        if (fIsActive) fPlugin->activate();
+    }
+   #endif
 
     // -------------------------------------------------------------------
 
@@ -996,14 +1031,14 @@ public:
         return fData->sampleRate;
     }
 
-    void setBufferSize(const uint32_t bufferSize, const bool doCallback = false)
+    bool setBufferSize(const uint32_t bufferSize, const bool doCallback = false)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, false);
+        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, false);
         DISTRHO_SAFE_ASSERT(bufferSize >= 2);
 
         if (fData->bufferSize == bufferSize)
-            return;
+            return false;
 
         fData->bufferSize = bufferSize;
 
@@ -1013,6 +1048,8 @@ public:
             fPlugin->bufferSizeChanged(bufferSize);
             if (fIsActive) fPlugin->activate();
         }
+
+        return true;
     }
 
     void setSampleRate(const double sampleRate, const bool doCallback = false)

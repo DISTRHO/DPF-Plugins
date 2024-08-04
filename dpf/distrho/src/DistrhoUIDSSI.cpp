@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -26,11 +26,24 @@
 
 START_NAMESPACE_DISTRHO
 
+// --------------------------------------------------------------------------------------------------------------------
+
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
 
-// -----------------------------------------------------------------------
+// unused in DSSI, we only use external and standalone UIs
+static constexpr const setSizeFunc setSizeCallback = nullptr;
+
+// unsupported in DSSI
+static constexpr const fileRequestFunc fileRequestCallback = nullptr;
+
+#ifdef DPF_USING_LD_LINUX_WEBVIEW
+int dpf_webview_start(int argc, char* argv[]);
+#endif
+
+// --------------------------------------------------------------------------------------------------------------------
+
 
 struct OscData {
     lo_address  addr;
@@ -98,7 +111,7 @@ class UIDssi : public DGL_NAMESPACE::IdleCallback
 public:
     UIDssi(const OscData& oscData, const char* const uiTitle, const double sampleRate)
         : fUI(this, 0, sampleRate, nullptr,
-              setParameterCallback, setStateCallback, sendNoteCallback, nullptr, nullptr),
+              setParameterCallback, setStateCallback, sendNoteCallback, setSizeCallback, fileRequestCallback),
           fHostClosed(false),
           fOscData(oscData)
     {
@@ -378,6 +391,11 @@ int main(int argc, char* argv[])
 {
     USE_NAMESPACE_DISTRHO
 
+   #ifdef DPF_USING_LD_LINUX_WEBVIEW
+    if (argc >= 2 && std::strcmp(argv[1], "dpf-ld-linux-webview") == 0)
+        return dpf_webview_start(argc - 1, argv + 1);
+   #endif
+
     // dummy test mode
     if (argc == 1)
     {
@@ -395,7 +413,7 @@ int main(int argc, char* argv[])
 
     if (argc != 5)
     {
-        fprintf(stderr, "Usage: %s <osc-url> <plugin-dll> <plugin-label> <instance-name>\n", argv[0]);
+        d_stderr("Usage: %s <osc-url> <plugin-dll> <plugin-label> <instance-name>", argv[0]);
         return 1;
     }
 

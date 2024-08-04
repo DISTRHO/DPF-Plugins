@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -189,30 +189,65 @@ protected:
       Get the plugin label.@n
       This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
     */
+   #ifdef DISTRHO_PLUGIN_LABEL
+    virtual const char* getLabel() const
+    {
+         return DISTRHO_PLUGIN_LABEL;
+    }
+   #else
     virtual const char* getLabel() const = 0;
+   #endif
 
    /**
       Get an extensive comment/description about the plugin.@n
       Optional, returns nothing by default.
     */
-    virtual const char* getDescription() const { return ""; }
+    virtual const char* getDescription() const
+    {
+       #ifdef DISTRHO_PLUGIN_DESCRIPTION
+        return DISTRHO_PLUGIN_DESCRIPTION;
+       #else
+        return "";
+       #endif
+    }
 
    /**
       Get the plugin author/maker.
     */
+   #ifdef DISTRHO_PLUGIN_MAKER
+    virtual const char* getMaker() const
+    {
+         return DISTRHO_PLUGIN_MAKER;
+    }
+   #else
     virtual const char* getMaker() const = 0;
+   #endif
 
    /**
       Get the plugin homepage.@n
       Optional, returns nothing by default.
     */
-    virtual const char* getHomePage() const { return ""; }
+    virtual const char* getHomePage() const
+    {
+       #ifdef DISTRHO_PLUGIN_HOMEPAGE
+        return DISTRHO_PLUGIN_HOMEPAGE;
+       #else
+        return "";
+       #endif
+    }
 
    /**
       Get the plugin license (a single line of text or a URL).@n
       For commercial plugins this should return some short copyright information.
     */
+   #ifdef DISTRHO_PLUGIN_LICENSE
+    virtual const char* getLicense() const
+    {
+         return DISTRHO_PLUGIN_LICENSE;
+    }
+   #else
     virtual const char* getLicense() const = 0;
+   #endif
 
    /**
       Get the plugin version, in hexadecimal.
@@ -222,10 +257,19 @@ protected:
 
    /**
       Get the plugin unique Id.@n
-      This value is used by LADSPA, DSSI, VST2 and VST3 plugin formats.
+      This value is used by LADSPA, DSSI, VST2, VST3 and AUv2 plugin formats.@n
+      @note It is preferred that you set DISTRHO_PLUGIN_UNIQUE_ID macro instead of overriding this call,
+            as that is required for AUv2 plugins anyhow.
       @see d_cconst()
     */
+   #ifdef DISTRHO_PLUGIN_UNIQUE_ID
+    virtual int64_t getUniqueId() const
+    {
+         return d_cconst(STRINGIFY(DISTRHO_PLUGIN_UNIQUE_ID));
+    }
+   #else
     virtual int64_t getUniqueId() const = 0;
+   #endif
 
    /* --------------------------------------------------------------------------------------------------------
     * Init */
@@ -363,6 +407,14 @@ protected:
       @see getSampleRate()
     */
     virtual void sampleRateChanged(double newSampleRate);
+
+   /**
+      Optional callback to inform the plugin about audio port IO changes.@n
+      This function will only be called when the plugin is deactivated.@n
+      Only used in AU (AudioUnit) format when DISTRHO_PLUGIN_EXTRA_IO is defined.
+      @see DISTRHO_PLUGIN_EXTRA_IO
+    */
+    virtual void ioChanged(uint16_t numInputs, uint16_t numOutputs);
 
     // -------------------------------------------------------------------------------------------------------
 

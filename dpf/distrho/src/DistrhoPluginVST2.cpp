@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -178,10 +178,8 @@ public:
               nullptr, // TODO file request
               d_nextBundlePath,
               plugin->getInstancePointer(),
-              scaleFactor)
-       #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-        , fKeyboardModifiers(0)
-       #endif
+              scaleFactor),
+          fKeyboardModifiers(0)
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         , fNotesRingBuffer()
        #endif
@@ -242,7 +240,6 @@ public:
     }
    #endif
 
-   #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     int handlePluginKeyEvent(const bool down, const int32_t index, const intptr_t value)
     {
         d_stdout("handlePluginKeyEvent %i %i %li\n", down, index, (long int)value);
@@ -281,7 +278,6 @@ public:
                                            value >= 0 ? static_cast<uint>(value) : 0,
                                            fKeyboardModifiers) ? 1 : 0;
     }
-   #endif // !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 
     // ----------------------------------------------------------------------------------------------------------------
 
@@ -347,9 +343,7 @@ private:
 
     // Plugin UI
     UIExporter fUI;
-   #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     uint16_t fKeyboardModifiers;
-   #endif
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     RingBufferControl<SmallStackBuffer> fNotesRingBuffer;
    #endif
@@ -429,7 +423,7 @@ public:
             memset(parameterChecks, 0, sizeof(bool)*parameterCount);
         }
 
-      #if DISTRHO_OS_MAC
+      #ifdef DISTRHO_OS_MAC
        #ifdef __LP64__
         fUsingNsView = true;
        #else
@@ -602,10 +596,10 @@ public:
             {
                 double scaleFactor = fLastScaleFactor;
                #if defined(DISTRHO_UI_DEFAULT_WIDTH) && defined(DISTRHO_UI_DEFAULT_HEIGHT)
-                fVstRect.right = DISTRHO_UI_DEFAULT_WIDTH;
-                fVstRect.bottom = DISTRHO_UI_DEFAULT_HEIGHT;
                 if (d_isZero(scaleFactor))
                     scaleFactor = 1.0;
+                fVstRect.right = DISTRHO_UI_DEFAULT_WIDTH * scaleFactor;
+                fVstRect.bottom = DISTRHO_UI_DEFAULT_HEIGHT * scaleFactor;
                #else
                 UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                                  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
@@ -627,7 +621,7 @@ public:
             delete fVstUI; // for hosts which don't pair create/destroy calls (Minihost Modular)
             fVstUI = nullptr;
 
-           #if DISTRHO_OS_MAC
+           #ifdef DISTRHO_OS_MAC
             if (! fUsingNsView)
             {
                 d_stderr("Host doesn't support hasCockosViewAsConfig, cannot use UI");
@@ -678,7 +672,6 @@ public:
                 fVstUI->idle();
             break;
 
-       #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         case VST_EFFECT_OPCODE_3B: // key down
             if (fVstUI != nullptr)
                 return fVstUI->handlePluginKeyEvent(true, index, value);
@@ -688,7 +681,6 @@ public:
             if (fVstUI != nullptr)
                 return fVstUI->handlePluginKeyEvent(false, index, value);
             break;
-       #endif
       #endif // DISTRHO_PLUGIN_HAS_UI
 
        #if DISTRHO_PLUGIN_WANT_STATE
@@ -917,7 +909,7 @@ public:
         case VST_EFFECT_OPCODE_SUPPORTS:
             if (const char* const canDo = (const char*)ptr)
             {
-               #if DISTRHO_OS_MAC && DISTRHO_PLUGIN_HAS_UI
+               #if defined(DISTRHO_OS_MAC) && DISTRHO_PLUGIN_HAS_UI
                 if (std::strcmp(canDo, "hasCockosViewAsConfig") == 0)
                 {
                     fUsingNsView = true;
@@ -1084,7 +1076,7 @@ public:
         if (fMidiEventCount != kMaxMidiEvents && fNotesRingBuffer.isDataAvailableForReading())
         {
             uint8_t midiData[3];
-            uint32_t frame = fMidiEventCount != 0 ? fMidiEvents[fMidiEventCount-1].frame : 0;
+            const uint32_t frame = fMidiEventCount != 0 ? fMidiEvents[fMidiEventCount - 1].frame : 0;
 
             while (fNotesRingBuffer.isDataAvailableForReading())
             {
@@ -1140,7 +1132,7 @@ private:
     UIVst*   fVstUI;
     vst_rect fVstRect;
     float    fLastScaleFactor;
-   #if DISTRHO_OS_MAC
+   #ifdef DISTRHO_OS_MAC
     bool fUsingNsView;
    #endif
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -1286,22 +1278,11 @@ private:
         fPlugin.setState(key, value);
 
         // check if we want to save this key
-        if (! fPlugin.wantStateKey(key))
-            return;
-
-        // check if key already exists
-        for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
+        if (fPlugin.wantStateKey(key))
         {
-            const String& dkey(it->first);
-
-            if (dkey == key)
-            {
-                it->second = value;
-                return;
-            }
+            const String dkey(key);
+            fStateMap[dkey] = value;
         }
-
-        d_stderr("Failed to find plugin state with key \"%s\"", key);
     }
   #endif
 };
@@ -1607,11 +1588,7 @@ static void VST_FUNCTION_INTERFACE vst_processReplacingCallback(vst_effect* cons
 END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
-#if defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WASM) || defined(DISTRHO_OS_WINDOWS)
-const vst_effect* VSTPluginMain(vst_host_callback audioMaster);
-#else
-const vst_effect* VSTPluginMain(vst_host_callback audioMaster) asm ("main");
-#endif
+const vst_effect* VSTPluginMain(vst_host_callback);
 
 DISTRHO_PLUGIN_EXPORT
 const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
@@ -1734,5 +1711,20 @@ const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
 
     return effect;
 }
+
+#if !(defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WASM) || defined(DISTRHO_OS_WINDOWS) || DISTRHO_UI_WEB_VIEW)
+DISTRHO_PLUGIN_EXPORT
+const vst_effect* VSTPluginMainCompat(vst_host_callback) asm ("main");
+
+DISTRHO_PLUGIN_EXPORT
+const vst_effect* VSTPluginMainCompat(const vst_host_callback audioMaster)
+{
+    // protect main symbol against running as executable
+    if (reinterpret_cast<uintptr_t>(audioMaster) < 0xff)
+        return nullptr;
+
+    return VSTPluginMain(audioMaster);
+}
+#endif
 
 // --------------------------------------------------------------------------------------------------------------------

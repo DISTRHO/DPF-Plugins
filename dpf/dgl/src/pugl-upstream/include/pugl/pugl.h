@@ -145,7 +145,7 @@ typedef uint32_t PuglEventFlags;
 typedef enum {
   PUGL_CROSSING_NORMAL, ///< Crossing due to pointer motion
   PUGL_CROSSING_GRAB,   ///< Crossing due to a grab
-  PUGL_CROSSING_UNGRAB  ///< Crossing due to a grab release
+  PUGL_CROSSING_UNGRAB, ///< Crossing due to a grab release
 } PuglCrossingMode;
 
 /// Common header for all event structs
@@ -342,6 +342,7 @@ typedef struct {
 */
 typedef enum {
   PUGL_KEY_BACKSPACE = 0x00000008U, ///< Backspace
+  PUGL_KEY_TAB       = 0x00000009U, ///< Tab
   PUGL_KEY_ENTER     = 0x0000000DU, ///< Enter
   PUGL_KEY_ESCAPE    = 0x0000001BU, ///< Escape
   PUGL_KEY_DELETE    = 0x0000007FU, ///< Delete
@@ -414,10 +415,13 @@ typedef enum {
 
 /// Keyboard modifier flags
 typedef enum {
-  PUGL_MOD_SHIFT = 1U << 0U, ///< Shift key
-  PUGL_MOD_CTRL  = 1U << 1U, ///< Control key
-  PUGL_MOD_ALT   = 1U << 2U, ///< Alt/Option key
-  PUGL_MOD_SUPER = 1U << 3U  ///< Mod4/Command/Windows key
+  PUGL_MOD_SHIFT       = 1U << 0U, ///< Shift pressed
+  PUGL_MOD_CTRL        = 1U << 1U, ///< Control pressed
+  PUGL_MOD_ALT         = 1U << 2U, ///< Alt/Option pressed
+  PUGL_MOD_SUPER       = 1U << 3U, ///< Super/Command/Windows pressed
+  PUGL_MOD_NUM_LOCK    = 1U << 4U, ///< Num lock enabled
+  PUGL_MOD_SCROLL_LOCK = 1U << 5U, ///< Scroll lock enabled
+  PUGL_MOD_CAPS_LOCK   = 1U << 6U, ///< Caps lock enabled
 } PuglMod;
 
 /// Bitwise OR of #PuglMod values
@@ -505,11 +509,11 @@ typedef struct {
    arbitrary scroll direction freedom, like some touchpads.
 */
 typedef enum {
-  PUGL_SCROLL_UP,    ///< Scroll up
-  PUGL_SCROLL_DOWN,  ///< Scroll down
-  PUGL_SCROLL_LEFT,  ///< Scroll left
-  PUGL_SCROLL_RIGHT, ///< Scroll right
-  PUGL_SCROLL_SMOOTH ///< Smooth scroll in any direction
+  PUGL_SCROLL_UP,     ///< Scroll up
+  PUGL_SCROLL_DOWN,   ///< Scroll down
+  PUGL_SCROLL_LEFT,   ///< Scroll left
+  PUGL_SCROLL_RIGHT,  ///< Scroll right
+  PUGL_SCROLL_SMOOTH, ///< Smooth scroll in any direction
 } PuglScrollDirection;
 
 /**
@@ -763,7 +767,7 @@ typedef void* PuglWorldHandle;
 /// The type of a World
 typedef enum {
   PUGL_PROGRAM, ///< Top-level application
-  PUGL_MODULE   ///< Plugin or module within a larger application
+  PUGL_MODULE,  ///< Plugin or module within a larger application
 } PuglWorldType;
 
 /// World flags
@@ -773,7 +777,7 @@ typedef enum {
 
      X11: Calls XInitThreads() which is required for some drivers.
   */
-  PUGL_WORLD_THREADS = 1U << 0U
+  PUGL_WORLD_THREADS = 1U << 0U,
 } PuglWorldFlag;
 
 /// Bitwise OR of #PuglWorldFlag values
@@ -1023,7 +1027,7 @@ typedef enum {
      If set, the view's size should be constrained to an aspect ratio no higher
      than this.  Mutually exclusive with #PUGL_FIXED_ASPECT.
   */
-  PUGL_MAX_ASPECT
+  PUGL_MAX_ASPECT,
 } PuglSizeHint;
 
 /// The number of #PuglSizeHint values
@@ -1569,7 +1573,8 @@ puglGetClipboard(PuglView* view, uint32_t typeIndex, size_t* len);
    for example if compiled on X11 without Xcursor support.
 
    @return #PUGL_BAD_PARAMETER if the given cursor is invalid,
-   #PUGL_FAILURE if the cursor is known but loading it system fails.
+   #PUGL_UNSUPPORTED if setting the cursor is not supported on this system, or
+   another error if the cursor is known but loading it fails.
 */
 PUGL_API
 PuglStatus

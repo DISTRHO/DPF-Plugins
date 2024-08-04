@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -115,6 +115,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s)
       isClosed(true),
       isVisible(false),
       isEmbed(false),
+      usesScheduledRepaints(false),
       usesSizeRequest(false),
       scaleFactor(DGL_NAMESPACE::getScaleFactor(view)),
       autoScaling(false),
@@ -127,7 +128,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s)
       waitingForClipboardEvents(false),
       clipboardTypeId(0),
       filenameToRenderInto(nullptr),
-     #ifndef DGL_FILE_BROWSER_DISABLED
+     #ifdef DGL_USE_FILE_BROWSER
       fileBrowserHandle(nullptr),
      #endif
       modal()
@@ -144,6 +145,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s, PrivateData* c
       isClosed(true),
       isVisible(false),
       isEmbed(false),
+      usesScheduledRepaints(false),
       usesSizeRequest(false),
       scaleFactor(ppData->scaleFactor),
       autoScaling(false),
@@ -156,7 +158,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s, PrivateData* c
       waitingForClipboardEvents(false),
       clipboardTypeId(0),
       filenameToRenderInto(nullptr),
-     #ifndef DGL_FILE_BROWSER_DISABLED
+     #ifdef DGL_USE_FILE_BROWSER
       fileBrowserHandle(nullptr),
      #endif
       modal(ppData)
@@ -175,6 +177,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       isClosed(parentWindowHandle == 0),
       isVisible(parentWindowHandle != 0),
       isEmbed(parentWindowHandle != 0),
+      usesScheduledRepaints(false),
       usesSizeRequest(false),
       scaleFactor(scale != 0.0 ? scale : DGL_NAMESPACE::getScaleFactor(view)),
       autoScaling(false),
@@ -187,7 +190,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       waitingForClipboardEvents(false),
       clipboardTypeId(0),
       filenameToRenderInto(nullptr),
-     #ifndef DGL_FILE_BROWSER_DISABLED
+     #ifdef DGL_USE_FILE_BROWSER
       fileBrowserHandle(nullptr),
      #endif
       modal()
@@ -198,7 +201,9 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
 Window::PrivateData::PrivateData(Application& a, Window* const s,
                                  const uintptr_t parentWindowHandle,
                                  const uint width, const uint height,
-                                 const double scale, const bool resizable, const bool usesSizeRequest_)
+                                 const double scale, const bool resizable,
+                                 const bool _usesScheduledRepaints,
+                                 const bool _usesSizeRequest)
     : app(a),
       appData(a.pData),
       self(s),
@@ -207,7 +212,8 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       isClosed(parentWindowHandle == 0),
       isVisible(parentWindowHandle != 0 && view != nullptr),
       isEmbed(parentWindowHandle != 0),
-      usesSizeRequest(usesSizeRequest_),
+      usesScheduledRepaints(_usesScheduledRepaints),
+      usesSizeRequest(_usesSizeRequest),
       scaleFactor(scale != 0.0 ? scale : DGL_NAMESPACE::getScaleFactor(view)),
       autoScaling(false),
       autoScaleFactor(1.0),
@@ -219,7 +225,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
       waitingForClipboardEvents(false),
       clipboardTypeId(0),
       filenameToRenderInto(nullptr),
-     #ifndef DGL_FILE_BROWSER_DISABLED
+     #ifdef DGL_USE_FILE_BROWSER
       fileBrowserHandle(nullptr),
      #endif
       modal()
@@ -238,7 +244,7 @@ Window::PrivateData::~PrivateData()
 
     if (isEmbed)
     {
-       #ifndef DGL_FILE_BROWSER_DISABLED
+       #ifdef DGL_USE_FILE_BROWSER
         if (fileBrowserHandle != nullptr)
             fileBrowserClose(fileBrowserHandle);
        #endif
@@ -270,18 +276,18 @@ void Window::PrivateData::initPre(const uint width, const uint height, const boo
 
     puglSetViewHint(view, PUGL_RESIZABLE, resizable ? PUGL_TRUE : PUGL_FALSE);
     puglSetViewHint(view, PUGL_IGNORE_KEY_REPEAT, PUGL_FALSE);
-#if DGL_USE_RGBA
+   #if defined(DGL_USE_RGBA) && DGL_USE_RGBA
     puglSetViewHint(view, PUGL_DEPTH_BITS, 24);
-#else
+   #else
     puglSetViewHint(view, PUGL_DEPTH_BITS, 16);
-#endif
+   #endif
     puglSetViewHint(view, PUGL_STENCIL_BITS, 8);
 
     // PUGL_SAMPLES ??
     puglSetEventFunc(view, puglEventCallback);
 
     // setting default size triggers system-level calls, do it last
-    puglSetSizeHint(view, PUGL_DEFAULT_SIZE, width, height);
+    puglSetSizeHint(view, PUGL_DEFAULT_SIZE, static_cast<PuglSpan>(width), static_cast<PuglSpan>(height));
 }
 
 bool Window::PrivateData::initPost()
@@ -388,7 +394,7 @@ void Window::PrivateData::hide()
     if (modal.enabled)
         stopModal();
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
     if (fileBrowserHandle != nullptr)
     {
         fileBrowserClose(fileBrowserHandle);
@@ -429,7 +435,7 @@ void Window::PrivateData::setResizable(const bool resizable)
 
 void Window::PrivateData::idleCallback()
 {
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
     if (fileBrowserHandle != nullptr && fileBrowserIdle(fileBrowserHandle))
     {
         self->onFileSelected(fileBrowserGetPath(fileBrowserHandle));
@@ -471,7 +477,7 @@ bool Window::PrivateData::removeIdleCallback(IdleCallback* const callback)
     return puglStopTimer(view, (uintptr_t)callback) == PUGL_SUCCESS;
 }
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 // -----------------------------------------------------------------------
 // file handling
 
@@ -492,7 +498,7 @@ bool Window::PrivateData::openFileBrowser(const FileBrowserOptions& options)
 
     return fileBrowserHandle != nullptr;
 }
-#endif // ! DGL_FILE_BROWSER_DISABLED
+#endif // DGL_USE_FILE_BROWSER
 
 // -----------------------------------------------------------------------
 // modal handling
@@ -598,7 +604,7 @@ void Window::PrivateData::onPuglConfigure(const double width, const double heigh
 #ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET(it)
     {
-        TopLevelWidget* const widget(*it);
+        TopLevelWidget* const widget = *it;
 
         /* Some special care here, we call Widget::setSize instead of the TopLevelWidget one.
          * This is because we want TopLevelWidget::setSize to handle both window and widget size,

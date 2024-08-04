@@ -459,7 +459,7 @@ public:
 
                     if (fLastPositionData.barBeat >= 0.0f)
                     {
-                        const double rest = std::fmod(fLastPositionData.barBeat, 1.0f);
+                        const double rest = std::fmod(fLastPositionData.barBeat, 1.0);
                         fTimePosition.bbt.beat = std::round(fLastPositionData.barBeat - rest + 1.0);
                         fTimePosition.bbt.tick = rest * fTimePosition.bbt.ticksPerBeat;
                     }
@@ -590,7 +590,7 @@ public:
 
                 const LV2_Atom* property = nullptr;
                 const LV2_Atom* value    = nullptr;
-                lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
+                lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, 0);
 
                 if (property != nullptr && property->type == fURIDs.atomURID &&
                     value != nullptr && (value->type == fURIDs.atomPath || value->type == fURIDs.atomString))
@@ -1122,7 +1122,7 @@ public:
 
             const LV2_Atom* property = nullptr;
             const LV2_Atom* value    = nullptr;
-            lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
+            lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, 0);
             DISTRHO_SAFE_ASSERT_RETURN(property != nullptr, LV2_WORKER_ERR_UNKNOWN);
             DISTRHO_SAFE_ASSERT_RETURN(property->type == fURIDs.atomURID, LV2_WORKER_ERR_UNKNOWN);
             DISTRHO_SAFE_ASSERT_RETURN(value != nullptr, LV2_WORKER_ERR_UNKNOWN);
@@ -1353,38 +1353,26 @@ private:
 
         // save this key if necessary
         if (fPlugin.wantStateKey(key))
-            updateInternalState(key, newValue, false);
+        {
+            const String dkey(key);
+            fStateMap[dkey] = newValue;
+        }
     }
 
     bool updateState(const char* const key, const char* const newValue)
     {
         fPlugin.setState(key, newValue);
-        return updateInternalState(key, newValue, true);
-    }
 
-    bool updateInternalState(const char* const key, const char* const newValue, const bool sendToUI)
-    {
         // key must already exist
-        for (StringToStringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
+        for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
         {
-            const String& dkey(it->first);
-
-            if (dkey == key)
+            if (fPlugin.getStateKey(i) == key)
             {
-                it->second = newValue;
+                const String dkey(key);
+                fStateMap[dkey] = newValue;
 
-                if (sendToUI)
-                {
-                    for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-                    {
-                        if (fPlugin.getStateKey(i) == key)
-                        {
-                            if ((fPlugin.getStateHints(i) & kStateIsOnlyForDSP) == 0x0)
-                                fNeededUiSends[i] = true;
-                            break;
-                        }
-                    }
-                }
+                if ((fPlugin.getStateHints(i) & kStateIsOnlyForDSP) == 0x0)
+                    fNeededUiSends[i] = true;
 
                 return true;
             }

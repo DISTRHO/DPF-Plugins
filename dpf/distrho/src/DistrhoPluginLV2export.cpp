@@ -74,12 +74,12 @@
 # define DISTRHO_PLUGIN_USES_CUSTOM_MODGUI 0
 #endif
 
-#if DISTRHO_PLUGIN_HAS_EMBED_UI
-# if DISTRHO_OS_HAIKU
+#if DISTRHO_PLUGIN_HAS_UI
+# if defined(DISTRHO_OS_HAIKU)
 #  define DISTRHO_LV2_UI_TYPE "BeUI"
-# elif DISTRHO_OS_MAC
+# elif defined(DISTRHO_OS_MAC)
 #  define DISTRHO_LV2_UI_TYPE "CocoaUI"
-# elif DISTRHO_OS_WINDOWS
+# elif defined(DISTRHO_OS_WINDOWS)
 #  define DISTRHO_LV2_UI_TYPE "WindowsUI"
 # else
 #  define DISTRHO_LV2_UI_TYPE "X11UI"
@@ -155,7 +155,7 @@ static constexpr const char* const lv2ManifestUiExtensionData[] = {
 };
 
 static constexpr const char* const lv2ManifestUiOptionalFeatures[] = {
-  #if DISTRHO_PLUGIN_HAS_EMBED_UI
+  #if DISTRHO_PLUGIN_HAS_UI
    #if !DISTRHO_UI_USER_RESIZABLE
     "ui:noUserResize",
    #endif
@@ -1003,8 +1003,10 @@ void lv2_generate_ttl(const char* const basename)
         {
             const String license(plugin.getLicense());
 
+            if (license.isEmpty())
+            {}
             // Using URL as license
-            if (license.contains("://"))
+            else if (license.contains("://"))
             {
                 pluginString += "    doap:license <" +  license + "> ;\n\n";
             }
@@ -1253,7 +1255,7 @@ void lv2_generate_ttl(const char* const basename)
         std::cout << " done!" << std::endl;
     }
 
-   #if DISTRHO_PLUGIN_USES_MODGUI && DISTRHO_PLUGIN_HAS_EMBED_UI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
+   #if DISTRHO_PLUGIN_USES_MODGUI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
     {
         std::cout << "Writing modgui.ttl..."; std::cout.flush();
         std::fstream modguiFile("modgui.ttl", std::ios::out);
@@ -1548,7 +1550,7 @@ void lv2_generate_ttl(const char* const basename)
         stylesheetFile.close();
         std::cout << " done!" << std::endl;
     }
-   #endif // DISTRHO_PLUGIN_USES_MODGUI && DISTRHO_PLUGIN_HAS_EMBED_UI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
+   #endif // DISTRHO_PLUGIN_USES_MODGUI && !DISTRHO_PLUGIN_USES_CUSTOM_MODGUI
 
     // ---------------------------------------------
 

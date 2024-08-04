@@ -28,9 +28,9 @@ endif
 
 dgl:
 ifeq ($(HAVE_CAIRO_OR_OPENGL),true)
-	$(MAKE) FILE_BROWSER_DISABLED=true -C dpf/dgl
+	$(MAKE) USE_FILE_BROWSER=false -C dpf/dgl
 ifeq ($(HAVE_OPENGL),true)
-	$(MAKE) FILE_BROWSER_DISABLED=true -C dpf/dgl opengl3
+	$(MAKE) USE_FILE_BROWSER=false -C dpf/dgl opengl3
 endif
 endif
 

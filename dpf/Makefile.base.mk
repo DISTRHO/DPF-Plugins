@@ -4,15 +4,22 @@
 # Created by falkTX
 #
 
-AR  ?= ar
-CC  ?= gcc
-CXX ?= g++
-
 # Before including this file, a few variables can be set in order to tweak build behaviour:
+
 # DEBUG=true
+#  Building in debug mode
+#  Implies SKIP_STRIPPING=true as well
+
 # NOOPT=true
+#  Do not automatically set optimization flags
+
 # SKIP_STRIPPING=true
+#  Do not strip output binaries
+
 # NVG_DISABLE_SKIPPING_WHITESPACE=true
+#  Tweak `nvgTextBreakLines` to allow space characters
+#  FIXME proper details
+
 # NVG_FONT_TEXTURE_FLAGS=0
 # FILE_BROWSER_DISABLED=true
 # WINDOWS_ICON_ID=0
@@ -21,9 +28,25 @@ CXX ?= g++
 # USE_OPENGL3=true
 # USE_NANOVG_FBO=true
 # USE_NANOVG_FREETYPE=true
+# USE_FILE_BROWSER=true
+# USE_WEB_VIEW=true
+
 # STATIC_BUILD=true
+#  Tweak build to be able to generate fully static builds (e.g. skip use of libdl)
+#  Experimental, use only if you know what you are doing
+
 # FORCE_NATIVE_AUDIO_FALLBACK=true
+#  Do not use JACK for the standalone, only native audio
+
 # SKIP_NATIVE_AUDIO_FALLBACK=true
+#  Do not use native audio for the standalone, only use JACK
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Read target compiler from environment
+
+AR  ?= ar
+CC  ?= gcc
+CXX ?= g++
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Protect against multiple inclusion
@@ -213,6 +236,27 @@ UNIX = true
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Compatibility checks
+
+ifeq ($(FILE_BROWSER_DISABLED),true)
+$(error FILE_BROWSER_DISABLED has been replaced by USE_FILE_BROWSER (opt-in vs opt-out))
+endif
+
+ifeq ($(USE_FILEBROWSER),true)
+$(error typo detected use USE_FILE_BROWSER instead of USE_FILEBROWSER)
+endif
+
+ifeq ($(USE_WEBVIEW),true)
+$(error typo detected use USE_WEB_VIEW instead of USE_WEBVIEW)
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Set optional flags
+
+USE_FILE_BROWSER ?= true
+USE_WEB_VIEW ?= false
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Set build and link flags
 
 BASE_FLAGS = -Wall -Wextra -pipe -MD -MP
@@ -250,7 +294,9 @@ BASE_OPTS += -mtune=generic -msse -msse2 -mfpmath=sse
 endif
 
 ifeq ($(MACOS),true)
+ifneq ($(MACOS_NO_DEAD_STRIP),true)
 LINK_OPTS += -Wl,-dead_strip,-dead_strip_dylibs
+endif
 else ifeq ($(WASM),true)
 LINK_OPTS += -O3
 LINK_OPTS += -Wl,--gc-sections
@@ -416,6 +462,9 @@ else ifeq ($(MACOS),true)
 
 DGL_SYSTEM_LIBS += -framework Cocoa
 DGL_SYSTEM_LIBS += -framework CoreVideo
+ifeq ($(USE_WEB_VIEW),true)
+DGL_SYSTEM_LIBS += -framework WebKit
+endif
 
 else ifeq ($(WASM),true)
 
@@ -430,12 +479,18 @@ DGL_SYSTEM_LIBS += -lcomdlg32
 DGL_SYSTEM_LIBS += -ldwmapi
 DGL_SYSTEM_LIBS += -lgdi32
 # DGL_SYSTEM_LIBS += -lole32
+ifeq ($(USE_WEB_VIEW),true)
+DGL_SYSTEM_LIBS += -lole32
+DGL_SYSTEM_LIBS += -luuid
+endif
 
 else
 
+ifneq ($(FILE_BROWSER_DISABLED),true)
 ifeq ($(HAVE_DBUS),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags dbus-1) -DHAVE_DBUS
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs dbus-1)
+endif
 endif
 
 ifeq ($(HAVE_X11),true)
@@ -452,6 +507,10 @@ endif
 ifeq ($(HAVE_XRANDR),true)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags xrandr) -DHAVE_XRANDR
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs xrandr)
+endif
+ifeq ($(USE_WEB_VIEW),true)
+DGL_FLAGS       += -pthread
+DGL_SYSTEM_LIBS += -pthread -lrt
 endif
 endif # HAVE_X11
 
@@ -563,11 +622,11 @@ SHARED_MEMORY_LIBS = -lrt
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Backwards-compatible HAVE_DGL
+# Generic HAVE_DGL
 
 ifeq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_DGL = true
-else ifeq ($(HAVE_OPENGL),true)
+else
 HAVE_DGL = $(HAVE_X11)
 endif
 
@@ -591,10 +650,6 @@ endif
 
 ifneq ($(NVG_FONT_TEXTURE_FLAGS),)
 BUILD_CXX_FLAGS += -DNVG_FONT_TEXTURE_FLAGS=$(NVG_FONT_TEXTURE_FLAGS)
-endif
-
-ifeq ($(FILE_BROWSER_DISABLED),true)
-BUILD_CXX_FLAGS += -DDGL_FILE_BROWSER_DISABLED
 endif
 
 ifneq ($(WINDOWS_ICON_ID),)
@@ -631,6 +686,14 @@ endif
 
 ifeq ($(USE_RGBA),true)
 BUILD_CXX_FLAGS += -DDGL_USE_RGBA
+endif
+
+ifeq ($(USE_FILE_BROWSER),true)
+BUILD_CXX_FLAGS += -DDGL_USE_FILE_BROWSER
+endif
+
+ifeq ($(USE_WEB_VIEW),true)
+BUILD_CXX_FLAGS += -DDGL_USE_WEB_VIEW
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -688,7 +751,9 @@ endif
 # Set VST3 binary directory, see https://vst3sdk-doc.diatonic.jp/doc/vstinterfaces/vst3loc.html
 
 ifeq ($(LINUX),true)
-VST3_BINARY_DIR = Contents/$(TARGET_PROCESSOR)-linux
+# This must match `uname -m`, which differs from `gcc -dumpmachine` on PowerPC.
+VST3_ARCHITECTURE := $(patsubst powerpc%,ppc%,$(TARGET_PROCESSOR))
+VST3_BINARY_DIR = Contents/$(VST3_ARCHITECTURE)-linux
 else ifeq ($(MACOS),true)
 VST3_BINARY_DIR = Contents/MacOS
 else ifeq ($(WASM),true)
@@ -796,29 +861,98 @@ MOD_ENVIRONMENT = \
 modduo:
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-static,arm-mod-linux-gnueabihf.static,arm)
 
+modduo-new:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-new,arm-modaudio-linux-gnueabihf,arm)
+
 modduox:
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-static,aarch64-mod-linux-gnueabi.static,aarch64)
+
+modduox-new:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-new,aarch64-modaudio-linux-gnueabi,aarch64)
 
 moddwarf:
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf,aarch64-mod-linux-gnu,aarch64)
 
-modpush:
-	tar -C bin -cz $(subst bin/,,$(wildcard bin/*.lv2)) | base64 | curl -F 'package=@-' http://192.168.51.1/sdk/install && echo
+moddwarf-new:
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf-new,aarch64-modaudio-linux-gnu,aarch64)
 
-ifneq (,$(findstring modduo-,$(MAKECMDGOALS)))
+modpush:
+	tar -C bin -chz $(subst bin/,,$(wildcard bin/*.lv2)) | base64 | curl -F 'package=@-' http://192.168.51.1/sdk/install && echo
+
+ifneq (,$(findstring modduo-new-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-new,arm-modaudio-linux-gnueabihf,arm) $(subst modduo-new-,,$(MAKECMDGOALS))
+else ifneq (,$(findstring modduo-,$(filter-out modduo-new,$(MAKECMDGOALS))))
 $(MAKECMDGOALS):
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduo-static,arm-mod-linux-gnueabihf.static,arm) $(subst modduo-,,$(MAKECMDGOALS))
 endif
 
-ifneq (,$(findstring modduox-,$(MAKECMDGOALS)))
+ifneq (,$(findstring modduox-new-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-new,aarch64-modaudio-linux-gnueabi,aarch64) $(subst modduox-new-,,$(MAKECMDGOALS))
+else ifneq (,$(findstring modduox-,$(filter-out modduox-new,$(MAKECMDGOALS))))
 $(MAKECMDGOALS):
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/modduox-static,aarch64-mod-linux-gnueabi.static,aarch64) $(subst modduox-,,$(MAKECMDGOALS))
 endif
 
-ifneq (,$(findstring moddwarf-,$(MAKECMDGOALS)))
+ifneq (,$(findstring moddwarf-new-,$(MAKECMDGOALS)))
+$(MAKECMDGOALS):
+	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf-new,aarch64-modaudio-linux-gnu,aarch64) $(subst moddwarf-new-,,$(MAKECMDGOALS))
+else ifneq (,$(findstring moddwarf-,$(filter-out moddwarf-new,$(MAKECMDGOALS))))
 $(MAKECMDGOALS):
 	$(MAKE) $(call MOD_ENVIRONMENT,$(MOD_WORKDIR)/moddwarf,aarch64-mod-linux-gnu,aarch64) $(subst moddwarf-,,$(MAKECMDGOALS))
 endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Convenience rules for common builds
+
+macos-intel-10.8:
+	$(MAKE) \
+		CFLAGS="$(CFLAGS) -arch x86_64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_8 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_8 -mmacosx-version-min=10.8" \
+		CXXFLAGS="$(CXXFLAGS) -arch x86_64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_8 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_8 -mmacosx-version-min=10.8 -stdlib=libc++" \
+		LDFLAGS="$(LDFLAGS) -stdlib=libc++" \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
+
+macos-universal-10.8:
+	$(MAKE) \
+		CFLAGS="$(CFLAGS) -arch x86_64 -arch arm64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_8 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_8 -mmacosx-version-min=10.15" \
+		CXXFLAGS="$(CXXFLAGS) -arch x86_64 -arch arm64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_8 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_8 -mmacosx-version-min=10.15 -stdlib=libc++" \
+		LDFLAGS="$(LDFLAGS) -stdlib=libc++" \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
+
+macos-intel-10.15:
+	$(MAKE) \
+		CFLAGS="$(CFLAGS) -arch x86_64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_15 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_15 -mmacosx-version-min=10.15" \
+		CXXFLAGS="$(CXXFLAGS) -arch x86_64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_15 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_15 -mmacosx-version-min=10.15" \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
+
+macos-universal-10.15:
+	$(MAKE) \
+		CFLAGS="$(CFLAGS) -arch x86_64 -arch arm64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_15 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_15 -mmacosx-version-min=10.15" \
+		CXXFLAGS="$(CXXFLAGS) -arch x86_64 -arch arm64 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_15 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_15 -mmacosx-version-min=10.15" \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
+
+mingw32:
+	$(MAKE) \
+		AR=i686-w64-mingw32-ar \
+		CC=i686-w64-mingw32-gcc \
+		CXX=i686-w64-mingw32-g++ \
+		EXE_WRAPPER=wine \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
+
+mingw64:
+	$(MAKE) \
+		AR=x86_64-w64-mingw32-ar \
+		CC=x86_64-w64-mingw32-gcc \
+		CXX=x86_64-w64-mingw32-g++ \
+		EXE_WRAPPER=wine \
+		PKG_CONFIG=/usr/bin/false \
+		PKG_CONFIG_PATH=/NOT
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Protect against multiple inclusion

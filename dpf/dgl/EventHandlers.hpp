@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -133,6 +133,8 @@ public:
     // returns 0-1 ranged value, already with log scale as needed
     float getNormalizedValue() const noexcept;
 
+    float getDefault() const noexcept;
+
     // NOTE: value is assumed to be scaled if using log
     void setDefault(float def) noexcept;
 
@@ -186,7 +188,7 @@ private:
     struct PrivateData;
     PrivateData* const pData;
 
-    DISTRHO_LEAK_DETECTOR(SliderEventHandler)
+    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SliderEventHandler)
 };
 
 // --------------------------------------------------------------------------------------------------------------------

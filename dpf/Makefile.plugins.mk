@@ -1,26 +1,74 @@
 #!/usr/bin/make -f
-# Makefile for DPF Example Plugins #
-# -------------------------------- #
+# Makefile for DPF #
+# ---------------- #
 # Created by falkTX
 #
 
 # NOTE: NAME, FILES_DSP and FILES_UI must have been defined before including this file!
 
+# extra useful variables to define before including this file:
+# - DPF_BUILD_DIR: where to place temporary build files
+# - DPF_TARGET_DIR: where to place final binary files
+# - UI_TYPE: one of cairo, opengl, opengl3 or external, with opengl being default
+#            ("generic" is also allowed if only using image widgets)
+
+# override the "all" target after including this file to define which plugin formats to build, like so:
+# all: au clap jack lv2_sep vst2 vst3
+
+# NOTE the "lv2" target refers to a monolithic build (dsp and ui combined),
+#      while "lv2_sep" target has dsp and ui in separate binaries.
+#      use of this target must match the definition of `DISTRHO_PLUGIN_WANT_DIRECT_ACCESS`
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Try to figure out where DPF is located
+
 ifeq ($(DPF_PATH),)
-ifneq (,$(wildcard dpf/Makefile.base.mk))
-BASE_PATH=.
-DPF_PATH=dpf
-else ifneq (,$(wildcard ../dpf/Makefile.base.mk))
-BASE_PATH=..
-DPF_PATH=../dpf
-else ifneq (,$(wildcard ../../dpf/Makefile.base.mk))
-BASE_PATH=../..
-DPF_PATH=../../dpf
+
+# find path to this makefile
+DPF_PLUGINS_MAKEFILE = $(lastword $(filter %Makefile.plugins.mk,$(MAKEFILE_LIST)))
+
+# error out if wrongly named or referencing it without any path
+ifeq (,$(findstring /Makefile.plugins.mk,$(DPF_PLUGINS_MAKEFILE)))
+$(error wrong inclusion of Makefile.plugins.mk, must be either absolute or relative path)
+endif
+
+# find path to DPF
+DPF_PATH = $(patsubst %/Makefile.plugins.mk,%,$(DPF_PLUGINS_MAKEFILE))
+
+# best guess for where to place binary files
+ifeq ($(DPF_PATH),..)
+BASE_PATH = $(DPF_PATH)
+else ifeq ($(DPF_PATH),../..)
+BASE_PATH = $(DPF_PATH)
+else ifeq ($(DPF_PATH),../../..)
+BASE_PATH = $(DPF_PATH)
 else
-BASE_PATH=../..
-DPF_PATH=../..
+BASE_PATH = $(patsubst %/,%,$(dir $(DPF_PATH)))
 endif
+
 endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Check for proper UI_TYPE parameter
+
+ifeq ($(UI_TYPE),)
+else ifeq ($(UI_TYPE),cairo)
+else ifeq ($(UI_TYPE),external)
+else ifeq ($(UI_TYPE),generic)
+else ifeq ($(UI_TYPE),opengl)
+else ifeq ($(UI_TYPE),opengl3)
+USE_OPENGL3 = true
+else ifeq ($(UI_TYPE),vulkan)
+else ifeq ($(UI_TYPE),webview)
+USE_CLAP_BUNDLE = true
+USE_VST2_BUNDLE = true
+USE_WEB_VIEW = true
+else
+$(error unknown UI_TYPE $(UI_TYPE))
+endif
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Include DPF base setup
 
 include $(DPF_PATH)/Makefile.base.mk
 
@@ -140,6 +188,8 @@ OBJS_UI  = $(FILES_UI:%=$(BUILD_DIR)/%.o)
 
 ifeq ($(MACOS),true)
 OBJS_UI += $(BUILD_DIR)/DistrhoUI_macOS_$(NAME).mm.o
+else ifeq ($(WINDOWS)$(USE_WEB_VIEW),truetrue)
+OBJS_UI += $(BUILD_DIR)/DistrhoUI_win32.cpp.o
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -159,6 +209,9 @@ ifeq ($(HAVE_OPENGL),true)
 UI_TYPE = opengl
 else ifeq ($(HAVE_CAIRO),true)
 UI_TYPE = cairo
+else
+HAVE_DGL = false
+UI_TYPE = none
 endif
 endif
 
@@ -211,17 +264,31 @@ endif
 endif
 
 ifeq ($(UI_TYPE),external)
-DGL_FLAGS += -DDGL_EXTERNAL
-HAVE_DGL   = true
-endif
-
-ifeq ($(UI_TYPE),stub)
+DGL_FLAGS += -DDGL_EXTERNAL -DHAVE_DGL
 ifeq ($(HAVE_STUB),true)
+DGL_FLAGS += $(STUB_FLAGS)
+DGL_LIBS  += $(STUB_LIBS)
 DGL_LIB    = $(DGL_BUILD_DIR)/libdgl-stub.a
 HAVE_DGL   = true
 else
 HAVE_DGL   = false
 endif
+endif
+
+ifeq ($(UI_TYPE),webview)
+DGL_FLAGS += -DDGL_EXTERNAL -DHAVE_DGL
+ifeq ($(HAVE_STUB),true)
+DGL_FLAGS += $(STUB_FLAGS)
+DGL_LIBS  += $(STUB_LIBS)
+DGL_LIB    = $(DGL_BUILD_DIR)/libdgl-stub.a
+HAVE_DGL   = true
+else
+HAVE_DGL   = false
+endif
+endif
+
+ifeq ($(HAVE_DGL)$(LINUX)$(USE_WEB_VIEW),truetruetrue)
+DGL_LIB_SHARED = $(shell $(CC) -print-file-name=Scrt1.o)
 endif
 
 DGL_LIBS += $(DGL_SYSTEM_LIBS) -lm
@@ -296,6 +363,8 @@ static     = $(TARGET_DIR)/$(NAME).a
 
 ifeq ($(MACOS),true)
 BUNDLE_RESOURCES = Info.plist PkgInfo Resources/empty.lproj
+au         = $(TARGET_DIR)/$(NAME).component/Contents/MacOS/$(NAME)
+aufiles   += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).component/Contents/%)
 vst2files += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).vst/Contents/%)
 vst3files += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).vst3/Contents/%)
 clapfiles += $(BUNDLE_RESOURCES:%=$(TARGET_DIR)/$(NAME).clap/Contents/%)
@@ -316,6 +385,7 @@ endif
 # Set plugin symbols to export
 
 ifeq ($(MACOS),true)
+SYMBOLS_AU     = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/au.exp
 SYMBOLS_LADSPA = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/ladspa.exp
 SYMBOLS_DSSI   = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/dssi.exp
 SYMBOLS_LV2DSP = -Wl,-exported_symbols_list,$(DPF_PATH)/utils/symbols/lv2-dsp.exp
@@ -410,10 +480,11 @@ ifeq ($(DPF_BUILD_DIR),)
 endif
 	rm -rf $(TARGET_DIR)/$(NAME)
 	rm -rf $(TARGET_DIR)/$(NAME)-*
+	rm -rf $(TARGET_DIR)/$(NAME).clap
+	rm -rf $(TARGET_DIR)/$(NAME).component
 	rm -rf $(TARGET_DIR)/$(NAME).lv2
 	rm -rf $(TARGET_DIR)/$(NAME).vst
 	rm -rf $(TARGET_DIR)/$(NAME).vst3
-	rm -rf $(TARGET_DIR)/$(NAME).clap
 
 # ---------------------------------------------------------------------------------------------------------------------
 # DGL
@@ -458,15 +529,18 @@ $(BUILD_DIR)/DistrhoUI_macOS_%.mm.o: $(DPF_PATH)/distrho/DistrhoUI_macOS.mm $(EX
 	@echo "Compiling DistrhoUI_macOS.mm ($*)"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -ObjC++ -c -o $@
 
-$(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: $(DPF_PATH)/distrho/DistrhoPluginMain.cpp $(EXTRA_DEPENDENCIES) $(EXTRA_DSP_DEPENDENCIES)
+$(BUILD_DIR)/DistrhoUI_win32.cpp.o: $(DPF_PATH)/distrho/DistrhoUI_win32.cpp $(EXTRA_DEPENDENCIES) $(EXTRA_UI_DEPENDENCIES)
 	-@mkdir -p $(BUILD_DIR)
-	@echo "Compiling DistrhoPluginMain.cpp (JACK)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_JACK $(JACK_FLAGS) -c -o $@
+	@echo "Compiling DistrhoUI_win32.cpp ($*)"
+	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -std=gnu++17 -c -o $@
 
-$(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: $(DPF_PATH)/distrho/DistrhoUIMain.cpp $(EXTRA_DEPENDENCIES) $(EXTRA_UI_DEPENDENCIES)
-	-@mkdir -p $(BUILD_DIR)
-	@echo "Compiling DistrhoUIMain.cpp (DSSI)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -DDISTRHO_PLUGIN_TARGET_DSSI $(LIBLO_FLAGS) -c -o $@
+$(BUILD_DIR)/DistrhoPluginMain_JACK.cpp.o: BUILD_CXX_FLAGS += $(JACK_FLAGS)
+
+$(BUILD_DIR)/DistrhoPluginMain_AU.cpp.o: BUILD_CXX_FLAGS += -ObjC++
+
+$(BUILD_DIR)/DistrhoUIMain_AU.cpp.o: BUILD_CXX_FLAGS += -ObjC++
+
+$(BUILD_DIR)/DistrhoUIMain_DSSI.cpp.o: BUILD_CXX_FLAGS += $(LIBLO_FLAGS)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # JACK
@@ -517,9 +591,9 @@ lv2_dsp: $(lv2_dsp)
 lv2_sep: $(lv2_dsp) $(lv2_ui)
 
 ifeq ($(HAVE_DGL),true)
-$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
+$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 else
-$(lv2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
+$(lv2): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
 endif
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin for $(NAME)"
@@ -530,7 +604,7 @@ $(lv2_dsp): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_LV2.cpp.o
 	@echo "Creating LV2 plugin library for $(NAME)"
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(EXTRA_DSP_LIBS) $(SHARED) $(SYMBOLS_LV2DSP) -o $@
 
-$(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB)
+$(lv2_ui): $(OBJS_UI) $(BUILD_DIR)/DistrhoUIMain_LV2.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 	-@mkdir -p $(shell dirname $@)
 	@echo "Creating LV2 plugin UI for $(NAME)"
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(EXTRA_UI_LIBS) $(DGL_LIBS) $(SHARED) $(SYMBOLS_LV2UI) -o $@
@@ -635,7 +709,7 @@ modgui:
 vst2 vst: $(vst2) $(vst2files)
 
 ifeq ($(HAVE_DGL),true)
-$(vst2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.o $(DGL_LIB)
+$(vst2): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 else
 $(vst2): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.o
 endif
@@ -649,7 +723,7 @@ endif
 vst3: $(vst3) $(vst3files)
 
 ifeq ($(HAVE_DGL),true)
-$(vst3): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.o $(DGL_LIB)
+$(vst3): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 else
 $(vst3): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.o
 endif
@@ -671,7 +745,7 @@ endif
 clap: $(clap) $(clapfiles)
 
 ifeq ($(HAVE_DGL),true)
-$(clap): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.o $(BUILD_DIR)/DistrhoUIMain_CLAP.cpp.o $(DGL_LIB)
+$(clap): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.o $(BUILD_DIR)/DistrhoUIMain_CLAP.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 else
 $(clap): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.o
 endif
@@ -680,12 +754,38 @@ endif
 	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(EXTRA_DSP_LIBS) $(EXTRA_UI_LIBS) $(DGL_LIBS) $(CLAP_LIBS) $(SHARED) $(SYMBOLS_CLAP) -o $@
 
 # ---------------------------------------------------------------------------------------------------------------------
+# AU
+
+au: $(au) $(aufiles)
+
+ifeq ($(HAVE_DGL),true)
+$(au): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_AU.cpp.o $(BUILD_DIR)/DistrhoUIMain_AU.cpp.o $(DGL_LIB)
+else
+$(au): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_AU.cpp.o
+endif
+	-@mkdir -p $(shell dirname $@)
+	@echo "Creating AU component for $(NAME)"
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(EXTRA_DSP_LIBS) $(EXTRA_UI_LIBS) $(DGL_LIBS) -framework AudioToolbox -framework AudioUnit -framework CoreFoundation $(SHARED) $(SYMBOLS_AU) -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Export
+
+ifeq ($(HAVE_DGL),true)
+$(BUILD_DIR)/export$(APP_EXT): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_EXPORT.cpp.o $(BUILD_DIR)/DistrhoUIMain_EXPORT.cpp.o $(DGL_LIB)
+else
+$(BUILD_DIR)/export$(APP_EXT): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_EXPORT.cpp.o
+endif
+	-@mkdir -p $(shell dirname $@)
+	@echo "Creating export tool for $(NAME)"
+	$(SILENT)$(CXX) $^ $(BUILD_CXX_FLAGS) $(LINK_FLAGS) $(EXTRA_LIBS) $(EXTRA_DSP_LIBS) $(EXTRA_UI_LIBS) $(DGL_LIBS) -o $@
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Shared
 
 shared: $(shared)
 
 ifeq ($(HAVE_DGL),true)
-$(shared): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.o $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.o $(DGL_LIB)
+$(shared): $(OBJS_DSP) $(OBJS_UI) $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.o $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.o $(DGL_LIB) $(DGL_LIB_SHARED)
 else
 $(shared): $(OBJS_DSP) $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.o
 endif
@@ -728,6 +828,13 @@ $(TARGET_DIR)/%/Resources/empty.lproj: $(DPF_PATH)/utils/plugin.bundle/Contents/
 	$(SILENT)cp $< $@
 
 # ---------------------------------------------------------------------------------------------------------------------
+# format-specific files
+
+$(TARGET_DIR)/$(NAME).component/Contents/Info.plist: $(BUILD_DIR)/export$(APP_EXT)
+	-@mkdir -p $(shell dirname $@)
+	cd $(TARGET_DIR)/$(NAME).component/Contents && $(abspath $<) "$(NAME)"
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 -include $(OBJS_DSP:%.o=%.d)
 ifneq ($(UI_TYPE),)
@@ -741,6 +848,8 @@ endif
 -include $(BUILD_DIR)/DistrhoPluginMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_VST3.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_CLAP.cpp.d
+-include $(BUILD_DIR)/DistrhoPluginMain_AU.cpp.d
+-include $(BUILD_DIR)/DistrhoPluginMain_Export.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_SHARED.cpp.d
 -include $(BUILD_DIR)/DistrhoPluginMain_STATIC.cpp.d
 
@@ -750,6 +859,7 @@ endif
 -include $(BUILD_DIR)/DistrhoUIMain_VST2.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_VST3.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_CLAP.cpp.d
+-include $(BUILD_DIR)/DistrhoUIMain_AU.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_SHARED.cpp.d
 -include $(BUILD_DIR)/DistrhoUIMain_STATIC.cpp.d
 

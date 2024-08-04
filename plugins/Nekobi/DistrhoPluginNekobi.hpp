@@ -80,11 +80,6 @@ protected:
         return d_version(1, 1, 0);
     }
 
-    int64_t getUniqueId() const noexcept override
-    {
-        return d_cconst('D', 'N', 'e', 'k');
-    }
-
     // -------------------------------------------------------------------
     // Init
 

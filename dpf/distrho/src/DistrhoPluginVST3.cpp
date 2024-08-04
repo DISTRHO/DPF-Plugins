@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -92,11 +92,17 @@ static constexpr const uint32_t dpf_id_view  = d_cconst('v', 'i', 'e', 'w');
 // --------------------------------------------------------------------------------------------------------------------
 // plugin specific uids (values are filled in during plugin init)
 
-static dpf_tuid dpf_tuid_class = { dpf_id_entry, dpf_id_clas, 0, 0 };
-static dpf_tuid dpf_tuid_component = { dpf_id_entry, dpf_id_comp, 0, 0 };
-static dpf_tuid dpf_tuid_controller = { dpf_id_entry, dpf_id_ctrl, 0, 0 };
-static dpf_tuid dpf_tuid_processor = { dpf_id_entry, dpf_id_proc, 0, 0 };
-static dpf_tuid dpf_tuid_view = { dpf_id_entry, dpf_id_view, 0, 0 };
+#if defined(DISTRHO_PLUGIN_BRAND_ID) && !defined(DPF_VST3_DONT_USE_BRAND_ID)
+static constexpr const uint32_t dpf_id_brand = d_cconst(STRINGIFY(DISTRHO_PLUGIN_BRAND_ID));
+#else
+static constexpr const uint32_t dpf_id_brand = 0;
+#endif
+
+static dpf_tuid dpf_tuid_class = { dpf_id_entry, dpf_id_clas, 0, dpf_id_brand };
+static dpf_tuid dpf_tuid_component = { dpf_id_entry, dpf_id_comp, 0, dpf_id_brand };
+static dpf_tuid dpf_tuid_controller = { dpf_id_entry, dpf_id_ctrl, 0, dpf_id_brand };
+static dpf_tuid dpf_tuid_processor = { dpf_id_entry, dpf_id_proc, 0, dpf_id_brand };
+static dpf_tuid dpf_tuid_view = { dpf_id_entry, dpf_id_view, 0, dpf_id_brand };
 
 // --------------------------------------------------------------------------------------------------------------------
 // Utility functions
@@ -1180,7 +1186,7 @@ public:
         // Update current state
         for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
         {
-            const String& key = cit->first;
+            const String& key(cit->first);
             fStateMap[key] = fPlugin.getStateValue(key);
         }
        #endif
@@ -1204,8 +1210,8 @@ public:
 
             for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
             {
-                const String& key   = cit->first;
-                const String& value = cit->second;
+                const String& key(cit->first);
+                const String& value(cit->second);
 
                 // join key and value
                 String tmpStr;
@@ -1419,7 +1425,7 @@ public:
 
                 fTimePosition.bbt.valid       = true;
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
-                fTimePosition.bbt.beat        = d_roundToIntPositive<int32_t>(barBeats - rest) + 1;
+                fTimePosition.bbt.beat        = static_cast<int32_t>(barBeats - rest) + 1;
                 fTimePosition.bbt.tick        = rest * fTimePosition.bbt.ticksPerBeat;
                 fTimePosition.bbt.beatsPerBar = ctx->time_sig_numerator;
                 fTimePosition.bbt.beatType    = ctx->time_sig_denom;
@@ -1968,24 +1974,24 @@ public:
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         case kVst3InternalParameterBufferSize:
-            return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_BUFFER_SIZE));
+            return std::max<double>(0.0, std::min<double>(1.0, plain / DPF_VST3_MAX_BUFFER_SIZE));
         case kVst3InternalParameterSampleRate:
-            return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_SAMPLE_RATE));
+            return std::max<double>(0.0, std::min<double>(1.0, plain / DPF_VST3_MAX_SAMPLE_RATE));
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-            return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_LATENCY));
+            return std::max<double>(0.0, std::min<double>(1.0, plain / DPF_VST3_MAX_LATENCY));
        #endif
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         case kVst3InternalParameterProgram:
-            return std::max(0.0, std::min(1.0, plain / fProgramCountMinusOne));
+            return std::max<double>(0.0, std::min<double>(1.0, plain / fProgramCountMinusOne));
        #endif
         }
       #endif
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
-            return std::max(0.0, std::min(1.0, plain / 127));
+            return std::max<double>(0.0, std::min<double>(1.0, plain / 127));
        #endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
@@ -2194,7 +2200,7 @@ public:
             // Update current state from plugin side
             for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
             {
-                const String& key = cit->first;
+                const String& key(cit->first);
                 fStateMap[key] = fPlugin.getStateValue(key);
             }
            #endif
@@ -2203,8 +2209,8 @@ public:
             // Set state
             for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
             {
-                const String& key   = cit->first;
-                const String& value = cit->second;
+                const String& key(cit->first);
+                const String& value(cit->second);
 
                 sendStateSetToUI(key, value);
             }
@@ -2399,20 +2405,8 @@ public:
         // save this key as needed
         if (fPlugin.wantStateKey(key))
         {
-            for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
-            {
-                const String& dkey(it->first);
-
-                if (dkey == key)
-                {
-                    it->second = value;
-                    std::free(key16);
-                    std::free(value16);
-                    return V3_OK;
-                }
-            }
-
-            d_stderr("Failed to find plugin state with key \"%s\"", key);
+            const String dkey(key);
+            fStateMap[dkey] = value;
         }
 
         std::free(key16);
@@ -3103,7 +3097,7 @@ private:
             event.midi_cc_out.cc_number = data[1];
             event.midi_cc_out.value = data[2];
             if (midiEvent.size == 4)
-                event.midi_cc_out.value2 = midiEvent.size == 4;
+                event.midi_cc_out.value2 = data[3];
             break;
         /* TODO how do we deal with program changes??
         case 0xC0:
@@ -4577,8 +4571,13 @@ static const char* getPluginCategories()
         categories = DISTRHO_PLUGIN_VST3_CATEGORIES;
        #elif DISTRHO_PLUGIN_IS_SYNTH
         categories = "Instrument";
+       #else
+        categories = "Fx";
        #endif
         firstInit = false;
+
+        // An empty category is considered invalid in Cubase
+        DISTRHO_SAFE_ASSERT(categories.isNotEmpty());
     }
 
     return categories.buffer();
@@ -4864,7 +4863,7 @@ struct dpf_factory : v3_plugin_factory_cpp {
         DISTRHO_NAMESPACE::strncpy_utf16(info->name, sPlugin->getName(), ARRAY_SIZE(info->name));
         DISTRHO_NAMESPACE::strncpy_utf16(info->vendor, sPlugin->getMaker(), ARRAY_SIZE(info->vendor));
         DISTRHO_NAMESPACE::strncpy_utf16(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        DISTRHO_NAMESPACE::strncpy_utf16(info->sdk_version, "Travesty 3.7.4", ARRAY_SIZE(info->sdk_version));
+        DISTRHO_NAMESPACE::strncpy_utf16(info->sdk_version, "VST 3.7.4", ARRAY_SIZE(info->sdk_version));
 
         if (idx == 0)
         {

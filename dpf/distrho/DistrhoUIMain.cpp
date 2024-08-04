@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -23,7 +23,10 @@
 
 #if DISTRHO_PLUGIN_HAS_UI
 
-#if defined(DISTRHO_PLUGIN_TARGET_CARLA)
+#if defined(DISTRHO_PLUGIN_TARGET_AU)
+# define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
+# import "src/DistrhoUIAU.mm"
+#elif defined(DISTRHO_PLUGIN_TARGET_CARLA)
 # define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
 #elif defined(DISTRHO_PLUGIN_TARGET_CLAP)
 # define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
@@ -40,6 +43,8 @@
 #elif defined(DISTRHO_PLUGIN_TARGET_VST3)
 # define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
 # include "src/DistrhoUIVST3.cpp"
+#elif defined(DISTRHO_PLUGIN_TARGET_EXPORT)
+# define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
 #elif defined(DISTRHO_PLUGIN_TARGET_SHARED) || defined(DISTRHO_PLUGIN_TARGET_STATIC)
 # define DISTRHO_PLUGIN_AND_UI_IN_SINGLE_OBJECT 1
 #else
@@ -53,6 +58,19 @@
 #  define DISTRHO_IS_STANDALONE 0
 # endif
 # include "src/DistrhoUtils.cpp"
+#else
+# ifdef DISTRHO_PLUGIN_TARGET_JACK
+#  define DISTRHO_IS_STANDALONE 1
+# else
+#  define DISTRHO_IS_STANDALONE 0
+# endif
+#endif
+
+#if defined(DPF_USING_LD_LINUX_WEBVIEW) && !DISTRHO_IS_STANDALONE
+int main(int argc, char* argv[])
+{
+    return DISTRHO_NAMESPACE::dpf_webview_start(argc, argv);
+}
 #endif
 
 #endif

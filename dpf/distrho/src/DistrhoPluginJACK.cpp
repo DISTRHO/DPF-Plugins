@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -44,7 +44,9 @@
 # undef Point
 #endif
 
-#ifndef DISTRHO_OS_WINDOWS
+#ifdef DISTRHO_OS_WINDOWS
+# include <objbase.h>
+#else
 # include <signal.h>
 # include <unistd.h>
 #endif
@@ -84,6 +86,10 @@ static const writeMidiFunc writeMidiCallback = nullptr;
 #endif
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
 static const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
+#endif
+
+#ifdef DPF_USING_LD_LINUX_WEBVIEW
+int dpf_webview_start(int argc, char* argv[]);
 #endif
 
 // -----------------------------------------------------------------------
@@ -234,20 +240,26 @@ public:
 
         std::fflush(stdout);
 
-#if DISTRHO_PLUGIN_HAS_UI
-        if (const char* const name = jackbridge_get_client_name(fClient))
-            fUI.setWindowTitle(name);
-        else
-            fUI.setWindowTitle(fPlugin.getName());
+       #if DISTRHO_PLUGIN_HAS_UI
+        String title(fPlugin.getMaker());
 
+        if (title.isNotEmpty())
+            title += ": ";
+
+        if (const char* const name = jackbridge_get_client_name(fClient))
+            title += name;
+        else
+            title += fPlugin.getName();
+
+        fUI.setWindowTitle(title);
         fUI.exec(this);
-#else
+       #else
         while (! gCloseSignalReceived)
             d_sleep(1);
 
         // unused
         (void)winId;
-#endif
+       #endif
     }
 
     ~PluginJack()
@@ -955,6 +967,11 @@ int main(int argc, char* argv[])
 {
     USE_NAMESPACE_DISTRHO;
 
+   #ifdef DISTRHO_OS_WINDOWS
+    OleInitialize(nullptr);
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+   #endif
+
     initSignalHandler();
 
    #ifndef STATIC_BUILD
@@ -965,15 +982,11 @@ int main(int argc, char* argv[])
         String tmpPath(getBinaryFilename());
         tmpPath.truncate(tmpPath.rfind(DISTRHO_OS_SEP));
       #if defined(DISTRHO_OS_MAC)
-        if (tmpPath.endsWith("/MacOS"))
+        if (tmpPath.endsWith("/Contents/MacOS"))
         {
-            tmpPath.truncate(tmpPath.rfind('/'));
-            if (tmpPath.endsWith("/Contents"))
-            {
-                tmpPath.truncate(tmpPath.rfind('/'));
-                bundlePath = tmpPath;
-                d_nextBundlePath = bundlePath.buffer();
-            }
+            tmpPath.truncate(tmpPath.length() - 15);
+            bundlePath = tmpPath;
+            d_nextBundlePath = bundlePath.buffer();
         }
       #else
        #ifdef DISTRHO_OS_WINDOWS
@@ -988,6 +1001,11 @@ int main(int argc, char* argv[])
         }
       #endif
     }
+   #endif
+
+   #ifdef DPF_USING_LD_LINUX_WEBVIEW
+    if (argc >= 2 && std::strcmp(argv[1], "dpf-ld-linux-webview") == 0)
+        return dpf_webview_start(argc, argv);
    #endif
 
     if (argc == 2 && std::strcmp(argv[1], "selftest") == 0)
@@ -1027,6 +1045,10 @@ int main(int argc, char* argv[])
         }
 
         hasConsole = true;
+
+        // tell windows to output console output as utf-8
+        SetConsoleCP(CP_UTF8);
+        SetConsoleOutputCP(CP_UTF8);
     }
    #endif
 
@@ -1153,6 +1175,11 @@ int main(int argc, char* argv[])
         ip.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
         SendInput(1, &ip, sizeof(INPUT));
     }
+   #endif
+
+   #ifdef DISTRHO_OS_WINDOWS
+    CoUninitialize();
+    OleUninitialize();
    #endif
 
     return 0;

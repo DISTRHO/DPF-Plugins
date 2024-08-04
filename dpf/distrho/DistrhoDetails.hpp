@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -511,15 +511,6 @@ struct ParameterEnumerationValue {
     ParameterEnumerationValue(float v, const char* l) noexcept
         : value(v),
           label(l) {}
-
-#if __cplusplus >= 201703L
-   /**
-      Constructor using custom values, constexpr compatible variant.
-    */
-    constexpr ParameterEnumerationValue(float v, const std::string_view& l) noexcept
-        : value(v),
-          label(l) {}
-#endif
 };
 
 /**
@@ -566,7 +557,7 @@ struct ParameterEnumerationValues {
       When using this constructor the pointer to @values MUST have been statically declared.@n
       It will not be automatically deleted later.
     */
-    constexpr ParameterEnumerationValues(uint32_t c, bool r, ParameterEnumerationValue* v) noexcept
+    constexpr ParameterEnumerationValues(uint8_t c, bool r, ParameterEnumerationValue* v) noexcept
         : count(c),
           restrictedMode(r),
           values(v),
@@ -578,6 +569,8 @@ struct ParameterEnumerationValues {
         if (deleteLater)
             delete[] values;
     }
+
+    DISTRHO_DECLARE_NON_COPYABLE(ParameterEnumerationValues)
 };
 
 /**
@@ -669,6 +662,7 @@ struct Parameter {
           shortName(),
           symbol(),
           unit(),
+          description(),
           ranges(),
           enumValues(),
           designation(kParameterDesignationNull),
@@ -684,6 +678,7 @@ struct Parameter {
           shortName(),
           symbol(s),
           unit(u),
+          description(),
           ranges(def, min, max),
           enumValues(),
           designation(kParameterDesignationNull),
@@ -702,31 +697,9 @@ struct Parameter {
           shortName(),
           symbol(s),
           unit(u),
+          description(),
           ranges(def, min, max),
           enumValues(evcount, true, ev),
-          designation(kParameterDesignationNull),
-          midiCC(0),
-          groupId(kPortGroupNone) {}
-#endif
-
-#if __cplusplus >= 201703L
-   /**
-      Constructor for constexpr compatible data.
-    */
-    constexpr Parameter(uint32_t h,
-                        const std::string_view& n,
-                        const std::string_view& sn,
-                        const std::string_view& sym,
-                        const std::string_view& u,
-                        const std::string_view& desc) noexcept
-        : hints(h),
-          name(n),
-          shortName(sn),
-          symbol(sym),
-          unit(u),
-          description(desc),
-          ranges(),
-          enumValues(),
           designation(kParameterDesignationNull),
           midiCC(0),
           groupId(kPortGroupNone) {}
@@ -757,17 +730,57 @@ struct Parameter {
             break;
         }
     }
-};
 
-#if __cplusplus >= 202001L /* TODO */
-/**
-   Bypass parameter definition in constexpr form.
- */
-static constexpr const Parameter kParameterBypass = {
-    kParameterIsAutomatable|kParameterIsBoolean|kParameterIsInteger,
-    "Bypass", "Bypass", ParameterDesignationSymbols::bypass, "", "", {}, {}, 0, kPortGroupNone,
+    Parameter& operator=(Parameter& other) noexcept
+    {
+         hints = other.hints;
+         name = other.name;
+         shortName = other.shortName;
+         symbol = other.symbol;
+         unit = other.unit;
+         description = other.description;
+         ranges = other.ranges;
+         designation = other.designation;
+         midiCC = other.midiCC;
+         groupId = other.groupId;
+
+         // enumValues needs special handling
+         enumValues.count = other.enumValues.count;
+         enumValues.restrictedMode = other.enumValues.restrictedMode;
+         enumValues.values = other.enumValues.values;
+         enumValues.deleteLater = other.enumValues.deleteLater;
+
+         // make sure to not delete data twice
+         other.enumValues.deleteLater = false;
+
+         return *this;
+    }
+
+    Parameter& operator=(const Parameter& other) noexcept
+    {
+         hints = other.hints;
+         name = other.name;
+         shortName = other.shortName;
+         symbol = other.symbol;
+         unit = other.unit;
+         description = other.description;
+         ranges = other.ranges;
+         designation = other.designation;
+         midiCC = other.midiCC;
+         groupId = other.groupId;
+
+         // make sure to not delete data twice
+         DISTRHO_SAFE_ASSERT_RETURN(other.enumValues.values == nullptr || !other.enumValues.deleteLater, *this);
+
+         // enumValues needs special handling
+         enumValues.count = other.enumValues.count;
+         enumValues.restrictedMode = other.enumValues.restrictedMode;
+         enumValues.values = other.enumValues.values;
+         enumValues.deleteLater = other.enumValues.deleteLater;
+
+         return *this;
+    }
 };
-#endif
 
 /**
    Port Group.@n

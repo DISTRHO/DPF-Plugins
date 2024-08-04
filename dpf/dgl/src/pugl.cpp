@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -138,15 +138,18 @@ START_NAMESPACE_DGL
 # endif
 #elif defined(DISTRHO_OS_MAC)
 # ifndef DISTRHO_MACOS_NAMESPACE_MACRO
-#  define DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, SEP, INTERFACE) NS ## SEP ## INTERFACE
-#  define DISTRHO_MACOS_NAMESPACE_MACRO(NS, INTERFACE) DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, _, INTERFACE)
-#  define PuglCairoView      DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglCairoView)
-#  define PuglOpenGLView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglOpenGLView)
-#  define PuglStubView       DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglStubView)
-#  define PuglVulkanView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglVulkanView)
-#  define PuglWindow         DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglWindow)
-#  define PuglWindowDelegate DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglWindowDelegate)
-#  define PuglWrapperView    DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglWrapperView)
+#  ifndef DISTRHO_MACOS_NAMESPACE_TIME
+#   define DISTRHO_MACOS_NAMESPACE_TIME __apple_build_version__
+#  endif
+#  define DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, SEP, TIME, INTERFACE) NS ## SEP ## TIME ## SEP ## INTERFACE
+#  define DISTRHO_MACOS_NAMESPACE_MACRO(NS, TIME, INTERFACE) DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, _, TIME, INTERFACE)
+#  define PuglCairoView      DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglCairoView)
+#  define PuglOpenGLView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglOpenGLView)
+#  define PuglStubView       DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglStubView)
+#  define PuglVulkanView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglVulkanView)
+#  define PuglWindow         DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglWindow)
+#  define PuglWindowDelegate DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglWindowDelegate)
+#  define PuglWrapperView    DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, DISTRHO_MACOS_NAMESPACE_TIME, PuglWrapperView)
 # endif
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -181,7 +184,14 @@ START_NAMESPACE_DGL
 #  include "pugl-upstream/src/win_vulkan.c"
 # endif
 #elif defined(HAVE_X11)
+# if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+# endif
 # include "pugl-upstream/src/x11.c"
+# if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#  pragma GCC diagnostic pop
+# endif
 # include "pugl-upstream/src/x11_stub.c"
 # ifdef DGL_CAIRO
 #  include "pugl-upstream/src/x11_cairo.c"
@@ -277,13 +287,13 @@ void puglRaiseWindow(PuglView* const view)
 
 PuglStatus puglSetGeometryConstraints(PuglView* const view, const uint width, const uint height, const bool aspect)
 {
-    view->sizeHints[PUGL_MIN_SIZE].width = width;
-    view->sizeHints[PUGL_MIN_SIZE].height = height;
+    view->sizeHints[PUGL_MIN_SIZE].width = static_cast<PuglSpan>(width);
+    view->sizeHints[PUGL_MIN_SIZE].height = static_cast<PuglSpan>(height);
 
     if (aspect)
     {
-        view->sizeHints[PUGL_FIXED_ASPECT].width = width;
-        view->sizeHints[PUGL_FIXED_ASPECT].height = height;
+        view->sizeHints[PUGL_FIXED_ASPECT].width = static_cast<PuglSpan>(width);
+        view->sizeHints[PUGL_FIXED_ASPECT].height = static_cast<PuglSpan>(height);
     }
 
 #if defined(DISTRHO_OS_HAIKU)
@@ -353,7 +363,7 @@ PuglStatus puglSetSizeAndDefault(PuglView* view, uint width, uint height)
 
 #ifdef DGL_USING_X11
     // workaround issues in fluxbox, see https://github.com/lv2/pugl/issues/118
-    if (view->impl->win)
+    if (view->impl->win && !view->parent && !view->transientParent)
     {
         view->sizeHints[PUGL_DEFAULT_SIZE].width = view->sizeHints[PUGL_DEFAULT_SIZE].height = 0;
     }
@@ -397,9 +407,16 @@ PuglStatus puglSetSizeAndDefault(PuglView* view, uint width, uint height)
         if (const PuglStatus status = puglSetSize(view, width, height))
             return status;
 
-        // handle new PUGL_DEFAULT_SIZE hint
-        if (const PuglStatus status = updateSizeHints(view))
-            return status;
+        // updateSizeHints will use last known size, which is not yet updated
+        const PuglSpan lastWidth = view->lastConfigure.width;
+        const PuglSpan lastHeight = view->lastConfigure.height;
+        view->lastConfigure.width = static_cast<PuglSpan>(width);
+        view->lastConfigure.height = static_cast<PuglSpan>(height);
+
+        updateSizeHints(view);
+
+        view->lastConfigure.width = lastWidth;
+        view->lastConfigure.height = lastHeight;
 
         // flush size changes
         XFlush(view->world->impl->display);

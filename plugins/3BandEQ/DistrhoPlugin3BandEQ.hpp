@@ -74,11 +74,6 @@ protected:
         return d_version(1, 0, 0);
     }
 
-    int64_t getUniqueId() const noexcept override
-    {
-        return d_cconst('D', '3', 'E', 'Q');
-    }
-
     // -------------------------------------------------------------------
     // Init
 

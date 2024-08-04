@@ -1,6 +1,6 @@
 # DISTRHO Plugin Framework (DPF)
 # Copyright (C) 2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
-# Copyright (C) 2022 Filipe Coelho <falktx@falktx.com>
+# Copyright (C) 2022-2024 Filipe Coelho <falktx@falktx.com>
 #
 # SPDX-License-Identifier: ISC
 
@@ -75,7 +75,13 @@ include(CMakeParseArguments)
 #       `jack`, `ladspa`, `dssi`, `lv2`, `vst2`, `vst3`, `clap`
 #
 #   `UI_TYPE` <type>
-#       the user interface type: `opengl` (default), `cairo`, `external`
+#       the user interface type, can be one of the following:
+#          - cairo
+#          - external
+#          - opengl (default)
+#          - opengl3
+#          - vulkan
+#          - webview
 #
 #   `FILES_COMMON` <file1>...<fileN>
 #       list of sources which are part of both DSP and UI
@@ -96,8 +102,14 @@ include(CMakeParseArguments)
 #   `NO_SHARED_RESOURCES`
 #       do not build DPF shared resources (fonts, etc)
 #
+#   `USE_FILE_BROWSER`
+#       enable file browser dialog APIs
+#
+#   `USE_WEB_VIEW`
+#       enable web browser view APIs
+#
 function(dpf_add_plugin NAME)
-  set(options MONOLITHIC NO_SHARED_RESOURCES)
+  set(options MONOLITHIC NO_SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
   set(oneValueArgs MODGUI_CLASS_NAME UI_TYPE)
   set(multiValueArgs FILES_COMMON FILES_DSP FILES_UI TARGETS)
   cmake_parse_arguments(_dpf_plugin "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -107,23 +119,35 @@ function(dpf_add_plugin NAME)
   endif()
 
   set(_dgl_library)
-  set(_dgl_external OFF)
   if(_dpf_plugin_FILES_UI)
     if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
-      dpf__add_dgl_cairo("${_dpf_plugin_NO_SHARED_RESOURCES}")
+      dpf__add_dgl_cairo($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
       set(_dgl_library dgl-cairo)
-    elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
-      dpf__add_dgl_opengl("${_dpf_plugin_NO_SHARED_RESOURCES}")
-      set(_dgl_library dgl-opengl)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "external")
-      set(_dgl_external ON)
+      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      set(_dgl_library dgl-external)
+    elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
+      dpf__add_dgl_opengl($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      set(_dgl_library dgl-opengl)
+    elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl3")
+      dpf__add_dgl_opengl3($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      set(_dgl_library dgl-opengl3)
+    elseif(_dpf_plugin_UI_TYPE STREQUAL "vulkan")
+      dpf__add_dgl_vulkan($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      set(_dgl_library dgl-vulkan)
+    elseif(_dpf_plugin_UI_TYPE STREQUAL "webview")
+      set(_dpf_plugin_USE_WEB_VIEW TRUE)
+      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      set(_dgl_library dgl-external)
     else()
       message(FATAL_ERROR "Unrecognized UI type for plugin: ${_dpf_plugin_UI_TYPE}")
     endif()
+  else()
+    set(_dpf_plugin_UI_TYPE "")
   endif()
 
   set(_dgl_has_ui OFF)
-  if(_dgl_library OR _dgl_external)
+  if(_dgl_library)
     set(_dgl_has_ui ON)
   endif()
 
@@ -137,6 +161,14 @@ function(dpf_add_plugin NAME)
   target_include_directories("${NAME}" PUBLIC
     "${DPF_ROOT_DIR}/distrho")
 
+  if(_dpf_plugin_USE_FILE_BROWSER)
+    target_compile_definitions("${NAME}" PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
+
+  if(_dpf_plugin_USE_WEB_VIEW)
+    target_compile_definitions("${NAME}" PUBLIC "DGL_USE_WEB_VIEW")
+  endif()
+
   if(_dpf_plugin_MODGUI_CLASS_NAME)
     target_compile_definitions("${NAME}" PUBLIC "DISTRHO_PLUGIN_MODGUI_CLASS_NAME=\"${_dpf_plugin_MODGUI_CLASS_NAME}\"")
   endif()
@@ -145,7 +177,7 @@ function(dpf_add_plugin NAME)
     target_link_libraries("${NAME}" PRIVATE "dl")
   endif()
 
-  if(_dgl_library AND NOT _dgl_external)
+  if(_dgl_library)
     # make sure that all code will see DGL_* definitions
     target_link_libraries("${NAME}" PUBLIC
       "${_dgl_library}-definitions"
@@ -156,22 +188,20 @@ function(dpf_add_plugin NAME)
   dpf__add_static_library("${NAME}-dsp" ${_dpf_plugin_FILES_DSP})
   target_link_libraries("${NAME}-dsp" PUBLIC "${NAME}")
 
-  if(_dgl_library AND NOT _dgl_external)
+  if(_dgl_library)
     dpf__add_static_library("${NAME}-ui" ${_dpf_plugin_FILES_UI})
     target_link_libraries("${NAME}-ui" PUBLIC "${NAME}" ${_dgl_library})
     if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
       target_link_libraries("${NAME}-ui" PRIVATE "dl")
+      if(LINUX AND _dpf_plugin_USE_WEB_VIEW)
+        execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=Scrt1.o
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          OUTPUT_VARIABLE _dpf_plugin_shared_crt)
+        target_link_libraries("${NAME}-ui" PRIVATE "rt")
+      endif()
     endif()
-    # add the files containing Objective-C classes
-    dpf__add_plugin_specific_ui_sources("${NAME}-ui")
-  elseif(_dgl_external)
-    dpf__add_static_library("${NAME}-ui" ${_dpf_plugin_FILES_UI})
-    target_link_libraries("${NAME}-ui" PUBLIC "${NAME}")
-    if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
-      target_link_libraries("${NAME}-ui" PRIVATE "dl")
-    endif()
-    # add the files containing Objective-C classes
-    dpf__add_plugin_specific_ui_sources("${NAME}-ui")
+    # add the files containing C++17 or Objective-C classes
+    dpf__add_plugin_specific_ui_sources("${NAME}-ui" "${_dpf_plugin_USE_WEB_VIEW}")
   else()
     add_library("${NAME}-ui" INTERFACE)
   endif()
@@ -185,13 +215,17 @@ function(dpf_add_plugin NAME)
     elseif(_target STREQUAL "dssi")
       dpf__build_dssi("${NAME}" "${_dgl_has_ui}")
     elseif(_target STREQUAL "lv2")
-      dpf__build_lv2("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_MONOLITHIC}")
+      dpf__build_lv2("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_MONOLITHIC}" "${_dpf_plugin_shared_crt}")
     elseif(_target STREQUAL "vst2")
-      dpf__build_vst2("${NAME}" "${_dgl_has_ui}")
+      dpf__build_vst2("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_shared_crt}")
     elseif(_target STREQUAL "vst3")
-      dpf__build_vst3("${NAME}" "${_dgl_has_ui}")
+      dpf__build_vst3("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_shared_crt}")
     elseif(_target STREQUAL "clap")
-      dpf__build_clap("${NAME}" "${_dgl_has_ui}")
+      dpf__build_clap("${NAME}" "${_dgl_has_ui}" "${_dpf_plugin_shared_crt}")
+    elseif(_target STREQUAL "au")
+      if (APPLE)
+        dpf__build_au("${NAME}" "${_dgl_has_ui}")
+      endif()
     elseif(_target STREQUAL "static")
       dpf__build_static("${NAME}" "${_dgl_has_ui}")
     else()
@@ -341,7 +375,7 @@ endfunction()
 #
 # Add build rules for an LV2 plugin.
 #
-function(dpf__build_lv2 NAME HAS_UI MONOLITHIC)
+function(dpf__build_lv2 NAME HAS_UI MONOLITHIC EXTRA_UI_LINK_OPTS)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-lv2" ${_no_srcs})
@@ -362,12 +396,14 @@ function(dpf__build_lv2 NAME HAS_UI MONOLITHIC)
     if(MONOLITHIC)
       dpf__add_ui_main("${NAME}-lv2" "lv2" "${HAS_UI}")
       target_link_libraries("${NAME}-lv2" PRIVATE "${NAME}-ui")
+      target_link_options("${NAME}-lv2" PRIVATE "${EXTRA_UI_LINK_OPTS}")
       set_target_properties("${NAME}-lv2" PROPERTIES
         OUTPUT_NAME "${NAME}")
     else()
       dpf__add_module("${NAME}-lv2-ui" ${_no_srcs})
       dpf__add_ui_main("${NAME}-lv2-ui" "lv2" "${HAS_UI}")
       dpf__set_module_export_list("${NAME}-lv2-ui" "lv2-ui")
+      target_link_options("${NAME}-lv2-ui" PRIVATE "${EXTRA_UI_LINK_OPTS}")
       target_link_libraries("${NAME}-lv2-ui" PRIVATE "${NAME}-ui")
       set_target_properties("${NAME}-lv2-ui" PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.lv2/$<0:>"
@@ -396,7 +432,7 @@ endfunction()
 #
 # Add build rules for a VST2 plugin.
 #
-function(dpf__build_vst2 NAME HAS_UI)
+function(dpf__build_vst2 NAME HAS_UI EXTRA_UI_LINK_OPTS)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-vst2" ${_no_srcs})
@@ -404,6 +440,7 @@ function(dpf__build_vst2 NAME HAS_UI)
   dpf__add_ui_main("${NAME}-vst2" "vst2" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-vst2" "vst2")
   target_link_libraries("${NAME}-vst2" PRIVATE "${NAME}-dsp" "${NAME}-ui")
+  target_link_options("${NAME}-vst2" PRIVATE "${EXTRA_UI_LINK_OPTS}")
   set_target_properties("${NAME}-vst2" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/vst2/$<0:>"
@@ -456,7 +493,7 @@ function(dpf__determine_vst3_package_architecture OUTPUT_VARIABLE)
     else()
       set(vst3_package_arch "i386")
     endif()
-  elseif(vst3_system_arch MATCHES "^(armv[3-8][a-z]*)$")
+  elseif(vst3_system_arch MATCHES "^(armv[3-8][a-z]*|ppc(64)?(le)?)$")
     set(vst3_package_arch "${vst3_system_arch}")
   elseif(vst3_system_arch MATCHES "^(aarch64)$")
     set(vst3_package_arch "aarch64")
@@ -474,7 +511,7 @@ endfunction()
 #
 # Add build rules for a VST3 plugin.
 #
-function(dpf__build_vst3 NAME HAS_UI)
+function(dpf__build_vst3 NAME HAS_UI EXTRA_UI_LINK_OPTS)
   dpf__determine_vst3_package_architecture(vst3_arch)
 
   dpf__create_dummy_source_list(_no_srcs)
@@ -484,6 +521,7 @@ function(dpf__build_vst3 NAME HAS_UI)
   dpf__add_ui_main("${NAME}-vst3" "vst3" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-vst3" "vst3")
   target_link_libraries("${NAME}-vst3" PRIVATE "${NAME}-dsp" "${NAME}-ui")
+  target_link_options("${NAME}-vst3" PRIVATE "${EXTRA_UI_LINK_OPTS}")
   set_target_properties("${NAME}-vst3" PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/vst3/$<0:>"
     OUTPUT_NAME "${NAME}"
@@ -516,7 +554,7 @@ endfunction()
 #
 # Add build rules for a CLAP plugin.
 #
-function(dpf__build_clap NAME HAS_UI)
+function(dpf__build_clap NAME HAS_UI EXTRA_UI_LINK_OPTS)
   dpf__create_dummy_source_list(_no_srcs)
 
   dpf__add_module("${NAME}-clap" ${_no_srcs})
@@ -524,6 +562,7 @@ function(dpf__build_clap NAME HAS_UI)
   dpf__add_ui_main("${NAME}-clap" "clap" "${HAS_UI}")
   dpf__set_module_export_list("${NAME}-clap" "clap")
   target_link_libraries("${NAME}-clap" PRIVATE "${NAME}-dsp" "${NAME}-ui")
+  target_link_options("${NAME}-clap" PRIVATE "${EXTRA_UI_LINK_OPTS}")
   set_target_properties("${NAME}-clap" PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/clap/$<0:>"
@@ -542,6 +581,53 @@ function(dpf__build_clap NAME HAS_UI)
     file(COPY "${DPF_ROOT_DIR}/utils/plugin.bundle/Contents/PkgInfo"
       DESTINATION "${PROJECT_BINARY_DIR}/bin/${NAME}.clap/Contents")
   endif()
+endfunction()
+
+# dpf__build_au
+# ------------------------------------------------------------------------------
+#
+# Add build rules for an AUv2 plugin.
+#
+function(dpf__build_au NAME HAS_UI)
+  dpf__create_dummy_source_list(_no_srcs)
+
+  dpf__add_module("${NAME}-au" ${_no_srcs})
+  dpf__add_plugin_main("${NAME}-au" "au")
+  dpf__add_ui_main("${NAME}-au" "au" "${HAS_UI}")
+  dpf__set_module_export_list("${NAME}-au" "au")
+  find_library(APPLE_AUDIOTOOLBOX_FRAMEWORK "AudioToolbox")
+  find_library(APPLE_AUDIOUNIT_FRAMEWORK "AudioUnit")
+  find_library(APPLE_COREFOUNDATION_FRAMEWORK "CoreFoundation")
+  target_compile_options("${NAME}-au" PRIVATE "-ObjC++")
+  target_link_libraries("${NAME}-au" PRIVATE
+    "${NAME}-dsp"
+    "${NAME}-ui"
+    "${APPLE_AUDIOTOOLBOX_FRAMEWORK}"
+    "${APPLE_AUDIOUNIT_FRAMEWORK}"
+    "${APPLE_COREFOUNDATION_FRAMEWORK}")
+  set_target_properties("${NAME}-au" PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.component/Contents/MacOS/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/obj/au/$<0:>"
+    OUTPUT_NAME "${NAME}"
+    PREFIX ""
+    SUFFIX "")
+
+  dpf__add_executable("${NAME}-export" ${_no_srcs})
+  dpf__add_plugin_main("${NAME}-export" "export")
+  dpf__add_ui_main("${NAME}-export" "export" "${HAS_UI}")
+  target_link_libraries("${NAME}-export" PRIVATE "${NAME}-dsp" "${NAME}-ui")
+
+  separate_arguments(CMAKE_CROSSCOMPILING_EMULATOR)
+
+  add_custom_command(TARGET "${NAME}-au" POST_BUILD
+    COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} "$<TARGET_FILE:${NAME}-export>" "${NAME}"
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/bin/${NAME}.component/Contents"
+    DEPENDS "${NAME}-export")
+
+  add_dependencies("${NAME}-au" "${NAME}-export")
+
+  file(COPY "${DPF_ROOT_DIR}/utils/plugin.bundle/Contents/PkgInfo"
+    DESTINATION "${PROJECT_BINARY_DIR}/bin/${NAME}.component/Contents")
 endfunction()
 
 # dpf__build_static
@@ -577,7 +663,7 @@ endfunction()
 #
 # Add the Cairo variant of DGL, if not already available.
 #
-function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
+function(dpf__add_dgl_cairo SHARED_RESOURCES USE_FILE_BROWSER)
   if(TARGET dgl-cairo)
     return()
   endif()
@@ -605,22 +691,26 @@ function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
     "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
     "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/Cairo.cpp")
-  if(NO_SHARED_RESOURCES)
-    target_compile_definitions(dgl-cairo PUBLIC "DGL_NO_SHARED_RESOURCES")
-  else()
+  if(SHARED_RESOURCES)
     target_sources(dgl-cairo PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
-  endif()
-  if(NOT APPLE)
-    target_sources(dgl-cairo PRIVATE
-      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
   else()
+    target_compile_definitions(dgl-cairo PUBLIC "DGL_NO_SHARED_RESOURCES")
+  endif()
+  if(APPLE)
     target_sources(dgl-cairo PRIVATE
       "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
+  else()
+    target_sources(dgl-cairo PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
   endif()
   target_include_directories(dgl-cairo PUBLIC
     "${DPF_ROOT_DIR}/dgl")
   target_include_directories(dgl-cairo PUBLIC
     "${DPF_ROOT_DIR}/dgl/src/pugl-upstream/include")
+
+  if(USE_FILE_BROWSER)
+    target_compile_definitions(dgl-cairo PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
 
   dpf__add_dgl_system_libs()
   target_link_libraries(dgl-cairo PRIVATE dgl-system-libs)
@@ -637,12 +727,68 @@ function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
   target_link_libraries(dgl-cairo PRIVATE dgl-cairo-definitions)
 endfunction()
 
+# dpf__add_dgl_external
+# ------------------------------------------------------------------------------
+#
+# Add the external variant of DGL, if not already available.
+#
+function(dpf__add_dgl_external USE_FILE_BROWSER)
+  if(TARGET dgl-external)
+    return()
+  endif()
+
+  dpf__add_static_library(dgl-external STATIC
+    "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Widget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Stub.cpp")
+
+  if(APPLE)
+    target_sources(dgl-external PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
+  else()
+    target_sources(dgl-external PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
+  endif()
+  target_include_directories(dgl-external PUBLIC
+    "${DPF_ROOT_DIR}/dgl")
+  target_include_directories(dgl-external PUBLIC
+    "${DPF_ROOT_DIR}/dgl/src/pugl-upstream/include")
+
+  if(USE_FILE_BROWSER)
+    target_compile_definitions(dgl-external PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
+
+  dpf__add_dgl_system_libs()
+  target_compile_definitions(dgl-external PUBLIC "DGL_NO_SHARED_RESOURCES")
+  target_link_libraries(dgl-external PRIVATE dgl-system-libs)
+
+  add_library(dgl-external-definitions INTERFACE)
+  target_compile_definitions(dgl-external-definitions INTERFACE "DGL_EXTERNAL" "HAVE_DGL")
+
+  target_include_directories(dgl-external PUBLIC "${OPENGL_INCLUDE_DIR}")
+  target_link_libraries(dgl-external PRIVATE dgl-external-definitions "${OPENGL_gl_LIBRARY}")
+endfunction()
+
 # dpf__add_dgl_opengl
 # ------------------------------------------------------------------------------
 #
 # Add the OpenGL variant of DGL, if not already available.
 #
-function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
+function(dpf__add_dgl_opengl SHARED_RESOURCES USE_FILE_BROWSER)
   if(TARGET dgl-opengl)
     return()
   endif()
@@ -672,17 +818,17 @@ function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
     "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
     "${DPF_ROOT_DIR}/dgl/src/OpenGL.cpp"
     "${DPF_ROOT_DIR}/dgl/src/NanoVG.cpp")
-  if(NO_SHARED_RESOURCES)
-    target_compile_definitions(dgl-opengl PUBLIC "DGL_NO_SHARED_RESOURCES")
-  else()
+  if(SHARED_RESOURCES)
     target_sources(dgl-opengl PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
-  endif()
-  if(NOT APPLE)
-    target_sources(dgl-opengl PRIVATE
-      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
   else()
+    target_compile_definitions(dgl-opengl PUBLIC "DGL_NO_SHARED_RESOURCES")
+  endif()
+  if(APPLE)
     target_sources(dgl-opengl PRIVATE
       "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
+  else()
+    target_sources(dgl-opengl PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
   endif()
   target_include_directories(dgl-opengl PUBLIC
     "${DPF_ROOT_DIR}/dgl")
@@ -691,6 +837,10 @@ function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
 
   if(APPLE)
     target_compile_definitions(dgl-opengl PUBLIC "GL_SILENCE_DEPRECATION")
+  endif()
+
+  if(USE_FILE_BROWSER)
+    target_compile_definitions(dgl-opengl PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
   dpf__add_dgl_system_libs()
@@ -703,15 +853,165 @@ function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
   target_link_libraries(dgl-opengl PRIVATE dgl-opengl-definitions "${OPENGL_gl_LIBRARY}")
 endfunction()
 
+# dpf__add_dgl_opengl3
+# ------------------------------------------------------------------------------
+#
+# Add the OpenGL3 variant of DGL, if not already available.
+#
+function(dpf__add_dgl_opengl3 SHARED_RESOURCES USE_FILE_BROWSER)
+  if(TARGET dgl-opengl3)
+    return()
+  endif()
+
+  if(NOT OpenGL_GL_PREFERENCE)
+    set(OpenGL_GL_PREFERENCE "LEGACY")
+  endif()
+
+  find_package(OpenGL REQUIRED)
+
+  dpf__add_static_library(dgl-opengl3 STATIC
+    "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Widget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/OpenGL.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/NanoVG.cpp")
+  if(SHARED_RESOURCES)
+    target_sources(dgl-opengl3 PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
+  else()
+    target_compile_definitions(dgl-opengl3 PUBLIC "DGL_NO_SHARED_RESOURCES")
+  endif()
+  if(APPLE)
+    target_sources(dgl-opengl3 PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
+  else()
+    target_sources(dgl-opengl3 PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
+  endif()
+  target_include_directories(dgl-opengl3 PUBLIC
+    "${DPF_ROOT_DIR}/dgl")
+  target_include_directories(dgl-opengl3 PUBLIC
+    "${DPF_ROOT_DIR}/dgl/src/pugl-upstream/include")
+
+  if(APPLE)
+    target_compile_definitions(dgl-opengl3 PUBLIC "GL_SILENCE_DEPRECATION")
+  endif()
+
+  if(USE_FILE_BROWSER)
+    target_compile_definitions(dgl-opengl3 PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
+
+  dpf__add_dgl_system_libs()
+  target_link_libraries(dgl-opengl3 PRIVATE dgl-system-libs)
+
+  add_library(dgl-opengl3-definitions INTERFACE)
+  target_compile_definitions(dgl-opengl3-definitions INTERFACE "DGL_USE_OPENGL3" "DGL_OPENGL" "HAVE_OPENGL" "HAVE_DGL")
+
+  target_include_directories(dgl-opengl3 PUBLIC "${OPENGL_INCLUDE_DIR}")
+  target_link_libraries(dgl-opengl3 PRIVATE dgl-opengl3-definitions "${OPENGL_gl_LIBRARY}")
+endfunction()
+
+# dpf__add_dgl_vulkan
+# ------------------------------------------------------------------------------
+#
+# Add the Vulkan variant of DGL, if not already available.
+#
+function(dpf__add_dgl_vulkan SHARED_RESOURCES USE_FILE_BROWSER)
+  if(TARGET dgl-vulkan)
+    return()
+  endif()
+
+  find_package(Vulkan REQUIRED)
+
+  dpf__add_static_library(dgl-vulkan STATIC
+    "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Widget.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WidgetPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
+    "${DPF_ROOT_DIR}/dgl/src/Vulkan.cpp")
+  if(NO_SHARED_RESOURCES)
+    target_sources(dgl-vulkan PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
+  else()
+    target_compile_definitions(dgl-vulkan PUBLIC "DGL_NO_SHARED_RESOURCES")
+  endif()
+  if(APPLE)
+    target_sources(dgl-vulkan PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
+  else()
+    target_sources(dgl-vulkan PRIVATE
+      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
+  endif()
+  target_include_directories(dgl-vulkan PUBLIC
+    "${DPF_ROOT_DIR}/dgl")
+  target_include_directories(dgl-vulkan PUBLIC
+    "${DPF_ROOT_DIR}/dgl/src/pugl-upstream/include")
+
+  if(APPLE)
+    target_compile_definitions(dgl-vulkan PUBLIC "GL_SILENCE_DEPRECATION")
+  endif()
+
+  if(USE_FILE_BROWSER)
+    target_compile_definitions(dgl-vulkan PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
+
+  dpf__add_dgl_system_libs()
+  target_link_libraries(dgl-vulkan PRIVATE dgl-system-libs)
+
+  add_library(dgl-vulkan-definitions INTERFACE)
+  target_compile_definitions(dgl-vulkan-definitions INTERFACE "DGL_VULKAN" "HAVE_VULKAN" "HAVE_DGL")
+
+  target_include_directories(dgl-vulkan PUBLIC "${OPENGL_INCLUDE_DIR}")
+  target_link_libraries(dgl-vulkan PRIVATE dgl-vulkan-definitions "${OPENGL_gl_LIBRARY}")
+endfunction()
+
 # dpf__add_plugin_specific_ui_sources
 # ------------------------------------------------------------------------------
 #
-# Compile system specific files, for now it is just Objective-C code
+# Compile system specific files
 #
-function(dpf__add_plugin_specific_ui_sources NAME)
+function(dpf__add_plugin_specific_ui_sources NAME USE_WEB_VIEW)
   if(APPLE)
     target_sources("${NAME}" PRIVATE
       "${DPF_ROOT_DIR}/distrho/DistrhoUI_macOS.mm")
+    if(USE_WEB_VIEW)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries("${NAME}" PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    endif()
+  elseif(WIN32 AND USE_WEB_VIEW)
+    target_sources("${NAME}" PRIVATE
+      "${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp")
+    if (MSVC)
+      set_source_files_properties("${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp"
+        PROPERTIES COMPILE_FLAGS /std:c++17)
+    else()
+      set_source_files_properties("${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp"
+        PROPERTIES COMPILE_FLAGS -std=gnu++17)
+    endif()
+    target_link_libraries("${NAME}" PRIVATE "ole32" "uuid")
   endif()
 endfunction()
 
@@ -804,7 +1104,9 @@ endfunction()
 function(dpf__add_module NAME)
   add_library("${NAME}" MODULE ${ARGN})
   dpf__set_target_defaults("${NAME}")
-  if(MINGW)
+  if(APPLE)
+    set_target_properties("${NAME}" PROPERTIES SUFFIX ".dylib")
+  elseif(MINGW)
     target_link_libraries("${NAME}" PRIVATE "-static")
   endif()
 endfunction()
@@ -860,6 +1162,9 @@ function(dpf__set_target_defaults NAME)
   endif()
   if (CMAKE_COMPILER_IS_GNUCXX)
     target_compile_options("${NAME}" PUBLIC "-fno-gnu-unique")
+  endif()
+  if ((NOT APPLE) AND (NOT MSVC))
+    target_link_options("${NAME}" PUBLIC "-Wl,--no-undefined")
   endif()
 endfunction()
 

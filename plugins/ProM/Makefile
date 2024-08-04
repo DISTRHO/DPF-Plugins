@@ -26,7 +26,8 @@ HAVE_PROJECTM = $(shell pkg-config --exists libprojectM && echo true)
 # --------------------------------------------------------------
 # Import base definitions
 
-FILE_BROWSER_DISABLED = true
+SKIP_NATIVE_AUDIO_FALLBACK = true
+USE_FILE_BROWSER = false
 include ../../dpf/Makefile.base.mk
 
 # --------------------------------------------------------------

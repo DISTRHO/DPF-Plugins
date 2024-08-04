@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -106,7 +106,7 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false, false))
 {
     pData->initPost();
 }
@@ -117,9 +117,11 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable,
-               const bool isVST3,
+               const bool usesScheduledRepaints,
+               const bool usesSizeRequest,
                const bool doPostInit)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, isVST3))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable,
+                            usesScheduledRepaints, usesSizeRequest))
 {
     if (doPostInit)
         pData->initPost();
@@ -225,7 +227,7 @@ uint Window::getWidth() const noexcept
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
     const double width = puglGetFrame(pData->view).width;
-    DISTRHO_SAFE_ASSERT_RETURN(width >= 0.0, 0);
+    DISTRHO_SAFE_ASSERT_RETURN(width > 0.0, 0);
     return static_cast<uint>(width + 0.5);
 }
 
@@ -234,7 +236,7 @@ uint Window::getHeight() const noexcept
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
     const double height = puglGetFrame(pData->view).height;
-    DISTRHO_SAFE_ASSERT_RETURN(height >= 0.0, 0);
+    DISTRHO_SAFE_ASSERT_RETURN(height > 0.0, 0);
     return static_cast<uint>(height + 0.5);
 }
 
@@ -243,8 +245,8 @@ Size<uint> Window::getSize() const noexcept
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Size<uint>());
 
     const PuglRect rect = puglGetFrame(pData->view);
-    DISTRHO_SAFE_ASSERT_RETURN(rect.width >= 0.0, Size<uint>());
-    DISTRHO_SAFE_ASSERT_RETURN(rect.height >= 0.0, Size<uint>());
+    DISTRHO_SAFE_ASSERT_RETURN(rect.width > 0.0, Size<uint>());
+    DISTRHO_SAFE_ASSERT_RETURN(rect.height > 0.0, Size<uint>());
     return Size<uint>(static_cast<uint>(rect.width + 0.5),
                       static_cast<uint>(rect.height + 0.5));
 }
@@ -269,10 +271,10 @@ void Window::setSize(uint width, uint height)
         uint minWidth = pData->minWidth;
         uint minHeight = pData->minHeight;
 
-        if (pData->autoScaling && scaleFactor != 1.0)
+        if (pData->autoScaling && d_isNotEqual(scaleFactor, 1.0))
         {
-            minWidth *= scaleFactor;
-            minHeight *= scaleFactor;
+            minWidth = d_roundToUnsignedInt(minWidth * scaleFactor);
+            minHeight = d_roundToUnsignedInt(minHeight * scaleFactor);
         }
 
         // handle geometry constraints here
@@ -293,10 +295,10 @@ void Window::setSize(uint width, uint height)
             {
                 // fix width
                 if (reqRatio > ratio)
-                    width = static_cast<uint>(height * ratio + 0.5);
+                    width = d_roundToUnsignedInt(height * ratio);
                 // fix height
                 else
-                    height = static_cast<uint>(static_cast<double>(width) / ratio + 0.5);
+                    height = d_roundToUnsignedInt(static_cast<double>(width) / ratio);
             }
         }
     }
@@ -313,6 +315,16 @@ void Window::setSize(uint width, uint height)
     else if (pData->view != nullptr)
     {
         puglSetSizeAndDefault(pData->view, width, height);
+
+        // there are no resize events for closed windows, so short-circuit the top-level widgets here
+        if (pData->isClosed)
+        {
+            for (std::list<TopLevelWidget*>::iterator it = pData->topLevelWidgets.begin(),
+                                                      end = pData->topLevelWidgets.end(); it != end; ++it)
+            {
+                ((Widget*)*it)->setSize(width, height);
+            }
+        }
     }
 }
 
@@ -402,7 +414,7 @@ void Window::focus()
     pData->focus();
 }
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 bool Window::openFileBrowser(const FileBrowserOptions& options)
 {
     return pData->openFileBrowser(options);
@@ -411,14 +423,22 @@ bool Window::openFileBrowser(const FileBrowserOptions& options)
 
 void Window::repaint() noexcept
 {
-    if (pData->view != nullptr)
-        puglPostRedisplay(pData->view);
+    if (pData->view == nullptr)
+        return;
+
+    if (pData->usesScheduledRepaints)
+        pData->appData->needsRepaint = true;
+
+    puglPostRedisplay(pData->view);
 }
 
 void Window::repaint(const Rectangle<uint>& rect) noexcept
 {
     if (pData->view == nullptr)
         return;
+
+    if (pData->usesScheduledRepaints)
+        pData->appData->needsRepaint = true;
 
     PuglRect prect = {
         static_cast<PuglCoord>(rect.getX()),
@@ -430,10 +450,10 @@ void Window::repaint(const Rectangle<uint>& rect) noexcept
     {
         const double autoScaleFactor = pData->autoScaleFactor;
 
-        prect.x *= autoScaleFactor;
-        prect.y *= autoScaleFactor;
-        prect.width *= autoScaleFactor;
-        prect.height *= autoScaleFactor;
+        prect.x = static_cast<PuglCoord>(prect.x * autoScaleFactor);
+        prect.y = static_cast<PuglCoord>(prect.y * autoScaleFactor);
+        prect.width = static_cast<PuglSpan>(prect.width * autoScaleFactor + 0.5);
+        prect.height = static_cast<PuglSpan>(prect.height * autoScaleFactor + 0.5);
     }
     puglPostRedisplayRect(pData->view, prect);
 }
@@ -479,8 +499,8 @@ void Window::setGeometryConstraints(uint minimumWidth,
 
     if (automaticallyScale && scaleFactor != 1.0)
     {
-        minimumWidth *= scaleFactor;
-        minimumHeight *= scaleFactor;
+        minimumWidth = d_roundToUnsignedInt(minimumWidth * scaleFactor);
+        minimumHeight = d_roundToUnsignedInt(minimumHeight * scaleFactor);
     }
 
     puglSetGeometryConstraints(pData->view, minimumWidth, minimumHeight, keepAspectRatio);
@@ -554,7 +574,7 @@ void Window::onScaleFactorChanged(double)
 {
 }
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 void Window::onFileSelected(const char*)
 {
 }

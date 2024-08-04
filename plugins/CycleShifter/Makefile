@@ -23,7 +23,8 @@ FILES_UI  = \
 # Do some magic
 
 UI_TYPE = generic
-FILE_BROWSER_DISABLED = true
+SKIP_NATIVE_AUDIO_FALLBACK = true
+USE_FILE_BROWSER = false
 include ../../dpf/Makefile.plugins.mk
 
 # --------------------------------------------------------------

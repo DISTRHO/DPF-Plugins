@@ -1,6 +1,6 @@
 /*
  * DISTRHO 3BandEQ Plugin, based on 3BandEQ by Michael Gruhn
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,9 @@
 #define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/3BandEQ"
 #define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.3BandEQ"
 
+#define DISTRHO_PLUGIN_BRAND_ID  Dstr
+#define DISTRHO_PLUGIN_UNIQUE_ID D3EQ
+
 #define DISTRHO_PLUGIN_HAS_UI        1
 #define DISTRHO_PLUGIN_IS_RT_SAFE    1
 #define DISTRHO_PLUGIN_NUM_INPUTS    2
@@ -31,5 +34,7 @@
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "equalizer", "stereo"
 #define DISTRHO_PLUGIN_LV2_CATEGORY    "lv2:EQPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|EQ"
+
+#define DPF_VST3_DONT_USE_BRAND_ID
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

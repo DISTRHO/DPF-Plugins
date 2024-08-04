@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -29,7 +29,7 @@
 # error DISTRHO_PLUGIN_CLAP_ID undefined!
 #endif
 
-#if DISTRHO_PLUGIN_HAS_UI && ! defined(HAVE_DGL) && ! DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#if DISTRHO_PLUGIN_HAS_UI && ! defined(HAVE_DGL)
 # undef DISTRHO_PLUGIN_HAS_UI
 # define DISTRHO_PLUGIN_HAS_UI 0
 #endif
@@ -57,7 +57,7 @@
 #include "clap/ext/thread-check.h"
 #include "clap/ext/timer-support.h"
 
-#if (defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS)) && ! DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#if defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WINDOWS)
 # define DPF_CLAP_USING_HOST_TIMER 0
 #else
 # define DPF_CLAP_USING_HOST_TIMER 1
@@ -211,7 +211,9 @@ public:
           #endif
            const bool isFloating)
         : fPlugin(plugin),
+         #if DISTRHO_PLUGIN_WANT_STATE
           fPluginEventQueue(eventQueue),
+         #endif
           fEventQueue(eventQueue->fEventQueue),
           fCachedParameters(eventQueue->fCachedParameters),
          #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -280,10 +282,10 @@ public:
 
         double scaleFactor = fScaleFactor;
        #if defined(DISTRHO_UI_DEFAULT_WIDTH) && defined(DISTRHO_UI_DEFAULT_HEIGHT)
-        *width = DISTRHO_UI_DEFAULT_WIDTH;
-        *height = DISTRHO_UI_DEFAULT_HEIGHT;
         if (d_isZero(scaleFactor))
             scaleFactor = 1.0;
+        *width = DISTRHO_UI_DEFAULT_WIDTH * scaleFactor;
+        *height = DISTRHO_UI_DEFAULT_HEIGHT * scaleFactor;
        #else
         UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
@@ -371,10 +373,10 @@ public:
                 {
                     // fix width
                     if (reqRatio > ratio)
-                        *width = static_cast<int32_t>(*height * ratio + 0.5);
+                        *width = d_roundToIntPositive(*height * ratio);
                     // fix height
                     else
-                        *height = static_cast<int32_t>(static_cast<double>(*width) / ratio + 0.5);
+                        *height = d_roundToIntPositive(static_cast<double>(*width) / ratio);
                 }
             }
 
@@ -534,7 +536,9 @@ public:
 private:
     // Plugin and UI
     PluginExporter& fPlugin;
+   #if DISTRHO_PLUGIN_WANT_STATE
     ClapEventQueue* const fPluginEventQueue;
+   #endif
     ClapEventQueue::Queue& fEventQueue;
     ClapEventQueue::CachedParameters& fCachedParameters;
    #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -600,8 +604,8 @@ private:
         // Set state
         for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
         {
-            const String& key   = cit->first;
-            const String& value = cit->second;
+            const String& key(cit->first);
+            const String& value(cit->second);
 
             // TODO skip DSP only states
 
@@ -1433,7 +1437,7 @@ public:
         // Update current state
         for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
         {
-            const String& key = cit->first;
+            const String& key(cit->first);
             fStateMap[key] = fPlugin.getStateValue(key);
         }
        #endif
@@ -1457,8 +1461,8 @@ public:
 
             for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
             {
-                const String& key   = cit->first;
-                const String& value = cit->second;
+                const String& key(cit->first);
+                const String& value(cit->second);
 
                 // join key and value
                 String tmpStr;
@@ -1764,23 +1768,11 @@ public:
     {
         fPlugin.setState(key, value);
 
-        // check if we want to save this key
-        if (! fPlugin.wantStateKey(key))
-            return;
-
-        // check if key already exists
-        for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
+        if (fPlugin.wantStateKey(key))
         {
-            const String& dkey(it->first);
-
-            if (dkey == key)
-            {
-                it->second = value;
-                return;
-            }
+            const String dkey(key);
+            fStateMap[dkey] = value;
         }
-
-        d_stderr("Failed to find plugin state with key \"%s\"", key);
     }
    #endif
 
