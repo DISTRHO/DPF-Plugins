@@ -633,11 +633,11 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
   const NSPoint wloc = [self eventLocation:event];
   const NSPoint rloc = [NSEvent mouseLocation];
 
-  double dx = -[event scrollingDeltaX];
-  double dy = [event scrollingDeltaY];
-  if (![event hasPreciseScrollingDeltas]) {
-    dx *= 10.0;
-    dy *= 10.0;
+  double dx = -[event scrollingDeltaX] / 2.0;
+  double dy = [event scrollingDeltaY] / 2.0;
+  if ([event hasPreciseScrollingDeltas]) {
+    dx /= 10.0;
+    dy /= 10.0;
   }
 
   const PuglScrollDirection dir =
