@@ -202,7 +202,8 @@ static constexpr const uint32_t kType = d_cconst(STRINGIFY(DISTRHO_PLUGIN_AU_TYP
 static constexpr const uint32_t kSubType = d_cconst(STRINGIFY(DISTRHO_PLUGIN_UNIQUE_ID));
 static constexpr const uint32_t kManufacturer = d_cconst(STRINGIFY(DISTRHO_PLUGIN_BRAND_ID));
 
-static constexpr const uint32_t kWantedAudioFormat = kAudioFormatFlagsNativeFloatPacked
+static constexpr const uint32_t kWantedAudioFormat = 0
+                                                   | kAudioFormatFlagsNativeFloatPacked
                                                    | kAudioFormatFlagIsNonInterleaved;
 
 
@@ -276,12 +277,28 @@ struct RenderListener {
 typedef std::vector<PropertyListener> PropertyListeners;
 typedef std::vector<RenderListener> RenderListeners;
 
-// --------------------------------------------------------------------------------------------------------------------
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+// useful definitions
+static constexpr const uint32_t kMIDIPacketNonDataSize = sizeof(MIDIPacket)
+                                                      #if __cplusplus >= 201103L
+                                                       - sizeof(MIDIPacket::data);
+                                                      #else
+                                                       - sizeof(static_cast<MIDIPacket*>(0)->data);
+                                                      #endif
+static constexpr const uint32_t kMIDIPacketListNonDataSize = sizeof(MIDIPacketList)
+                                                          #if __cplusplus >= 201103L
+                                                           - sizeof(MIDIPacketList::packet);
+                                                          #else
+                                                           - sizeof(static_cast<MIDIPacketList*>(0)->packet);
+                                                          #endif
 
-typedef struct {
-    UInt32 numPackets;
-    MIDIPacket packets[kMaxMidiEvents];
-} d_MIDIPacketList;
+// size of data used for midi events
+static constexpr const uint32_t kMIDIPacketListMaxDataSize = kMIDIPacketNonDataSize * kMaxMidiEvents
+                                                           + sizeof(Byte) * MidiEvent::kDataSize * kMaxMidiEvents;
+
+// size of midi list + data
+static constexpr const uint32_t kMIDIPacketListSize = kMIDIPacketListNonDataSize + kMIDIPacketListMaxDataSize;
+#endif
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -335,6 +352,9 @@ public:
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         , fMidiEventCount(0)
        #endif
+       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+        , fMidiOutputDataOffset(0)
+       #endif
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         , fCurrentProgram(-1)
         , fLastFactoryProgram(0)
@@ -370,8 +390,10 @@ public:
        #endif
 
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+        if ((fMidiOutputPackets = static_cast<MIDIPacketList*>(std::malloc(kMIDIPacketListSize))) != nullptr)
+            std::memset(fMidiOutputPackets, 0, kMIDIPacketListSize);
+
         std::memset(&fMidiOutput, 0, sizeof(fMidiOutput));
-        std::memset(&fMidiOutputPackets, 0, sizeof(fMidiOutputPackets));
        #endif
 
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -428,6 +450,10 @@ public:
         reallocAudioBufferList(false);
        #endif
 
+       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+        std::free(fMidiOutputPackets);
+       #endif
+
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         for (uint32_t i=0; i<fProgramCount; ++i)
             CFRelease(fFactoryPresetsData[i].presetName);
@@ -451,7 +477,8 @@ public:
         fMidiEventCount = 0;
        #endif
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        fMidiOutputPackets.numPackets = 0;
+        fMidiOutputDataOffset = 0;
+        fMidiOutputPackets->numPackets = 0;
        #endif
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
         fTimePosition.clear();
@@ -635,7 +662,7 @@ public:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
            #if DISTRHO_PLUGIN_WANT_TIMEPOS
             outDataSize = sizeof(HostCallbackInfo);
-            outWritable = false;
+            outWritable = true;
             return noErr;
            #else
             return kAudioUnitErr_InvalidProperty;
@@ -658,6 +685,17 @@ public:
             outDataSize = sizeof(AUPreset);
             outWritable = true;
             return noErr;
+
+        case kAudioUnitProperty_SupportsMPE:
+            DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
+            DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
+           #if DISTRHO_PLUGIN_WANT_MIDI_AS_MPE
+            outDataSize = sizeof(UInt32);
+            outWritable = false;
+            return noErr;
+           #else
+            return kAudioUnitErr_InvalidProperty;
+           #endif
 
         case kAudioUnitProperty_CocoaUI:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
@@ -708,7 +746,7 @@ public:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
             outDataSize = sizeof(uint16_t);
-            outWritable = false;
+            outWritable = true;
             return noErr;
 
         case 'DPFe':
@@ -739,7 +777,7 @@ public:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
             outDataSize = sizeof(uint32_t);
-            outWritable = false;
+            outWritable = true;
             return noErr;
        #endif
 
@@ -748,7 +786,7 @@ public:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
             outDataSize = sizeof(CFArrayRef);
-            outWritable = false;
+            outWritable = true;
             return noErr;
 
         case 'DPFs':
@@ -764,7 +802,7 @@ public:
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
             outDataSize = sizeof(void*);
-            outWritable = false;
+            outWritable = true;
             return noErr;
        #endif
 
@@ -1027,6 +1065,12 @@ public:
                 std::memcpy(outData, &fUserPresetData, sizeof(AUPreset));
             }
             return noErr;
+
+       #if DISTRHO_PLUGIN_WANT_MIDI_AS_MPE
+        case kAudioUnitProperty_SupportsMPE:
+            *static_cast<UInt32*>(outData) = 1;
+            return noErr;
+       #endif
 
        #if DISTRHO_PLUGIN_HAS_UI
         case kAudioUnitProperty_CocoaUI:
@@ -1787,7 +1831,8 @@ public:
         fMidiEventCount = 0;
        #endif
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        fMidiOutputPackets.numPackets = 0;
+        fMidiOutputDataOffset = 0;
+        fMidiOutputPackets->numPackets = 0;
        #endif
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
         fTimePosition.clear();
@@ -2015,7 +2060,7 @@ public:
         midiEvent.data[1] = inData1;
         midiEvent.data[2] = inData2;
 
-        switch (inStatus)
+        switch (inStatus & 0xF0)
         {
         case 0x80:
         case 0x90:
@@ -2057,6 +2102,8 @@ public:
             break;
         default:
             // invalid
+            d_debug("auMIDIEvent received invalid event %u %u %u %u @ %u",
+                    inStatus, inData1, inData2, inOffsetSampleFrame, fMidiEventCount);
             return kAudioUnitErr_InvalidPropertyValue;
         }
 
@@ -2141,8 +2188,9 @@ private:
    #endif
 
    #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+    uint32_t fMidiOutputDataOffset;
+    MIDIPacketList* fMidiOutputPackets;
     AUMIDIOutputCallbackStruct fMidiOutput;
-    d_MIDIPacketList fMidiOutputPackets;
    #endif
 
    #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -2217,7 +2265,8 @@ private:
        #endif
 
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        fMidiOutputPackets.numPackets = 0;
+        fMidiOutputDataOffset = 0;
+        fMidiOutputPackets->numPackets = 0;
        #endif
 
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
@@ -2294,12 +2343,11 @@ private:
        #endif
 
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        if (fMidiOutputPackets.numPackets != 0 && fMidiOutput.midiOutputCallback != nullptr)
+        if (fMidiOutputPackets != nullptr &&
+            fMidiOutputPackets->numPackets != 0 &&
+            fMidiOutput.midiOutputCallback != nullptr)
         {
-            fMidiOutput.midiOutputCallback(fMidiOutput.userData,
-                                           inTimeStamp,
-                                           0,
-                                           reinterpret_cast<const ::MIDIPacketList*>(&fMidiOutputPackets));
+            fMidiOutput.midiOutputCallback(fMidiOutput.userData, inTimeStamp, 0, fMidiOutputPackets);
         }
        #else
         // unused
@@ -2716,17 +2764,21 @@ private:
     bool writeMidi(const MidiEvent& midiEvent)
     {
         DISTRHO_CUSTOM_SAFE_ASSERT_ONCE_RETURN("MIDI output unsupported", fMidiOutput.midiOutputCallback != nullptr, false);
+        DISTRHO_CUSTOM_SAFE_ASSERT_ONCE_RETURN("Out of memory", fMidiOutputPackets != nullptr, false);
 
-        if (midiEvent.size > sizeof(MIDIPacket::data))
-            return true;
-        if (fMidiOutputPackets.numPackets == kMaxMidiEvents)
+        if (fMidiOutputDataOffset + kMIDIPacketNonDataSize + midiEvent.size >= kMIDIPacketListMaxDataSize)
             return false;
 
         const uint8_t* const midiData = midiEvent.size > MidiEvent::kDataSize ? midiEvent.dataExt : midiEvent.data;
-        MIDIPacket& packet(fMidiOutputPackets.packets[fMidiOutputPackets.numPackets++]);
-        packet.timeStamp = midiEvent.frame;
-        packet.length = midiEvent.size;
-        std::memcpy(packet.data, midiData, midiEvent.size);
+        MIDIPacket* const packet = reinterpret_cast<MIDIPacket*>(
+             reinterpret_cast<uint8_t*>(fMidiOutputPackets->packet) + fMidiOutputDataOffset);
+
+        packet->timeStamp = midiEvent.frame;
+        packet->length = midiEvent.size;
+        std::memcpy(packet->data, midiData, midiEvent.size);
+
+        ++fMidiOutputPackets->numPackets;
+        fMidiOutputDataOffset += kMIDIPacketNonDataSize + midiEvent.size;
         return true;
     }
 
@@ -2814,12 +2866,16 @@ struct AudioComponentPlugInInstance {
 
 	static OSStatus Open(void* const self, const AudioUnit component)
     {
+        d_debug("AudioComponentPlugInInstance::Open(%p)", self);
+
         static_cast<AudioComponentPlugInInstance*>(self)->plugin = new PluginAU(component);
         return noErr;
     }
 
 	static OSStatus Close(void* const self)
     {
+        d_debug("AudioComponentPlugInInstance::Close(%p)", self);
+
         delete static_cast<AudioComponentPlugInInstance*>(self);
         return noErr;
     }
@@ -2928,8 +2984,16 @@ struct AudioComponentPlugInInstance {
                                 void* const outData,
                                 UInt32* const ioDataSize)
     {
-        d_debug("AudioComponentPlugInInstance::GetProperty(%p, %d:%x:%s, %d:%s, %d, ...)",
-                self, inProp, inProp, AudioUnitPropertyID2Str(inProp), inScope, AudioUnitScope2Str(inScope), inElement);
+       #ifdef DEBUG
+        switch (inProp) {
+        case kAudioUnitProperty_PresentPreset:
+            break;
+        default:
+            d_debug("AudioComponentPlugInInstance::GetProperty(%p, %d:%x:%s, %d:%s, %d, ...)",
+                    self, inProp, inProp, AudioUnitPropertyID2Str(inProp), inScope, AudioUnitScope2Str(inScope), inElement);
+            break;
+        }
+       #endif
         DISTRHO_SAFE_ASSERT_RETURN(ioDataSize != nullptr, kAudio_ParamError);
 
         Boolean writable;

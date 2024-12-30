@@ -821,6 +821,11 @@ public:
        #endif
     }
 
+    void reset()
+    {
+        fHost->request_restart(fHost);
+    }
+
     bool process(const clap_process_t* const process)
     {
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -2284,23 +2289,33 @@ static bool CLAP_ABI clap_plugin_note_ports_get(const clap_plugin_t*, uint32_t,
 {
     if (is_input)
     {
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+      #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         info->id = 0;
+       #if DISTRHO_PLUGIN_WANT_MIDI_AS_MPE
+        info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_MIDI_MPE;
+        info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI_MPE;
+       #else
         info->supported_dialects = CLAP_NOTE_DIALECT_MIDI;
         info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI;
+       #endif
         std::strcpy(info->name, "Event/MIDI Input");
         return true;
-       #endif
+      #endif
     }
     else
     {
-       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+      #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         info->id = 0;
+       #if DISTRHO_PLUGIN_WANT_MIDI_AS_MPE
+        info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_MIDI_MPE;
+        info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI_MPE;
+       #else
         info->supported_dialects = CLAP_NOTE_DIALECT_MIDI;
         info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI;
+       #endif
         std::strcpy(info->name, "Event/MIDI Output");
         return true;
-       #endif
+      #endif
     }
 
     return false;
@@ -2440,9 +2455,10 @@ static void CLAP_ABI clap_plugin_stop_processing(const clap_plugin_t*)
     // nothing to do
 }
 
-static void CLAP_ABI clap_plugin_reset(const clap_plugin_t*)
+static void CLAP_ABI clap_plugin_reset(const clap_plugin_t* const plugin)
 {
-    // nothing to do
+    PluginCLAP* const instance = static_cast<PluginCLAP*>(plugin->plugin_data);
+    instance->reset();
 }
 
 static clap_process_status CLAP_ABI clap_plugin_process(const clap_plugin_t* const plugin, const clap_process_t* const process)
