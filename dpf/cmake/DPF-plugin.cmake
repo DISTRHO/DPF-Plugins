@@ -121,23 +121,33 @@ function(dpf_add_plugin NAME)
   set(_dgl_library)
   if(_dpf_plugin_FILES_UI)
     if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
-      dpf__add_dgl_cairo($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_cairo($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                         $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                         $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-cairo)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "external")
-      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                            $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-external)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
-      dpf__add_dgl_opengl($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_opengl($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                          $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                          $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-opengl)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl3")
-      dpf__add_dgl_opengl3($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_opengl3($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                           $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                           $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-opengl3)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "vulkan")
-      dpf__add_dgl_vulkan($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>> $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_vulkan($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                          $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                          $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-vulkan)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "webview")
       set(_dpf_plugin_USE_WEB_VIEW TRUE)
-      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>)
+      dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                            $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
       set(_dgl_library dgl-external)
     else()
       message(FATAL_ERROR "Unrecognized UI type for plugin: ${_dpf_plugin_UI_TYPE}")
@@ -232,6 +242,112 @@ function(dpf_add_plugin NAME)
       message(FATAL_ERROR "Unrecognized target type for plugin: ${_target}")
     endif()
   endforeach()
+endfunction()
+
+# dpf_add_executable(target <args...>)
+# ------------------------------------------------------------------------------
+#
+# Add a simple executable built using the DISTRHO Plugin Framework.
+#
+# ------------------------------------------------------------------------------
+# Arguments:
+#
+#   `UI_TYPE` <type>
+#       the user interface type, can be one of the following:
+#          - cairo
+#          - external
+#          - opengl (default)
+#          - opengl3
+#          - vulkan
+#          - webview
+#
+#   `NO_SHARED_RESOURCES`
+#       do not build DPF shared resources (fonts, etc)
+#
+#   `USE_FILE_BROWSER`
+#       enable file browser dialog APIs
+#
+#   `USE_WEB_VIEW`
+#       enable web browser view APIs
+#
+function(dpf_add_executable NAME)
+  set(options NO_SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
+  set(oneValueArgs UI_TYPE)
+  cmake_parse_arguments(_dpf_plugin "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  if("${_dpf_plugin_UI_TYPE}" STREQUAL "")
+    set(_dpf_plugin_UI_TYPE "opengl")
+  endif()
+
+  set(_dgl_library)
+  if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
+    dpf__add_dgl_cairo($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                       $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                       $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-cairo)
+  elseif(_dpf_plugin_UI_TYPE STREQUAL "external")
+    dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                          $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-external)
+  elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
+    dpf__add_dgl_opengl($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                        $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                        $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-opengl)
+  elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl3")
+    dpf__add_dgl_opengl3($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                         $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                         $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-opengl3)
+  elseif(_dpf_plugin_UI_TYPE STREQUAL "vulkan")
+    dpf__add_dgl_vulkan($<NOT:$<BOOL:${_dpf_plugin_NO_SHARED_RESOURCES}>>
+                        $<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                        $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-vulkan)
+  elseif(_dpf_plugin_UI_TYPE STREQUAL "webview")
+    set(_dpf_plugin_USE_WEB_VIEW TRUE)
+    dpf__add_dgl_external($<BOOL:${_dpf_plugin_USE_FILE_BROWSER}>
+                          $<BOOL:${_dpf_plugin_USE_WEB_VIEW}>)
+    set(_dgl_library dgl-external)
+  else()
+    message(FATAL_ERROR "Unrecognized UI type for executable: ${_dpf_plugin_UI_TYPE}")
+  endif()
+
+  set(_dgl_has_ui OFF)
+  if(_dgl_library)
+    set(_dgl_has_ui ON)
+  endif()
+
+  dpf__create_dummy_source_list(_no_srcs)
+  dpf__add_executable("${NAME}" ${_no_srcs})
+  target_include_directories("${NAME}" PUBLIC "${DPF_ROOT_DIR}/distrho")
+
+  if(_dpf_plugin_USE_FILE_BROWSER)
+    target_compile_definitions("${NAME}" PUBLIC "DGL_USE_FILE_BROWSER")
+  endif()
+
+  if(_dpf_plugin_USE_WEB_VIEW)
+    target_compile_definitions("${NAME}" PUBLIC "DGL_USE_WEB_VIEW")
+  endif()
+
+  if((NOT WIN32) AND (NOT APPLE) AND (NOT HAIKU))
+    target_link_libraries("${NAME}" PRIVATE "dl")
+  endif()
+
+  if(_dgl_library)
+    # make sure that all code will see DGL_* definitions
+    target_link_libraries("${NAME}" PUBLIC
+      "${_dgl_library}"
+      "${_dgl_library}-definitions"
+      dgl-system-libs-definitions
+      dgl-system-libs)
+    # extra linkage for linux web view
+    if(LINUX AND _dpf_plugin_USE_WEB_VIEW)
+      target_link_libraries("${NAME}" PRIVATE "rt")
+    endif()
+    # add the files containing C++17 or Objective-C classes
+    dpf__add_plugin_specific_ui_sources("${NAME}" "${_dpf_plugin_USE_WEB_VIEW}")
+  endif()
 endfunction()
 
 # ------------------------------------------------------------------------------
@@ -661,7 +777,7 @@ endfunction()
 #
 # Add the Cairo variant of DGL, if not already available.
 #
-function(dpf__add_dgl_cairo SHARED_RESOURCES USE_FILE_BROWSER)
+function(dpf__add_dgl_cairo SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
   if(TARGET dgl-cairo)
     return()
   endif()
@@ -710,6 +826,21 @@ function(dpf__add_dgl_cairo SHARED_RESOURCES USE_FILE_BROWSER)
     target_compile_definitions(dgl-cairo PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
+  if(USE_WEB_VIEW)
+    target_compile_definitions(dgl-cairo PUBLIC "DGL_USE_FILE_BROWSER")
+    if(APPLE)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries(dgl-cairo PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    elseif(WIN32)
+      target_sources(dgl-cairo PRIVATE
+        "${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp")
+      set_source_files_properties("${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp"
+        PROPERTIES
+          COMPILE_FLAGS
+            $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
+    endif()
+  endif()
+
   dpf__add_dgl_system_libs()
   target_link_libraries(dgl-cairo PRIVATE dgl-system-libs)
 
@@ -730,7 +861,7 @@ endfunction()
 #
 # Add the external variant of DGL, if not already available.
 #
-function(dpf__add_dgl_external USE_FILE_BROWSER)
+function(dpf__add_dgl_external USE_FILE_BROWSER USE_WEB_VIEW)
   if(TARGET dgl-external)
     return()
   endif()
@@ -770,6 +901,21 @@ function(dpf__add_dgl_external USE_FILE_BROWSER)
     target_compile_definitions(dgl-external PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
+  if(USE_WEB_VIEW)
+    target_compile_definitions(dgl-external PUBLIC "DGL_USE_WEB_VIEW")
+    if(APPLE)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries(dgl-external PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    elseif(WIN32)
+      target_sources(dgl-external PRIVATE
+        "${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp")
+      set_source_files_properties("${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp"
+        PROPERTIES
+          COMPILE_FLAGS
+            $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
+    endif()
+  endif()
+
   dpf__add_dgl_system_libs()
   target_compile_definitions(dgl-external PUBLIC "DGL_NO_SHARED_RESOURCES")
   target_link_libraries(dgl-external PRIVATE dgl-system-libs)
@@ -786,7 +932,7 @@ endfunction()
 #
 # Add the OpenGL variant of DGL, if not already available.
 #
-function(dpf__add_dgl_opengl SHARED_RESOURCES USE_FILE_BROWSER)
+function(dpf__add_dgl_opengl SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
   if(TARGET dgl-opengl)
     return()
   endif()
@@ -841,6 +987,21 @@ function(dpf__add_dgl_opengl SHARED_RESOURCES USE_FILE_BROWSER)
     target_compile_definitions(dgl-opengl PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
+  if(USE_WEB_VIEW)
+    target_compile_definitions(dgl-opengl PUBLIC "DGL_USE_WEB_VIEW")
+    if(APPLE)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries(dgl-opengl PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    elseif(WIN32)
+      target_sources(dgl-opengl PRIVATE
+        "${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp")
+      set_source_files_properties("${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp"
+        PROPERTIES
+          COMPILE_FLAGS
+            $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
+    endif()
+  endif()
+
   dpf__add_dgl_system_libs()
   target_link_libraries(dgl-opengl PRIVATE dgl-system-libs)
 
@@ -856,7 +1017,7 @@ endfunction()
 #
 # Add the OpenGL3 variant of DGL, if not already available.
 #
-function(dpf__add_dgl_opengl3 SHARED_RESOURCES USE_FILE_BROWSER)
+function(dpf__add_dgl_opengl3 SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
   if(TARGET dgl-opengl3)
     return()
   endif()
@@ -911,6 +1072,21 @@ function(dpf__add_dgl_opengl3 SHARED_RESOURCES USE_FILE_BROWSER)
     target_compile_definitions(dgl-opengl3 PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
+  if(USE_WEB_VIEW)
+    target_compile_definitions(dgl-opengl3 PUBLIC "DGL_USE_WEB_VIEW")
+    if(APPLE)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries(dgl-opengl3 PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    elseif(WIN32)
+      target_sources(dgl-opengl3 PRIVATE
+        "${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp")
+      set_source_files_properties("${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp"
+        PROPERTIES
+          COMPILE_FLAGS
+            $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
+    endif()
+  endif()
+
   dpf__add_dgl_system_libs()
   target_link_libraries(dgl-opengl3 PRIVATE dgl-system-libs)
 
@@ -926,7 +1102,7 @@ endfunction()
 #
 # Add the Vulkan variant of DGL, if not already available.
 #
-function(dpf__add_dgl_vulkan SHARED_RESOURCES USE_FILE_BROWSER)
+function(dpf__add_dgl_vulkan SHARED_RESOURCES USE_FILE_BROWSER USE_WEB_VIEW)
   if(TARGET dgl-vulkan)
     return()
   endif()
@@ -976,6 +1152,21 @@ function(dpf__add_dgl_vulkan SHARED_RESOURCES USE_FILE_BROWSER)
     target_compile_definitions(dgl-vulkan PUBLIC "DGL_USE_FILE_BROWSER")
   endif()
 
+  if(USE_WEB_VIEW)
+    target_compile_definitions(dgl-vulkan PUBLIC "DGL_USE_WEB_VIEW")
+    if(APPLE)
+      find_library(APPLE_WEBKIT_FRAMEWORK "WebKit")
+      target_link_libraries(dgl-vulkan PRIVATE "${APPLE_WEBKIT_FRAMEWORK}")
+    elseif(WIN32)
+      target_sources(dgl-vulkan PRIVATE
+        "${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp")
+      set_source_files_properties("${DPF_ROOT_DIR}/dgl/src/WebViewWin32.cpp"
+        PROPERTIES
+          COMPILE_FLAGS
+            $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
+    endif()
+  endif()
+
   dpf__add_dgl_system_libs()
   target_link_libraries(dgl-vulkan PRIVATE dgl-system-libs)
 
@@ -1002,13 +1193,10 @@ function(dpf__add_plugin_specific_ui_sources NAME USE_WEB_VIEW)
   elseif(WIN32 AND USE_WEB_VIEW)
     target_sources("${NAME}" PRIVATE
       "${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp")
-    if (MSVC)
-      set_source_files_properties("${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp"
-        PROPERTIES COMPILE_FLAGS /std:c++17)
-    else()
-      set_source_files_properties("${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp"
-        PROPERTIES COMPILE_FLAGS -std=gnu++17)
-    endif()
+    set_source_files_properties("${DPF_ROOT_DIR}/distrho/DistrhoUI_win32.cpp"
+      PROPERTIES
+        COMPILE_FLAGS
+          $<IF:$<BOOL:${MSVC}>,/std:c++17,-std=gnu++17>)
     target_link_libraries("${NAME}" PRIVATE "ole32" "uuid")
   endif()
 endfunction()

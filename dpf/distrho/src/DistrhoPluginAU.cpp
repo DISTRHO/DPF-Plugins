@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -264,7 +264,7 @@ bool isNumChannelsComboValid(const uint16_t numInputs, const uint16_t numOutputs
 // --------------------------------------------------------------------------------------------------------------------
 
 struct PropertyListener {
-    AudioUnitPropertyID	prop;
+    AudioUnitPropertyID prop;
     AudioUnitPropertyListenerProc proc;
     void* userData;
 };
@@ -348,7 +348,8 @@ public:
           fUsingRenderListeners(false),
           fParameterCount(fPlugin.getParameterCount()),
           fLastParameterValues(nullptr),
-          fBypassParameterIndex(UINT32_MAX)
+          fBypassParameterIndex(UINT32_MAX),
+          fResetParameterIndex(UINT32_MAX)
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         , fMidiEventCount(0)
        #endif
@@ -365,7 +366,7 @@ public:
         , fStateCount(fPlugin.getStateCount())
        #endif
     {
-	    if (fParameterCount != 0)
+        if (fParameterCount != 0)
         {
             fLastParameterValues = new float[fParameterCount];
             std::memset(fLastParameterValues, 0, sizeof(float) * fParameterCount);
@@ -374,8 +375,17 @@ public:
             {
                 fLastParameterValues[i] = fPlugin.getParameterValue(i);
 
-                if (fPlugin.getParameterDesignation(i) == kParameterDesignationBypass)
+                switch (fPlugin.getParameterDesignation(i))
+                {
+                case kParameterDesignationNull:
+                    break;
+                case kParameterDesignationBypass:
                     fBypassParameterIndex = i;
+                    break;
+                case kParameterDesignationReset:
+                    fResetParameterIndex = i;
+                    break;
+                }
             }
         }
 
@@ -923,13 +933,13 @@ public:
         case kAudioUnitProperty_FastDispatch:
             switch (inElement)
             {
-			case kAudioUnitGetParameterSelect:
+            case kAudioUnitGetParameterSelect:
                 *static_cast<AudioUnitGetParameterProc*>(outData) = FastDispatchGetParameter;
                 return noErr;
-			case kAudioUnitSetParameterSelect:
+            case kAudioUnitSetParameterSelect:
                 *static_cast<AudioUnitSetParameterProc*>(outData) = FastDispatchSetParameter;
                 return noErr;
-			case kAudioUnitRenderSelect:
+            case kAudioUnitRenderSelect:
                 *static_cast<AudioUnitRenderProc*>(outData) = FastDispatchRender;
                 return noErr;
             }
@@ -1143,6 +1153,8 @@ public:
                     const CFStringRef keyRef = CFStringCreateWithCString(nullptr,
                                                                          fPlugin.getStateKey(i),
                                                                          kCFStringEncodingASCII);
+                    DISTRHO_SAFE_ASSERT_CONTINUE(keyRef != nullptr);
+
                     CFArrayAppendValue(keysRef, keyRef);
                     CFRelease(keyRef);
                 }
@@ -1458,7 +1470,7 @@ public:
                     const float value = bypass ? 1.f : 0.f;
                     fLastParameterValues[fBypassParameterIndex] = value;
                     fPlugin.setParameterValue(fBypassParameterIndex, value);
-	                notifyPropertyListeners(inProp, inScope, inElement);
+                    notifyPropertyListeners(inProp, inScope, inElement);
                 }
             }
             return noErr;
@@ -1480,12 +1492,12 @@ public:
            #if DISTRHO_PLUGIN_WANT_TIMEPOS
             {
                 const UInt32 usableDataSize = std::min(inDataSize, static_cast<UInt32>(sizeof(HostCallbackInfo)));
-		        const bool changed = std::memcmp(&fHostCallbackInfo, inData, usableDataSize) != 0;
+                const bool changed = std::memcmp(&fHostCallbackInfo, inData, usableDataSize) != 0;
 
-		        std::memcpy(&fHostCallbackInfo, inData, usableDataSize);
+                std::memcpy(&fHostCallbackInfo, inData, usableDataSize);
 
                 if (sizeof(HostCallbackInfo) > usableDataSize)
-		            std::memset(&fHostCallbackInfo + usableDataSize, 0, sizeof(HostCallbackInfo) - usableDataSize);
+                    std::memset(&fHostCallbackInfo + usableDataSize, 0, sizeof(HostCallbackInfo) - usableDataSize);
 
                 if (changed)
                     notifyPropertyListeners(inProp, inScope, inElement);
@@ -1612,7 +1624,7 @@ public:
                 AUEventListenerNotify(NULL, NULL, &event);
 
                 if (fBypassParameterIndex == inElement)
-	                notifyPropertyListeners(kAudioUnitProperty_BypassEffect, kAudioUnitScope_Global, 0);
+                    notifyPropertyListeners(kAudioUnitProperty_BypassEffect, kAudioUnitScope_Global, 0);
             }
             return noErr;
 
@@ -1637,28 +1649,44 @@ public:
 
         case 'DPFs':
             DISTRHO_SAFE_ASSERT_UINT_RETURN(inScope == kAudioUnitScope_Global, inScope, kAudioUnitErr_InvalidScope);
-            DISTRHO_SAFE_ASSERT_UINT_RETURN(inDataSize == sizeof(CFStringRef), inDataSize, kAudioUnitErr_InvalidPropertyValue);
+            DISTRHO_SAFE_ASSERT_UINT_RETURN(inDataSize == sizeof(CFDictionaryRef), inDataSize, kAudioUnitErr_InvalidPropertyValue);
            #if DISTRHO_PLUGIN_WANT_STATE
-            DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement < fStateCount, inElement, kAudioUnitErr_InvalidElement);
+            DISTRHO_SAFE_ASSERT_UINT_RETURN(inElement == 0, inElement, kAudioUnitErr_InvalidElement);
             {
-                const CFStringRef valueRef = *static_cast<const CFStringRef*>(inData);
+                const CFDictionaryRef dictRef = *static_cast<const CFDictionaryRef*>(inData);
+                DISTRHO_SAFE_ASSERT_RETURN(CFGetTypeID(dictRef) == CFDictionaryGetTypeID(),
+                                           kAudioUnitErr_InvalidPropertyValue);
+                DISTRHO_SAFE_ASSERT_RETURN(CFDictionaryGetCount(dictRef) == 1, kAudioUnitErr_InvalidPropertyValue);
+
+                CFStringRef keyRef = nullptr;
+                CFStringRef valueRef = nullptr;
+                CFDictionaryGetKeysAndValues(dictRef,
+                                             reinterpret_cast<const void**>(&keyRef),
+                                             reinterpret_cast<const void**>(&valueRef));
+                DISTRHO_SAFE_ASSERT_RETURN(keyRef != nullptr && CFGetTypeID(keyRef) == CFStringGetTypeID(),
+                                           kAudioUnitErr_InvalidPropertyValue);
                 DISTRHO_SAFE_ASSERT_RETURN(valueRef != nullptr && CFGetTypeID(valueRef) == CFStringGetTypeID(),
                                            kAudioUnitErr_InvalidPropertyValue);
 
-                const CFIndex valueLen = CFStringGetLength(valueRef);
-                char* const value = static_cast<char*>(std::malloc(valueLen + 1));
-                DISTRHO_SAFE_ASSERT_RETURN(value != nullptr, kAudio_ParamError);
-                DISTRHO_SAFE_ASSERT_RETURN(CFStringGetCString(valueRef, value, valueLen + 1, kCFStringEncodingUTF8),
+                const CFIndex keyRefLen = CFStringGetLength(keyRef);
+                char* key = static_cast<char*>(std::malloc(keyRefLen + 1));
+                DISTRHO_SAFE_ASSERT_RETURN(CFStringGetCString(keyRef, key, keyRefLen + 1, kCFStringEncodingASCII),
                                            kAudioUnitErr_InvalidPropertyValue);
 
-                const String& key(fPlugin.getStateKey(inElement));
+                const CFIndex valueRefLen = CFStringGetLength(valueRef);
+                char* value = static_cast<char*>(std::malloc(valueRefLen + 1));
+                DISTRHO_SAFE_ASSERT_RETURN(CFStringGetCString(valueRef, value, valueRefLen + 1, kCFStringEncodingUTF8),
+                                           kAudioUnitErr_InvalidPropertyValue);
+
+                const String dkey(key);
 
                 // save this key as needed
-                if (fPlugin.wantStateKey(key))
-                    fStateMap[key] = value;
+                if (fPlugin.wantStateKey(dkey))
+                    fStateMap[dkey] = value;
 
-                fPlugin.setState(key, value);
+                fPlugin.setState(dkey, value);
 
+                std::free(key);
                 std::free(value);
             }
             return noErr;
@@ -1821,7 +1849,12 @@ public:
         DISTRHO_SAFE_ASSERT_UINT_RETURN(scope == kAudioUnitScope_Global || scope == kAudioUnitScope_Input || scope == kAudioUnitScope_Output, scope, kAudioUnitErr_InvalidScope);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(elem == 0, elem, kAudioUnitErr_InvalidElement);
 
-        if (fPlugin.isActive())
+        if (fResetParameterIndex != UINT32_MAX)
+        {
+            fPlugin.setParameterValue(fResetParameterIndex, 1.f);
+            fPlugin.setParameterValue(fResetParameterIndex, 0.f);
+        }
+        else if (fPlugin.isActive())
         {
             fPlugin.deactivate();
             fPlugin.activate();
@@ -2180,6 +2213,7 @@ private:
     const uint32_t fParameterCount;
     float* fLastParameterValues;
     uint32_t fBypassParameterIndex;
+    uint32_t fResetParameterIndex;
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     uint32_t fMidiEventCount;
@@ -2220,7 +2254,7 @@ private:
             const PropertyListener& pl(*it);
 
             if (pl.prop == prop)
-			    pl.proc(pl.userData, fComponent, prop, scope, elem);
+                pl.proc(pl.userData, fComponent, prop, scope, elem);
         }
     }
 
@@ -2545,12 +2579,12 @@ private:
                     CFStringRef keyRef = CFStringCreateWithCString(nullptr, key, kCFStringEncodingASCII);
                     CFStringRef valueRef = CFStringCreateWithCString(nullptr, value, kCFStringEncodingUTF8);
 
-                    if (CFDictionaryRef dictRef = CFDictionaryCreate(nullptr,
-                                                                     reinterpret_cast<const void**>(&keyRef),
-                                                                     reinterpret_cast<const void**>(&valueRef),
-                                                                     1,
-                                                                     &kCFTypeDictionaryKeyCallBacks,
-                                                                     &kCFTypeDictionaryValueCallBacks))
+                    if (const CFDictionaryRef dictRef = CFDictionaryCreate(nullptr,
+                                                                           reinterpret_cast<const void**>(&keyRef),
+                                                                           reinterpret_cast<const void**>(&valueRef),
+                                                                           1,
+                                                                           &kCFTypeDictionaryKeyCallBacks,
+                                                                           &kCFTypeDictionaryValueCallBacks))
                     {
                         CFArrayAppendValue(statesRef, dictRef);
                         CFRelease(dictRef);
@@ -2845,7 +2879,7 @@ private:
 // --------------------------------------------------------------------------------------------------------------------
 
 struct AudioComponentPlugInInstance {
-	AudioComponentPlugInInterface acpi;
+    AudioComponentPlugInInterface acpi;
     PluginAU* plugin;
 
     AudioComponentPlugInInstance() noexcept
@@ -2854,9 +2888,9 @@ struct AudioComponentPlugInInstance {
     {
         std::memset(&acpi, 0, sizeof(acpi));
         acpi.Open = Open;
-		acpi.Close = Close;
-		acpi.Lookup = Lookup;
-		acpi.reserved = nullptr;
+        acpi.Close = Close;
+        acpi.Lookup = Lookup;
+        acpi.reserved = nullptr;
     }
 
     ~AudioComponentPlugInInstance()
@@ -2864,7 +2898,7 @@ struct AudioComponentPlugInInstance {
         delete plugin;
     }
 
-	static OSStatus Open(void* const self, const AudioUnit component)
+    static OSStatus Open(void* const self, const AudioUnit component)
     {
         d_debug("AudioComponentPlugInInstance::Open(%p)", self);
 
@@ -2872,7 +2906,7 @@ struct AudioComponentPlugInInstance {
         return noErr;
     }
 
-	static OSStatus Close(void* const self)
+    static OSStatus Close(void* const self)
     {
         d_debug("AudioComponentPlugInInstance::Close(%p)", self);
 
@@ -2964,15 +2998,15 @@ struct AudioComponentPlugInInstance {
         d_debug("AudioComponentPlugInInstance::GetPropertyInfo(%p, %d:%x:%s, %d:%s, %d, ...)",
                 self, inProp, inProp, AudioUnitPropertyID2Str(inProp), inScope, AudioUnitScope2Str(inScope), inElement);
 
-		UInt32 dataSize = 0;
-		Boolean writable = false;
+        UInt32 dataSize = 0;
+        Boolean writable = false;
         const OSStatus res = self->plugin->auGetPropertyInfo(inProp, inScope, inElement, dataSize, writable);
 
-		if (outDataSize != nullptr)
-			*outDataSize = dataSize;
+        if (outDataSize != nullptr)
+            *outDataSize = dataSize;
 
-		if (outWritable != nullptr)
-			*outWritable = writable;
+        if (outWritable != nullptr)
+            *outWritable = writable;
 
         return res;
     }
@@ -3016,24 +3050,24 @@ struct AudioComponentPlugInInstance {
         if (res != noErr)
             return res;
 
-		void* outBuffer;
+        void* outBuffer;
         uint8_t* tmpBuffer;
         if (inDataSize < outDataSize)
-		{
-			tmpBuffer = new uint8_t[outDataSize];
-			outBuffer = tmpBuffer;
-		}
+        {
+            tmpBuffer = new uint8_t[outDataSize];
+            outBuffer = tmpBuffer;
+        }
         else
         {
-			tmpBuffer = nullptr;
-			outBuffer = outData;
-		}
+            tmpBuffer = nullptr;
+            outBuffer = outData;
+        }
 
         res = self->plugin->auGetProperty(inProp, inScope, inElement, outBuffer);
 
-		if (res != noErr)
+        if (res != noErr)
         {
-			*ioDataSize = 0;
+            *ioDataSize = 0;
             return res;
         }
 

@@ -1,10 +1,10 @@
 # DISTRHO Plugin Framework (DPF)
 # Copyright (C) 2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
-# Copyright (C) 2022-2024 Filipe Coelho <falktx@falktx.com>
+# Copyright (C) 2022-2025 Filipe Coelho <falktx@falktx.com>
 #
 # SPDX-License-Identifier: ISC
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.8)
 
 project(DPF)
 
@@ -34,11 +34,11 @@ if(DPF_LIBRARIES)
   if(PKG_CONFIG_FOUND)
     pkg_check_modules(CAIRO "cairo")
     if(CAIRO_FOUND AND (NOT HAIKU))
-      dpf__add_dgl_cairo(TRUE, TRUE)
+      dpf__add_dgl_cairo(TRUE, TRUE, TRUE)
     endif()
   endif()
-  dpf__add_dgl_external(TRUE)
-  dpf__add_dgl_opengl(TRUE, TRUE)
+  dpf__add_dgl_external(TRUE, TRUE)
+  dpf__add_dgl_opengl(TRUE, TRUE, TRUE)
 endif()
 
 if(DPF_EXAMPLES)
