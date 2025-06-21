@@ -43,7 +43,6 @@ OBJS_common = \
 	$(BUILD_DIR)/dgl/Geometry.cpp.o \
 	$(BUILD_DIR)/dgl/ImageBase.cpp.o \
 	$(BUILD_DIR)/dgl/ImageBaseWidgets.cpp.o \
-	$(BUILD_DIR)/dgl/Layout.cpp.o \
 	$(BUILD_DIR)/dgl/Resources.cpp.o \
 	$(BUILD_DIR)/dgl/SubWidget.cpp.o \
 	$(BUILD_DIR)/dgl/SubWidgetPrivateData.cpp.o \

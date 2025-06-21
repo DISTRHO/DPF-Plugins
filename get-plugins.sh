@@ -35,16 +35,40 @@ mkdir plugins
 mv repos/DPF dpf
 rm -rf dpf/.git*
 rm -rf dpf/.travis*
+rm -rf dpf/distrho/extra/choc
+rm -rf dpf/distrho/extra/sofd
+rm -rf dpf/dgl/pugl-extra
 rm -rf dpf/dgl/src/pugl-upstream/bindings
 rm -rf dpf/dgl/src/pugl-upstream/doc
 rm -rf dpf/dgl/src/pugl-upstream/examples
 rm -rf dpf/dgl/src/pugl-upstream/meson*
 rm -rf dpf/dgl/src/pugl-upstream/resources
 rm -rf dpf/dgl/src/pugl-upstream/scripts
+rm -rf dpf/dgl/src/pugl-upstream/subprojects
 rm -rf dpf/dgl/src/pugl-upstream/test
+rm -rf dpf/cmake
 rm -rf dpf/examples
+rm -rf dpf/lac
 rm -rf dpf/tests
 rm -f  dpf/Makefile
+rm -f  dpf/dgl/FileBrowserDialog.hpp
+rm -f  dpf/dgl/Layout.hpp
+rm -f  dpf/dgl/Vulkan.hpp
+rm -f  dpf/dgl/WebView.hpp
+rm -f  dpf/dgl/src/Layout.cpp
+rm -f  dpf/dgl/src/Stub.cpp
+rm -f  dpf/dgl/src/Vulkan.cpp
+rm -f  dpf/dgl/src/WebViewWin32.cpp
+rm -f  dpf/distrho/extra/Base64.hpp
+rm -f  dpf/distrho/extra/ChildProcess.hpp
+rm -f  dpf/distrho/extra/ExternalWindow.hpp
+rm -f  dpf/distrho/extra/FileBrowserDialog*
+rm -f  dpf/distrho/extra/Filesystem.hpp
+rm -f  dpf/distrho/extra/Runner.hpp
+rm -f  dpf/distrho/extra/Time.hpp
+rm -f  dpf/distrho/extra/WebView*
+
+sed -i '/	$(BUILD_DIR)\/dgl\/Layout.cpp.o \\/d' dpf/dgl/Makefile
 
 for PLUGIN in ${PLUGINS[@]}; do
   for f in $(ls repos/${PLUGIN}/plugins/); do
