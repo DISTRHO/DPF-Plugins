@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -106,10 +106,11 @@ public:
 
       The following example code can be use to extract individual colors:
       ```
-      const int red   = (bgColor >> 24) & 0xff;
-      const int green = (bgColor >> 16) & 0xff;
-      const int blue  = (bgColor >>  8) & 0xff;
+      int red   = (bgColor >> 24) & 0xff;
+      int green = (bgColor >> 16) & 0xff;
+      int blue  = (bgColor >>  8) & 0xff;
       ```
+      @see Color::fromRGB
     */
     uint getBackgroundColor() const noexcept;
 
@@ -119,10 +120,11 @@ public:
 
       The following example code can be use to extract individual colors:
       ```
-      const int red   = (fgColor >> 24) & 0xff;
-      const int green = (fgColor >> 16) & 0xff;
-      const int blue  = (fgColor >>  8) & 0xff;
+      int red   = (fgColor >> 24) & 0xff;
+      int green = (fgColor >> 16) & 0xff;
+      int blue  = (fgColor >>  8) & 0xff;
       ```
+      @see Color::fromRGB
     */
     uint getForegroundColor() const noexcept;
 
@@ -289,19 +291,13 @@ protected:
     */
     virtual void uiFocus(bool focus, DGL_NAMESPACE::CrossingMode mode);
 
-   /**
-      Window reshape function, called when the window is resized.
-      This function is for plugin UIs to be able to override Window::onReshape(uint, uint).
-
-      The plugin UI size will be set right after this function.
-      The default implementation sets up the drawing context where necessary.
-
-      You should almost never need to override this function.
-      The most common exception is custom OpenGL setup, but only really needed for custom OpenGL drawing code.
-    */
+   #if DGL_ALLOW_DEPRECATED_METHODS
+   /** DEPRECATED DO NOT USE */
+    DISTRHO_DEPRECATED
     virtual void uiReshape(uint width, uint height);
+   #endif
 
-#if DISTRHO_UI_FILE_BROWSER
+   #if DISTRHO_UI_FILE_BROWSER
    /**
       Window file selected function, called when a path is selected by the user, as triggered by openFileBrowser().
       This function is for plugin UIs to be able to override Window::onFileSelected(const char*).
@@ -312,7 +308,7 @@ protected:
       If you need to use files as plugin state, please setup and use states with kStateIsFilenamePath instead.
     */
     virtual void uiFileBrowserSelected(const char* filename);
-#endif
+   #endif
 
    /* --------------------------------------------------------------------------------------------------------
     * UI Resize Handling, internal */

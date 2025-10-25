@@ -367,6 +367,7 @@ void lv2_generate_ttl(const char* const basename)
 #if DISTRHO_LV2_USE_EVENTS_IN || DISTRHO_LV2_USE_EVENTS_OUT
         pluginString += "@prefix atom:  <" LV2_ATOM_PREFIX "> .\n";
 #endif
+        pluginString += "@prefix dg:    <http://www.darkglass.com/lv2/ns#> .\n";
         pluginString += "@prefix doap:  <http://usefulinc.com/ns/doap#> .\n";
         pluginString += "@prefix foaf:  <http://xmlns.com/foaf/0.1/> .\n";
         pluginString += "@prefix lv2:   <" LV2_CORE_PREFIX "> .\n";
@@ -996,6 +997,22 @@ void lv2_generate_ttl(const char* const basename)
                     pluginString += "    rdfs:comment \"" + comment + "\" ;\n\n";
             }
         }
+
+        // Darkglass Anagram
+       #ifdef DISTRHO_PLUGIN_ABBREVIATION
+        pluginString += "    dg:abbreviation \"" DISTRHO_PLUGIN_ABBREVIATION "\" ;\n";
+       #endif
+       #ifdef DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_OFF
+        pluginString += "    dg:blockImageOff <" DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_OFF "> ;\n";
+       #endif
+       #ifdef DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_ON
+        pluginString += "    dg:blockImageOn <" DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_ON "> ;\n";
+       #endif
+       #if defined(DISTRHO_PLUGIN_ABBREVIATION) || \
+           defined(DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_OFF) || \
+           defined(DISTRHO_PLUGIN_ANAGRAM_BLOCK_IMAGE_ON)
+        pluginString += "\n";
+       #endif
 
        #ifdef DISTRHO_PLUGIN_BRAND
         // MOD

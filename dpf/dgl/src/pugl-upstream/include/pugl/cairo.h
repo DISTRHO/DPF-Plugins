@@ -4,8 +4,8 @@
 #ifndef PUGL_CAIRO_H
 #define PUGL_CAIRO_H
 
-#include "pugl/attributes.h"
-#include "pugl/pugl.h"
+#include <pugl/attributes.h>
+#include <pugl/pugl.h>
 
 PUGL_BEGIN_DECLS
 
@@ -21,8 +21,7 @@ PUGL_BEGIN_DECLS
 
    Pass the returned value to puglSetBackend() to draw to a view with Cairo.
 */
-PUGL_CONST_API
-const PuglBackend*
+PUGL_CONST_API const PuglBackend*
 puglCairoBackend(void);
 
 /**

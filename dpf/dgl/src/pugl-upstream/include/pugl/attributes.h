@@ -26,17 +26,6 @@
 #  endif
 #endif
 
-// Deprecated API
-#ifndef PUGL_DISABLE_DEPRECATED
-#  if defined(__clang__)
-#    define PUGL_DEPRECATED_BY(rep) __attribute__((deprecated("", rep)))
-#  elif defined(__GNUC__)
-#    define PUGL_DEPRECATED_BY(rep) __attribute__((deprecated("Use " rep)))
-#  else
-#    define PUGL_DEPRECATED_BY(rep)
-#  endif
-#endif
-
 // GCC function attributes
 #if defined(__GNUC__)
 #  define PUGL_CONST_FUNC __attribute__((const))
@@ -47,13 +36,9 @@
 #endif
 
 /// A const function in the public API that only reads parameters
-#define PUGL_CONST_API \
-  PUGL_API             \
-  PUGL_CONST_FUNC
+#define PUGL_CONST_API PUGL_API PUGL_CONST_FUNC
 
 /// A malloc function in the public API that returns allocated memory
-#define PUGL_MALLOC_API \
-  PUGL_API              \
-  PUGL_MALLOC_FUNC
+#define PUGL_MALLOC_API PUGL_API PUGL_MALLOC_FUNC
 
 #endif // PUGL_ATTRIBUTES_H

@@ -20,16 +20,14 @@
 #  Tweak `nvgTextBreakLines` to allow space characters
 #  FIXME proper details
 
-# NVG_FONT_TEXTURE_FLAGS=0
-# FILE_BROWSER_DISABLED=true
-# WINDOWS_ICON_ID=0
-# USE_GLES2=true
-# USE_GLES3=true
-# USE_OPENGL3=true
-# USE_NANOVG_FBO=true
-# USE_NANOVG_FREETYPE=true
+# NVG_FONT_TEXTURE_FLAGS=
+# WINDOWS_ICON_ID=
+# USE_NANOVG_FBO=false
+# USE_NANOVG_FREETYPE=false
 # USE_FILE_BROWSER=true
-# USE_WEB_VIEW=true
+# USE_GLES2=false
+# USE_GLES3=false
+# USE_WEB_VIEW=false
 
 # STATIC_BUILD=true
 #  Tweak build to be able to generate fully static builds (e.g. skip use of libdl)
@@ -333,6 +331,10 @@ BASE_FLAGS += -DNDEBUG $(BASE_OPTS) -fvisibility=hidden
 CXXFLAGS   += -fvisibility-inlines-hidden
 endif
 
+ifeq ($(WASM),true)
+LINK_OPTS  += -sALLOW_MEMORY_GROWTH
+endif
+
 ifeq ($(WITH_LTO),true)
 BASE_FLAGS += -fno-strict-aliasing -flto
 LINK_OPTS  += -fno-strict-aliasing -flto -Werror=odr
@@ -469,7 +471,7 @@ endif
 else ifeq ($(WASM),true)
 
 # wasm builds cannot work using regular desktop OpenGL
-ifeq (,$(USE_GLES2)$(USE_GLES3))
+ifeq (,$(findstring true,$(USE_GLES2)$(USE_GLES3)))
 USE_GLES2 = true
 endif
 
@@ -486,11 +488,9 @@ endif
 
 else
 
-ifneq ($(FILE_BROWSER_DISABLED),true)
-ifeq ($(HAVE_DBUS),true)
+ifeq ($(USE_FILE_BROWSER)$(HAVE_DBUS),truetrue)
 DGL_FLAGS       += $(shell $(PKG_CONFIG) --cflags dbus-1) -DHAVE_DBUS
 DGL_SYSTEM_LIBS += $(shell $(PKG_CONFIG) --libs dbus-1)
-endif
 endif
 
 ifeq ($(HAVE_X11),true)
@@ -544,14 +544,16 @@ else ifeq ($(MACOS),true)
 OPENGL_FLAGS = -DGL_SILENCE_DEPRECATION=1 -Wno-deprecated-declarations
 OPENGL_LIBS  = -framework OpenGL
 else ifeq ($(WASM),true)
-ifeq ($(USE_GLES2),true)
+OPENGL_FLAGS =
+ifeq ($(USE_GLES3),true)
+OPENGL_LIBS  = -sMIN_WEBGL_VERSION=3 -sMAX_WEBGL_VERSION=3
+else ifeq ($(USE_GLES2),true)
 OPENGL_LIBS  = -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2
 else
-ifneq ($(USE_GLES3),true)
-OPENGL_LIBS  =  -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
-endif
+OPENGL_LIBS  = -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
 endif
 else ifeq ($(WINDOWS),true)
+OPENGL_FLAGS =
 OPENGL_LIBS  = -lopengl32
 else
 OPENGL_FLAGS = $(shell $(PKG_CONFIG) --cflags gl x11)
@@ -581,7 +583,7 @@ DGL_FLAGS   += -DHAVE_VULKAN
 VULKAN_FLAGS  = $(shell $(PKG_CONFIG) --cflags vulkan)
 VULKAN_LIBS   = $(shell $(PKG_CONFIG) --libs vulkan)
 
-ifneq ($(WINDOWS),true)
+ifneq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 VULKAN_LIBS  += -ldl
 endif
 
@@ -666,13 +668,9 @@ endif
 
 ifeq ($(USE_GLES2),true)
 BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3 -DDGL_USE_GLES -DDGL_USE_GLES2
-endif
-
-ifeq ($(USE_GLES3),true)
+else ifeq ($(USE_GLES3),true)
 BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3 -DDGL_USE_GLES -DDGL_USE_GLES3
-endif
-
-ifeq ($(USE_OPENGL3),true)
+else ifeq ($(USE_OPENGL3),true)
 BUILD_CXX_FLAGS += -DDGL_USE_OPENGL3
 endif
 
@@ -700,7 +698,7 @@ endif
 # Set app extension
 
 ifeq ($(WASM),true)
-APP_EXT = .html
+APP_EXT = .js
 else ifeq ($(WINDOWS),true)
 APP_EXT = .exe
 endif

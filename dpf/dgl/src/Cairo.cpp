@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  * Copyright (C) 2019-2021 Jean Pierre Cimalando <jp-dev@inbox.ru>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
@@ -32,21 +32,43 @@
 // templated classes
 #include "ImageBaseWidgets.cpp"
 
+// --------------------------------------------------------------------------------------------------------------------
+// Check for correct build config
+
+#ifndef DGL_CAIRO
+# error Build config error, Cairo was NOT requested while building Cairo code
+#endif
+#ifdef DGL_OPENGL
+# error Build config error, OpenGL requested while building Cairo code
+#endif
+#ifdef DGL_VULKAN
+# error Build config error, Vulkan requested while building Cairo code
+#endif
+#ifdef DGL_USE_GLES2
+# error Build config error, GLESv2 requested while building Cairo code
+#endif
+#ifdef DGL_USE_GLES3
+# error Build config error, GLESv3 requested while building Cairo code
+#endif
+#ifdef DGL_USE_OPENGL3
+# error Build config error, OpenGL3 requested while building Cairo code
+#endif
+
 START_NAMESPACE_DGL
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 static void notImplemented(const char* const name)
 {
-    d_stderr2("cairo function not implemented: %s", name);
+    d_stderr2("Cairo function not implemented: %s", name);
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // Color
 
 void Color::setFor(const GraphicsContext& context, const bool includeAlpha)
 {
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     if (includeAlpha)
         cairo_set_source_rgba(handle, red, green, blue, alpha);
@@ -54,7 +76,7 @@ void Color::setFor(const GraphicsContext& context, const bool includeAlpha)
         cairo_set_source_rgb(handle, red, green, blue);
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // Line
 
 template<typename T>
@@ -63,7 +85,7 @@ void Line<T>::draw(const GraphicsContext& context, const T width)
     DISTRHO_SAFE_ASSERT_RETURN(posStart != posEnd,);
     DISTRHO_SAFE_ASSERT_RETURN(width != 0,);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     cairo_set_line_width(handle, width);
     cairo_move_to(handle, posStart.getX(), posStart.getY());
@@ -71,18 +93,13 @@ void Line<T>::draw(const GraphicsContext& context, const T width)
     cairo_stroke(handle);
 }
 
+#if DGL_ALLOW_DEPRECATED_METHODS
 template<typename T>
 void Line<T>::draw()
 {
     notImplemented("Line::draw");
 }
-
-template class Line<double>;
-template class Line<float>;
-template class Line<int>;
-template class Line<uint>;
-template class Line<short>;
-template class Line<ushort>;
+#endif
 
 // -----------------------------------------------------------------------
 // Circle
@@ -129,7 +146,7 @@ static void drawCircle(cairo_t* const handle,
 template<typename T>
 void Circle<T>::draw(const GraphicsContext& context)
 {
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     drawCircle<T>(handle, fPos, fNumSegments, fSize, fSin, fCos, false);
 }
@@ -139,12 +156,13 @@ void Circle<T>::drawOutline(const GraphicsContext& context, const T lineWidth)
 {
     DISTRHO_SAFE_ASSERT_RETURN(lineWidth != 0,);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     cairo_set_line_width(handle, lineWidth);
     drawCircle<T>(handle, fPos, fNumSegments, fSize, fSin, fCos, true);
 }
 
+#if DGL_ALLOW_DEPRECATED_METHODS
 template<typename T>
 void Circle<T>::draw()
 {
@@ -156,13 +174,7 @@ void Circle<T>::drawOutline()
 {
     notImplemented("Circle::drawOutline");
 }
-
-template class Circle<double>;
-template class Circle<float>;
-template class Circle<int>;
-template class Circle<uint>;
-template class Circle<short>;
-template class Circle<ushort>;
+#endif
 
 // -----------------------------------------------------------------------
 // Triangle
@@ -190,7 +202,7 @@ static void drawTriangle(cairo_t* const handle,
 template<typename T>
 void Triangle<T>::draw(const GraphicsContext& context)
 {
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     drawTriangle<T>(handle, pos1, pos2, pos3, false);
 }
@@ -200,12 +212,13 @@ void Triangle<T>::drawOutline(const GraphicsContext& context, const T lineWidth)
 {
     DISTRHO_SAFE_ASSERT_RETURN(lineWidth != 0,);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     cairo_set_line_width(handle, lineWidth);
     drawTriangle<T>(handle, pos1, pos2, pos3, true);
 }
 
+#if DGL_ALLOW_DEPRECATED_METHODS
 template<typename T>
 void Triangle<T>::draw()
 {
@@ -217,13 +230,7 @@ void Triangle<T>::drawOutline()
 {
     notImplemented("Triangle::drawOutline");
 }
-
-template class Triangle<double>;
-template class Triangle<float>;
-template class Triangle<int>;
-template class Triangle<uint>;
-template class Triangle<short>;
-template class Triangle<ushort>;
+#endif
 
 // -----------------------------------------------------------------------
 // Rectangle
@@ -244,7 +251,7 @@ void Rectangle<T>::draw(const GraphicsContext& context)
 {
     DISTRHO_SAFE_ASSERT_RETURN(isValid(),);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     drawRectangle(handle, *this, false);
 }
@@ -255,12 +262,13 @@ void Rectangle<T>::drawOutline(const GraphicsContext& context, const T lineWidth
     DISTRHO_SAFE_ASSERT_RETURN(isValid(),);
     DISTRHO_SAFE_ASSERT_RETURN(lineWidth != 0,);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     cairo_set_line_width(handle, lineWidth);
     drawRectangle(handle, *this, true);
 }
 
+#if DGL_ALLOW_DEPRECATED_METHODS
 template<typename T>
 void Rectangle<T>::draw()
 {
@@ -272,13 +280,7 @@ void Rectangle<T>::drawOutline()
 {
     notImplemented("Rectangle::drawOutline");
 }
-
-template class Rectangle<double>;
-template class Rectangle<float>;
-template class Rectangle<int>;
-template class Rectangle<uint>;
-template class Rectangle<short>;
-template class Rectangle<ushort>;
+#endif
 
 // -----------------------------------------------------------------------
 // CairoImage
@@ -516,7 +518,7 @@ void CairoImage::loadFromPNG(const char* const pngData, const uint pngSize) noex
     if (datarefcount != nullptr && --(*datarefcount) == 0)
         std::free(surfacedata);
     else
-        datarefcount = (int*)malloc(sizeof(*datarefcount));
+        datarefcount = static_cast<int*>(malloc(sizeof(*datarefcount)));
 
     surface = newsurface;
     surfacedata = nullptr; // cairo_image_surface_get_data(newsurface);
@@ -531,7 +533,7 @@ void CairoImage::drawAt(const GraphicsContext& context, const Point<int>& pos)
 {
     DISTRHO_SAFE_ASSERT_RETURN(surface != nullptr,);
 
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
 
     cairo_set_source_surface(handle, surface, pos.getX(), pos.getY());
     cairo_paint(handle);
@@ -623,7 +625,7 @@ void ImageBaseKnob<CairoImage>::PrivateData::init()
 template <>
 void ImageBaseKnob<CairoImage>::PrivateData::cleanup()
 {
-    cairo_surface_destroy((cairo_surface_t*)cairoSurface);
+    cairo_surface_destroy(static_cast<cairo_surface_t*>(cairoSurface));
     cairoSurface = nullptr;
 }
 
@@ -672,10 +674,10 @@ template <>
 void ImageBaseKnob<CairoImage>::onDisplay()
 {
     const GraphicsContext& context(getGraphicsContext());
-    cairo_t* const handle = ((const CairoGraphicsContext&)context).handle;
+    cairo_t* const handle = static_cast<const CairoGraphicsContext&>(context).handle;
     const double normValue = getNormalizedValue();
 
-    cairo_surface_t* surface = (cairo_surface_t*)pData->cairoSurface;
+    cairo_surface_t* surface = static_cast<cairo_surface_t*>(pData->cairoSurface);
 
     if (! pData->isReady)
     {
@@ -826,15 +828,57 @@ void Window::PrivateData::renderToPicture(const char*, const GraphicsContext&, u
     notImplemented("Window::PrivateData::renderToPicture");
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
-const GraphicsContext& Window::PrivateData::getGraphicsContext() const noexcept
+void Window::PrivateData::createContextIfNeeded()
 {
-    GraphicsContext& context((GraphicsContext&)graphicsContext);
-    ((CairoGraphicsContext&)context).handle = (cairo_t*)puglGetContext(view);
-    return context;
 }
 
-// -----------------------------------------------------------------------
+void Window::PrivateData::destroyContext()
+{
+}
+
+void Window::PrivateData::startContext()
+{
+    reinterpret_cast<CairoGraphicsContext&>(graphicsContext).handle = static_cast<cairo_t*>(puglGetContext(view));
+}
+
+void Window::PrivateData::endContext()
+{
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+#ifndef DGL_GEOMETRY_CPP_INCLUDED
+template class Line<double>;
+template class Line<float>;
+template class Line<int>;
+template class Line<uint>;
+template class Line<short>;
+template class Line<ushort>;
+
+template class Circle<double>;
+template class Circle<float>;
+template class Circle<int>;
+template class Circle<uint>;
+template class Circle<short>;
+template class Circle<ushort>;
+
+template class Triangle<double>;
+template class Triangle<float>;
+template class Triangle<int>;
+template class Triangle<uint>;
+template class Triangle<short>;
+template class Triangle<ushort>;
+
+template class Rectangle<double>;
+template class Rectangle<float>;
+template class Rectangle<int>;
+template class Rectangle<uint>;
+template class Rectangle<short>;
+template class Rectangle<ushort>;
+#endif
+
+// --------------------------------------------------------------------------------------------------------------------
 
 END_NAMESPACE_DGL

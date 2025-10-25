@@ -91,10 +91,10 @@ static PuglView* puglNewViewWithParentWindow(PuglWorld* const world, const uintp
 
     if (PuglView* const view = puglNewView(world))
     {
-        puglSetParentWindow(view, parentWindowHandle);
+        puglSetParent(view, parentWindowHandle);
 
         if (parentWindowHandle != 0)
-            puglSetPosition(view, 0, 0);
+            puglSetPositionHint(view, PUGL_DEFAULT_POSITION, 0, 0);
 
         return view;
     }
@@ -268,6 +268,7 @@ Window::PrivateData::~PrivateData()
         isVisible = false;
     }
 
+    destroyContext();
     puglFreeView(view);
 }
 
@@ -300,8 +301,8 @@ void Window::PrivateData::initPre(const uint width, const uint height, const boo
     // PUGL_SAMPLES ??
     puglSetEventFunc(view, puglEventCallback);
 
-    // setting default size triggers system-level calls, do it last
-    puglSetSizeHint(view, PUGL_DEFAULT_SIZE, static_cast<PuglSpan>(width), static_cast<PuglSpan>(height));
+    // setting size triggers system-level calls, do it last
+    puglSetSizeAndDefault(view, width, height);
 }
 
 bool Window::PrivateData::initPost()
@@ -365,10 +366,6 @@ void Window::PrivateData::show()
     {
         isClosed = false;
         appData->oneWindowShown();
-
-        // FIXME
-//         PuglRect rect = puglGetFrame(view);
-//         puglSetWindowSize(view, static_cast<uint>(rect.width), static_cast<uint>(rect.height));
 
 #if defined(DISTRHO_OS_WINDOWS)
         puglWin32ShowCentered(view);
@@ -451,6 +448,13 @@ void Window::PrivateData::setResizable(const bool resizable)
     DGL_DBG("Window setResizable called\n");
 
     puglSetResizable(view, resizable);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+const GraphicsContext& Window::PrivateData::getGraphicsContext() const noexcept
+{
+    return reinterpret_cast<const GraphicsContext&>(graphicsContext);
 }
 
 // -----------------------------------------------------------------------
@@ -538,9 +542,9 @@ bool Window::PrivateData::createWebView(const char* const url, const DGL_NAMESPA
     if (webViewHandle != nullptr)
         webViewDestroy(webViewHandle);
 
-    const PuglRect rect = puglGetFrame(view);
-    uint initialWidth = static_cast<uint>(rect.width) - options.offset.x;
-    uint initialHeight = static_cast<uint>(rect.height) - options.offset.y;
+    const PuglArea size = puglGetSizeHint(view, PUGL_CURRENT_SIZE);
+    uint initialWidth = size.width - options.offset.x;
+    uint initialHeight = size.height - options.offset.y;
 
     webViewOffset = Point<int>(options.offset.x, options.offset.y);
 
@@ -640,6 +644,8 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
 
     DGL_DBGp("PUGL: onReshape : %d %d\n", width, height);
 
+    createContextIfNeeded();
+
     if (autoScaling)
     {
         const double scaleHorizontal = width  / static_cast<double>(minWidth);
@@ -662,9 +668,27 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
                       autoScaling ? autoScaleFactor : scaleFactor);
    #endif
 
+  #if DGL_ALLOW_DEPRECATED_METHODS
+   #if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable:4996)
+   #elif defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+   #endif
     self->onReshape(uwidth, uheight);
+   #if defined(_MSC_VER)
+    #pragma warning(pop)
+   #elif defined(__clang__)
+    #pragma clang diagnostic pop
+   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
+    #pragma GCC diagnostic pop
+   #endif
+  #endif
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET(it)
     {
         TopLevelWidget* const widget = *it;
@@ -679,10 +703,9 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
          */
         ((Widget*)widget)->setSize(uwidth, uheight);
     }
-#endif
 
     // always repaint after a resize
-    puglPostRedisplay(view);
+    puglObscureView(view);
 }
 
 void Window::PrivateData::onPuglExpose()
@@ -691,7 +714,8 @@ void Window::PrivateData::onPuglExpose()
 
     puglOnDisplayPrepare(view);
 
-#ifndef DPF_TEST_WINDOW_CPP
+    startContext();
+
     FOR_EACH_TOP_LEVEL_WIDGET(it)
     {
         TopLevelWidget* const widget(*it);
@@ -702,12 +726,13 @@ void Window::PrivateData::onPuglExpose()
 
     if (char* const filename = filenameToRenderInto)
     {
-        const PuglRect rect = puglGetFrame(view);
+        const PuglArea size = puglGetSizeHint(view, PUGL_CURRENT_SIZE);
         filenameToRenderInto = nullptr;
-        renderToPicture(filename, getGraphicsContext(), static_cast<uint>(rect.width), static_cast<uint>(rect.height));
+        renderToPicture(filename, getGraphicsContext(), size.width, size.height);
         std::free(filename);
     }
-#endif
+
+    endContext();
 }
 
 void Window::PrivateData::onPuglClose()
@@ -760,7 +785,6 @@ void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -768,7 +792,6 @@ void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
         if (widget->isVisible() && widget->onKeyboard(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
@@ -778,7 +801,6 @@ void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -786,7 +808,6 @@ void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
         if (widget->isVisible() && widget->onCharacterInput(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
@@ -796,7 +817,6 @@ void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -804,7 +824,6 @@ void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
         if (widget->isVisible() && widget->onMouse(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
@@ -814,7 +833,6 @@ void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -822,7 +840,6 @@ void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
         if (widget->isVisible() && widget->onMotion(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
@@ -832,7 +849,6 @@ void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -840,7 +856,6 @@ void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
         if (widget->isVisible() && widget->onScroll(ev))
             break;
     }
-#endif
 }
 
 const void* Window::PrivateData::getClipboard(size_t& dataSize)
@@ -978,7 +993,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
             SetClassLongPtr(view->impl->hwnd, GCLP_HICON, (LONG_PTR) LoadIcon(hInstance, MAKEINTRESOURCE(DGL_WINDOWS_ICON_ID)));
            #endif
            #ifdef DGL_USING_X11
-            puglX11SetWindowTypeAndPID(view, pData->appData->isStandalone);
+            puglX11SetWindowType(view, pData->appData->isStandalone);
            #endif
         }
         break;

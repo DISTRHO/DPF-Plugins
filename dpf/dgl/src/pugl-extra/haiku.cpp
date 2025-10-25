@@ -246,7 +246,7 @@ puglPostRedisplayRect(PuglView* const view, const PuglRect rect)
 }
 
 PuglNativeView
-puglGetNativeView(PuglView* const view)
+puglGetNativeView(const PuglView* const view)
 {
   return 0;
 }

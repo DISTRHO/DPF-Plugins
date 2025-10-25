@@ -479,6 +479,7 @@ public:
     */
     void setTransientParent(uintptr_t transientParentWindowHandle);
 
+   #if DGL_ALLOW_DEPRECATED_METHODS
    /** DEPRECATED Use isIgnoringKeyRepeat(). */
     DISTRHO_DEPRECATED_BY("isIgnoringKeyRepeat()")
     inline bool getIgnoringKeyRepeat() const noexcept { return isIgnoringKeyRepeat(); }
@@ -490,6 +491,7 @@ public:
    /** DEPRECATED Use runAsModal(bool). */
     DISTRHO_DEPRECATED_BY("runAsModal(bool)")
     inline void exec(bool blockWait = false) { runAsModal(blockWait); }
+   #endif
 
 protected:
    /**
@@ -528,12 +530,11 @@ protected:
     */
     virtual void onFocus(bool focus, CrossingMode mode);
 
-   /**
-      A function called when the window is resized.
-      If there is a top-level widget associated with this window, its size will be set right after this function.
-      The default implementation sets up drawing context where necessary.
-    */
+   #if DGL_ALLOW_DEPRECATED_METHODS
+   /** DEPRECATED DO NOT USE */
+    DISTRHO_DEPRECATED
     virtual void onReshape(uint width, uint height);
+   #endif
 
    /**
       A function called when scale factor requested for this window changes.
@@ -542,7 +543,7 @@ protected:
     */
     virtual void onScaleFactorChanged(double scaleFactor);
 
-   #ifdef DGL_USE_FILE_BROWSER
+  #ifdef DGL_USE_FILE_BROWSER
    /**
       A function called when a path is selected by the user, as triggered by openFileBrowser().
       This action happens after the user confirms the action, so the file browser dialog will be closed at this point.
@@ -550,10 +551,12 @@ protected:
     */
     virtual void onFileSelected(const char* filename);
 
+   #if DGL_ALLOW_DEPRECATED_METHODS
    /** DEPRECATED Use onFileSelected(). */
     DISTRHO_DEPRECATED_BY("onFileSelected(const char*)")
     inline virtual void fileBrowserSelected(const char* filename) { return onFileSelected(filename); }
    #endif
+  #endif
 
 private:
     PrivateData* const pData;

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -286,7 +286,7 @@ public:
        #else
         UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
-                         fPlugin.getInstancePointer(), scaleFactor);
+                         fPlugin.getInstancePointer(), scaleFactor, DGL_NAMESPACE::Application::kTypeClassic);
         *width = tmpUI.getWidth();
         *height = tmpUI.getHeight();
         scaleFactor = tmpUI.getScaleFactor();
@@ -306,13 +306,15 @@ public:
        #if DISTRHO_UI_USER_RESIZABLE
         if (UIExporter* const ui = fUI.get())
             return ui->isResizable();
-       #endif
+        return true;
+       #else
         return false;
+       #endif
     }
 
     bool getResizeHints(clap_gui_resize_hints_t* const hints) const
     {
-        if (canResize())
+        if (fUI != nullptr && fUI->isResizable())
         {
             uint minimumWidth, minimumHeight;
             bool keepAspectRatio;
@@ -344,7 +346,7 @@ public:
 
     bool adjustSize(uint32_t* const width, uint32_t* const height) const
     {
-        if (canResize())
+        if (fUI != nullptr && fUI->isResizable())
         {
             uint minimumWidth, minimumHeight;
             bool keepAspectRatio;
@@ -582,7 +584,8 @@ private:
                              nullptr, // TODO fileRequestCallback,
                              d_nextBundlePath,
                              fPlugin.getInstancePointer(),
-                             fScaleFactor);
+                             fScaleFactor,
+                             DGL_NAMESPACE::Application::kTypeClassic);
 
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         fUI->programLoaded(fCurrentProgram);

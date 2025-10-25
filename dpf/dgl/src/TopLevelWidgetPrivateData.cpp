@@ -135,11 +135,6 @@ bool TopLevelWidget::PrivateData::scrollEvent(const ScrollEvent& ev)
     return selfw->pData->giveScrollEventForSubWidgets(rev);
 }
 
-void TopLevelWidget::PrivateData::fallbackOnResize(const uint width, const uint height)
-{
-    puglFallbackOnResize(window.pData->view, width, height);
-}
-
 // -----------------------------------------------------------------------
 
 END_NAMESPACE_DGL

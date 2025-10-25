@@ -560,11 +560,11 @@ void UI::uiFocus(bool, DGL_NAMESPACE::CrossingMode)
 {
 }
 
-void UI::uiReshape(const uint width, const uint height)
+#if DGL_ALLOW_DEPRECATED_METHODS
+void UI::uiReshape(uint, uint)
 {
-    // NOTE this must be the same as Window::onReshape
-    pData->fallbackOnResize(width, height);
 }
+#endif
 
 #if DISTRHO_UI_FILE_BROWSER
 void UI::uiFileBrowserSelected(const char*)
