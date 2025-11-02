@@ -68,7 +68,7 @@ rm -f  dpf/distrho/extra/Runner.hpp
 rm -f  dpf/distrho/extra/Time.hpp
 rm -f  dpf/distrho/extra/WebView*
 
-sed -i '/	$(BUILD_DIR)\/dgl\/Layout.cpp.o \\/d' dpf/dgl/Makefile
+sed -i -e '/	$(BUILD_DIR)\/dgl\/Layout.cpp.o \\/d' dpf/dgl/Makefile
 
 for PLUGIN in ${PLUGINS[@]}; do
   for f in $(ls repos/${PLUGIN}/plugins/); do
