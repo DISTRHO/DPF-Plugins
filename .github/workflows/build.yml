@@ -15,7 +15,7 @@ jobs:
         target: [linux-arm64, linux-armhf, linux-i686, linux-riscv64, linux-x86_64]
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:22.04
+      image: ubuntu:20.04
     steps:
       - uses: actions/checkout@v4
       - uses: distrho/dpf-makefile-action@v1
