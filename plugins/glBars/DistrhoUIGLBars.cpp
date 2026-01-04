@@ -3,7 +3,7 @@
  * Copyright (C) 1998-2000  Peter Alm, Mikael Alm, Olle Hallnas, Thomas Nilsson and 4Front Technologies
  * Copyright (C) 2000 Christian Zander <phoenix@minion.de>
  * Copyright (C) 2015 Nedko Arnaudov
- * Copyright (C) 2016-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2016-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -23,19 +23,17 @@
 
 START_NAMESPACE_DISTRHO
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 DistrhoUIGLBars::DistrhoUIGLBars()
-    : UI(512, 512),
+    : UI(),
       fInitialized(false),
-      fResizeHandle(this)
+      fResizeHandle(this),
+      fPluginPtr(static_cast<DistrhoPluginGLBars*>(getPluginInstancePointer()))
 {
     const double scaleFactor = getScaleFactor();
 
-    if (d_isNotZero(scaleFactor))
-        setSize(512*scaleFactor, 512*scaleFactor);
-
-    setGeometryConstraints(256*scaleFactor, 256*scaleFactor, true);
+    setGeometryConstraints(256 * scaleFactor, 256 * scaleFactor, true);
 
     // no need to show resize handle if window is user-resizable
     if (isResizable())
@@ -44,17 +42,14 @@ DistrhoUIGLBars::DistrhoUIGLBars()
 
 DistrhoUIGLBars::~DistrhoUIGLBars()
 {
-    if (! fInitialized)
-        return;
-
-    if (DistrhoPluginGLBars* const dspPtr = (DistrhoPluginGLBars*)getPluginInstancePointer())
+    if (fInitialized && fPluginPtr != nullptr)
     {
-        const MutexLocker csm(dspPtr->fMutex);
-        dspPtr->fState = nullptr;
+        const MutexLocker csm(fPluginPtr->fMutex);
+        fPluginPtr->fState = nullptr;
     }
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // DSP Callbacks
 
 void DistrhoUIGLBars::parameterChanged(uint32_t index, float value)
@@ -83,26 +78,26 @@ void DistrhoUIGLBars::parameterChanged(uint32_t index, float value)
     }
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // UI Callbacks
 
 void DistrhoUIGLBars::uiIdle()
 {
     repaint();
 
-    if (DistrhoPluginGLBars* const dspPtr = (DistrhoPluginGLBars*)getPluginInstancePointer())
+    if (fPluginPtr != nullptr)
     {
-        if (dspPtr->fState != nullptr)
+        if (fPluginPtr->fState != nullptr)
             return;
 
         fInitialized = true;
 
-        const MutexLocker csm(dspPtr->fMutex);
-        dspPtr->fState = &fState;
+        const MutexLocker csm(fPluginPtr->fMutex);
+        fPluginPtr->fState = &fState;
     }
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // Widget Callbacks
 
 void DistrhoUIGLBars::onDisplay()
@@ -110,13 +105,13 @@ void DistrhoUIGLBars::onDisplay()
     fState.Render();
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 UI* createUI()
 {
     return new DistrhoUIGLBars();
 }
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 END_NAMESPACE_DISTRHO

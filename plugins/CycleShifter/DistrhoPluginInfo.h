@@ -1,7 +1,7 @@
 /*
  * DISTRHO CycleShifter, a DPF'ied CycleShifter.
  * Copyright (C) 2004 Niall Moody
- * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,8 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
+#include "DistrhoArtworkCycleShifter.hpp"
+
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "Cycle Shifter"
 #define DISTRHO_PLUGIN_URI     "http://www.niallmoody.com/ndcplugs/cycleshifter.htm"
@@ -35,6 +37,9 @@
 #define DISTRHO_PLUGIN_NUM_INPUTS    1
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   1
 #define DISTRHO_PLUGIN_WANT_PROGRAMS 1
+
+#define DISTRHO_UI_DEFAULT_WIDTH DistrhoArtworkCycleShifter::backWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT DistrhoArtworkCycleShifter::backHeight
 
 #define DISTRHO_PLUGIN_CLAP_FEATURES "audio-effect", "stereo"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Stereo"

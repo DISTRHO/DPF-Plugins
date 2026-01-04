@@ -1,6 +1,6 @@
 /*
  * DISTRHO ProM Plugin
- * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,16 +33,13 @@ START_NAMESPACE_DISTRHO
 // -----------------------------------------------------------------------
 
 DistrhoUIProM::DistrhoUIProM()
-    : UI(512, 512),
+    : UI(),
       fPM(nullptr),
       fResizeHandle(this)
 {
     const double scaleFactor = getScaleFactor();
 
-    if (d_isNotZero(scaleFactor))
-        setSize(512*scaleFactor, 512*scaleFactor);
-
-    setGeometryConstraints(256*scaleFactor, 256*scaleFactor, true);
+    setGeometryConstraints(256 * scaleFactor, 256 * scaleFactor, true);
 
     // no need to show resize handle if window is user-resizable
     // if (isResizable())
@@ -88,43 +85,43 @@ void DistrhoUIProM::uiIdle()
     }
 }
 
-void DistrhoUIProM::uiReshape(const uint width, const uint height)
-{
-    UI::uiReshape(width, height);
-
-    if (fPM == nullptr)
-    {
-#ifdef PROJECTM_DATA_DIR
-        fPM = new projectM(PROJECTM_DATA_DIR "/config.inp");
-#else
-        if (const char* const bundlePath = getBundlePath())
-        {
-            const String datadir(getResourcePath(bundlePath));
-            d_stdout("ProM datadir: '%s'", datadir.buffer());
-
-            projectM::Settings settings;
-            settings.presetURL    = datadir + DISTRHO_OS_SEP_STR "presets";
-            settings.titleFontURL = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "Vera.ttf";
-            settings.menuFontURL  = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "VeraMono.ttf";
-            settings.datadir      = datadir;
-            fPM = new projectM(settings);
-        }
-        else
-        {
-            d_stderr2("ProM: failed to find bundle path, UI will be empty");
-        }
-#endif
-    }
-
-    if (fPM != nullptr)
-        fPM->projectM_resetGL(width, height);
-}
-
 // -----------------------------------------------------------------------
 // Widget Callbacks
 
 void DistrhoUIProM::onDisplay()
 {
+    if (fResized)
+    {
+        if (fPM == nullptr)
+        {
+#ifdef PROJECTM_DATA_DIR
+            fPM = new projectM(PROJECTM_DATA_DIR "/config.inp");
+#else
+            if (const char* const bundlePath = getBundlePath())
+            {
+                const String datadir(getResourcePath(bundlePath));
+                d_stdout("ProM datadir: '%s'", datadir.buffer());
+
+                projectM::Settings settings;
+                settings.presetURL    = datadir + DISTRHO_OS_SEP_STR "presets";
+                settings.titleFontURL = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "Vera.ttf";
+                settings.menuFontURL  = datadir + DISTRHO_OS_SEP_STR "fonts" DISTRHO_OS_SEP_STR "VeraMono.ttf";
+                settings.datadir      = datadir;
+                fPM = new projectM(settings);
+            }
+            else
+            {
+                d_stderr2("ProM: failed to find bundle path, UI will be empty");
+            }
+#endif
+        }
+
+        if (fPM != nullptr)
+            fPM->projectM_resetGL(getWidth(), getHeight());
+
+        fResized = false;
+    }
+
     if (fPM == nullptr)
         return;
 
@@ -138,12 +135,6 @@ static projectMKeycode dgl2pmkey(const DGL_NAMESPACE::Key key) noexcept
 {
     switch (key)
     {
-    case DGL_NAMESPACE::kKeyBackspace:
-        return PROJECTM_K_BACKSPACE;
-    case DGL_NAMESPACE::kKeyEscape:
-        return PROJECTM_K_ESCAPE;
-    case DGL_NAMESPACE::kKeyDelete:
-        return PROJECTM_K_DELETE;
     case DGL_NAMESPACE::kKeyF1:
         return PROJECTM_K_F1;
     case DGL_NAMESPACE::kKeyF2:
@@ -168,6 +159,14 @@ static projectMKeycode dgl2pmkey(const DGL_NAMESPACE::Key key) noexcept
         return PROJECTM_K_F11;
     case DGL_NAMESPACE::kKeyF12:
         return PROJECTM_K_F12;
+    case DGL_NAMESPACE::kKeyPageUp:
+        return PROJECTM_K_PAGEUP;
+    case DGL_NAMESPACE::kKeyPageDown:
+        return PROJECTM_K_PAGEDOWN;
+    case DGL_NAMESPACE::kKeyEnd:
+        return PROJECTM_K_END;
+    case DGL_NAMESPACE::kKeyHome:
+        return PROJECTM_K_HOME;
     case DGL_NAMESPACE::kKeyLeft:
         return PROJECTM_K_LEFT;
     case DGL_NAMESPACE::kKeyUp:
@@ -176,14 +175,6 @@ static projectMKeycode dgl2pmkey(const DGL_NAMESPACE::Key key) noexcept
         return PROJECTM_K_RIGHT;
     case DGL_NAMESPACE::kKeyDown:
         return PROJECTM_K_DOWN;
-    case DGL_NAMESPACE::kKeyPageUp:
-        return PROJECTM_K_PAGEUP;
-    case DGL_NAMESPACE::kKeyPageDown:
-        return PROJECTM_K_PAGEDOWN;
-    case DGL_NAMESPACE::kKeyHome:
-        return PROJECTM_K_HOME;
-    case DGL_NAMESPACE::kKeyEnd:
-        return PROJECTM_K_END;
     case DGL_NAMESPACE::kKeyInsert:
         return PROJECTM_K_INSERT;
     case DGL_NAMESPACE::kKeyShiftL:
@@ -192,17 +183,84 @@ static projectMKeycode dgl2pmkey(const DGL_NAMESPACE::Key key) noexcept
         return PROJECTM_K_RSHIFT;
     case DGL_NAMESPACE::kKeyControlL:
         return PROJECTM_K_LCTRL;
+    case DGL_NAMESPACE::kKeyPad0:
+        return PROJECTM_K_0;
+    case DGL_NAMESPACE::kKeyPad1:
+        return PROJECTM_K_1;
+    case DGL_NAMESPACE::kKeyPad2:
+        return PROJECTM_K_2;
+    case DGL_NAMESPACE::kKeyPad3:
+        return PROJECTM_K_3;
+    case DGL_NAMESPACE::kKeyPad4:
+        return PROJECTM_K_4;
+    case DGL_NAMESPACE::kKeyPad5:
+        return PROJECTM_K_5;
+    case DGL_NAMESPACE::kKeyPad6:
+        return PROJECTM_K_6;
+    case DGL_NAMESPACE::kKeyPad7:
+        return PROJECTM_K_7;
+    case DGL_NAMESPACE::kKeyPad8:
+        return PROJECTM_K_8;
+    case DGL_NAMESPACE::kKeyPad9:
+        return PROJECTM_K_9;
+    case DGL_NAMESPACE::kKeyPadEnter:
+        return PROJECTM_K_RETURN;
+    case DGL_NAMESPACE::kKeyPadPageUp:
+        return PROJECTM_K_PAGEUP;
+    case DGL_NAMESPACE::kKeyPadPageDown:
+        return PROJECTM_K_PAGEDOWN;
+    case DGL_NAMESPACE::kKeyPadEnd:
+        return PROJECTM_K_END;
+    case DGL_NAMESPACE::kKeyPadHome:
+        return PROJECTM_K_HOME;
+    case DGL_NAMESPACE::kKeyPadLeft:
+        return PROJECTM_K_LEFT;
+    case DGL_NAMESPACE::kKeyPadUp:
+        return PROJECTM_K_UP;
+    case DGL_NAMESPACE::kKeyPadRight:
+        return PROJECTM_K_RIGHT;
+    case DGL_NAMESPACE::kKeyPadDown:
+        return PROJECTM_K_DOWN;
+    case DGL_NAMESPACE::kKeyPadInsert:
+        return PROJECTM_K_INSERT;
+    case DGL_NAMESPACE::kKeyPadDelete:
+        return PROJECTM_K_DELETE;
+    case DGL_NAMESPACE::kKeyPadEqual:
+        return PROJECTM_K_EQUALS;
+    case DGL_NAMESPACE::kKeyPadAdd:
+        return PROJECTM_K_PLUS;
+    case DGL_NAMESPACE::kKeyPadSubtract:
+        return PROJECTM_K_MINUS;
+
+    case DGL_NAMESPACE::kKeyBackspace:
+        return PROJECTM_K_BACKSPACE;
+    case DGL_NAMESPACE::kKeyTab:
+        // TODO
+    case DGL_NAMESPACE::kKeyEnter:
+        return PROJECTM_K_RETURN;
+    case DGL_NAMESPACE::kKeyEscape:
+        return PROJECTM_K_ESCAPE;
+    case DGL_NAMESPACE::kKeyDelete:
+        return PROJECTM_K_DELETE;
+    case DGL_NAMESPACE::kKeySpace:
+        break;
+
+    case DGL_NAMESPACE::kKeyPrintScreen:
+    case DGL_NAMESPACE::kKeyPause:
+    case DGL_NAMESPACE::kKeyMenu:
+    case DGL_NAMESPACE::kKeyNumLock:
+    case DGL_NAMESPACE::kKeyScrollLock:
+    case DGL_NAMESPACE::kKeyCapsLock:
     case DGL_NAMESPACE::kKeyControlR:
     case DGL_NAMESPACE::kKeyAltL:
     case DGL_NAMESPACE::kKeyAltR:
     case DGL_NAMESPACE::kKeySuperL:
     case DGL_NAMESPACE::kKeySuperR:
-    case DGL_NAMESPACE::kKeyMenu:
-    case DGL_NAMESPACE::kKeyCapsLock:
-    case DGL_NAMESPACE::kKeyScrollLock:
-    case DGL_NAMESPACE::kKeyNumLock:
-    case DGL_NAMESPACE::kKeyPrintScreen:
-    case DGL_NAMESPACE::kKeyPause:
+    case DGL_NAMESPACE::kKeyPadClear:
+    case DGL_NAMESPACE::kKeyPadMultiply:
+    case DGL_NAMESPACE::kKeyPadSeparator:
+    case DGL_NAMESPACE::kKeyPadDecimal:
+    case DGL_NAMESPACE::kKeyPadDivide:
         break;
     }
 
@@ -251,12 +309,18 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
     else
     {
         /* missing:
-         * PROJECTM_K_CAPSLOCK
+         * PROJECTM_K_TAB
+         * PROJECTM_K_SPACE
          */
         switch (ev.key)
         {
         case DGL_NAMESPACE::kKeyBackspace:
             pmKey = PROJECTM_K_BACKSPACE;
+            break;
+        case DGL_NAMESPACE::kKeyTab:
+            break;
+        case DGL_NAMESPACE::kKeyEnter:
+            pmKey = PROJECTM_K_RETURN;
             break;
         case DGL_NAMESPACE::kKeyEscape:
             pmKey = PROJECTM_K_ESCAPE;
@@ -264,7 +328,9 @@ bool DistrhoUIProM::onKeyboard(const KeyboardEvent& ev)
         case DGL_NAMESPACE::kKeyDelete:
             pmKey = PROJECTM_K_DELETE;
             break;
-        case '\r':
+        case DGL_NAMESPACE::kKeySpace:
+            break;
+        case '\n':
             pmKey = PROJECTM_K_RETURN;
             break;
 #ifdef HAVE_PROJECTM_TEXT_FUNCTIONS
@@ -303,6 +369,12 @@ bool DistrhoUIProM::onMouse(const MouseEvent& ev)
         getWindow().focus();
 
     return false;
+}
+
+void DistrhoUIProM::onResize(const ResizeEvent& ev)
+{
+    fResized = true;
+    UI::onResize(ev);
 }
 
 // -----------------------------------------------------------------------

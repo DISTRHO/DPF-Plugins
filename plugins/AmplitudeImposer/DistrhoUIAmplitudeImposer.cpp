@@ -1,7 +1,7 @@
 /*
  * DISTRHO AmplitudeImposer, a DPF'ied AmplitudeImposer.
  * Copyright (C) 2004 Niall Moody
- * Copyright (C) 2015-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,7 @@ namespace Art = DistrhoArtworkAmplitudeImposer;
 // -----------------------------------------------------------------------
 
 DistrhoUIAmplitudeImposer::DistrhoUIAmplitudeImposer()
-    : UI(Art::backWidth, Art::backHeight, true),
+    : UI(Art::backWidth, Art::backHeight, kInternalScalingMatchingHost),
       fImgBackground(Art::backData, Art::backWidth, Art::backHeight, kImageFormatGrayscale)
 {
     // sliders

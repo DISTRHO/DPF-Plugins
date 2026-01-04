@@ -1,7 +1,7 @@
 /*
  * DISTRHO MVerb, a DPF'ied MVerb.
  * Copyright (c) 2010 Martin Eastwood
- * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,6 +19,8 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
+#include "DistrhoArtworkMVerb.hpp"
+
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "MVerb"
 #define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/plugins/MVerb"
@@ -29,6 +31,9 @@
 #define DISTRHO_PLUGIN_NUM_INPUTS    2
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   2
 #define DISTRHO_PLUGIN_WANT_PROGRAMS 1
+
+#define DISTRHO_UI_DEFAULT_WIDTH DistrhoArtworkMVerb::backgroundWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT DistrhoArtworkMVerb::backgroundHeight
 
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "reverb", "stereo"
 #define DISTRHO_PLUGIN_LV2_CATEGORY    "lv2:ReverbPlugin"

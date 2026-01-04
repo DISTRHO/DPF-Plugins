@@ -682,9 +682,11 @@ struct Noise {
 	
 	inline t_sample operator()() {
 		last = 1664525L * last + 1013904223L;
-		unsigned long itemp = 0x3f800000 | (0x007fffff & last);
-		unsigned long* itempptr = &itemp;
-		return ((*(float *)itempptr) * 2.f) - 3.f;
+		union {
+			unsigned long ul;
+			float f;
+		} itemp = { 0x3f800000 | (0x007fffff & last) };
+		return itemp.f * 2.f - 3.f;
 	}
 };
 

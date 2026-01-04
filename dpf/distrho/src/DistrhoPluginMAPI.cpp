@@ -64,6 +64,11 @@ public:
         updateParameterOutputsAndTriggers();
     }
 
+    float getParameter(unsigned int index) const
+    {
+        return fPlugin.getParameterValue(index);
+    }
+
     void setParameter(unsigned int index, float value)
     {
         fPlugin.setParameterValue(index, fPlugin.getParameterRanges(index).getFixedValue(value));
@@ -133,6 +138,12 @@ void mapi_process(mapi_handle_t handle,
                   unsigned int frames)
 {
     static_cast<PluginMAPI*>(handle)->process(ins, outs, frames);
+}
+
+MAPI_EXPORT
+float mapi_get_parameter(mapi_handle_t handle, unsigned int index)
+{
+    return static_cast<PluginMAPI*>(handle)->getParameter(index);
 }
 
 MAPI_EXPORT

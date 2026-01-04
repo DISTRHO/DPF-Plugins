@@ -44,6 +44,15 @@ void mapi_process(mapi_handle_t handle,
                   unsigned int frames);
 
 /**
+   Get an effect parameter.
+   @param handle A previously created effect.
+   @param index A known index for this effect.
+   @return value A full-ranged value.
+*/
+MAPI_EXPORT
+float mapi_get_parameter(mapi_handle_t handle, unsigned int index);
+
+/**
    Set an effect parameter.
    @param handle A previously created effect.
    @param index A known index for this effect.

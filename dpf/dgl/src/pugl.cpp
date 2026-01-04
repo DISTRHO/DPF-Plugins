@@ -308,6 +308,11 @@ PuglStatus puglSetGeometryConstraints(PuglView* const view, const uint width, co
         view->sizeHints[PUGL_FIXED_ASPECT].width = static_cast<PuglSpan>(width);
         view->sizeHints[PUGL_FIXED_ASPECT].height = static_cast<PuglSpan>(height);
     }
+    else
+    {
+        view->sizeHints[PUGL_FIXED_ASPECT].width = 0;
+        view->sizeHints[PUGL_FIXED_ASPECT].height = 0;
+    }
 
    #if defined(DISTRHO_OS_HAIKU)
    #elif defined(DISTRHO_OS_MAC)

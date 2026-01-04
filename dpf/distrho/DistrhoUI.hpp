@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -55,7 +55,7 @@ START_NAMESPACE_DISTRHO
 
 class PluginWindow;
 
-/* ------------------------------------------------------------------------------------------------------------
+/* --------------------------------------------------------------------------------------------------------------------
  * DPF UI */
 
 /**
@@ -72,23 +72,38 @@ class PluginWindow;
 class UI : public UIWidget
 {
 public:
+    enum InternalScalingMode {
+        kNoInternalScaling,
+        kInternalScalingMatchingHost,
+    };
+
    /**
       UI class constructor.
       The UI should be initialized to a default state that matches the plugin side.
 
-      When @a automaticallyScale is set to true, DPF will automatically scale up the UI
-      to fit the host/desktop scale factor.@n
-      It assumes aspect ratio is meant to be kept.
-      Manually call setGeometryConstraints instead if keeping UI aspect ratio is not required.
+      The @p width and @p height arguments are meant to be used without any OS-level UI scaling.
+      Scaling will be automatically done internally if needed, matching the OS and host.
+
+      @see getScaleFactor
+      @see setGeometryConstraints
     */
-    UI(uint width = 0, uint height = 0, bool automaticallyScaleAndSetAsMinimumSize = false);
+    UI(uint width = 0, uint height = 0, InternalScalingMode internalScalingMode = kNoInternalScaling);
+
+   #if DGL_ALLOW_DEPRECATED_METHODS
+   /** DEPRECATED DO NOT USE.
+    * The old deprecated constructor allowed for an optional `bool automaticallyScaleAndSetAsMinimumSize`.
+    * This turned out to be not be a good idea; now the scaling is done automatically while minimum size is not.
+    */
+    DISTRHO_DEPRECATED_BY("UI(width, height)")
+    UI(uint width, uint height, bool automaticallyScaleAndSetAsMinimumSize);
+   #endif
 
    /**
       Destructor.
     */
     ~UI() override;
 
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * Host state */
 
    /**
@@ -201,7 +216,7 @@ public:
 #endif
 
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * Direct DSP access - DO NOT USE THIS UNLESS STRICTLY NECESSARY!! */
 
    /**
@@ -212,7 +227,7 @@ public:
 #endif
 
 protected:
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * DSP/Plugin Callbacks */
 
    /**
@@ -237,7 +252,7 @@ protected:
     virtual void stateChanged(const char* key, const char* value);
 #endif
 
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * DSP/Plugin Callbacks (optional) */
 
    /**
@@ -246,7 +261,7 @@ protected:
     */
     virtual void sampleRateChanged(double newSampleRate);
 
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * UI Callbacks (optional) */
 
    /**
@@ -310,7 +325,7 @@ protected:
     virtual void uiFileBrowserSelected(const char* filename);
    #endif
 
-   /* --------------------------------------------------------------------------------------------------------
+   /* -----------------------------------------------------------------------------------------------------------------
     * UI Resize Handling, internal */
 
    /**
@@ -320,7 +335,7 @@ protected:
     */
     void onResize(const ResizeEvent& ev) override;
 
-    // -------------------------------------------------------------------------------------------------------
+    // ----------------------------------------------------------------------------------------------------------------
 
 private:
     struct PrivateData;
@@ -335,7 +350,7 @@ private:
 
 /** @} */
 
-/* ------------------------------------------------------------------------------------------------------------
+/* --------------------------------------------------------------------------------------------------------------------
  * Create UI, entry point */
 
 /**
@@ -351,7 +366,7 @@ extern UI* createUI();
 
 /** @} */
 
-// -----------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 
 END_NAMESPACE_DISTRHO
 

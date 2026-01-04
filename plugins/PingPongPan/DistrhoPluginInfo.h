@@ -1,6 +1,6 @@
 /*
  * DISTRHO PingPongPan Plugin, based on PingPongPan by Michael Gruhn
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,6 +16,8 @@
 
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
+
+#include "DistrhoArtworkPingPongPan.hpp"
 
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "Ping Pong Pan"
@@ -34,6 +36,9 @@
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "stereo"
 #define DISTRHO_PLUGIN_LV2_CATEGORY    "lv2:SpatialPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Spatial"
+
+#define DISTRHO_UI_DEFAULT_WIDTH DistrhoArtworkPingPongPan::backgroundWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT DistrhoArtworkPingPongPan::backgroundHeight
 
 #define DPF_VST3_DONT_USE_BRAND_ID
 

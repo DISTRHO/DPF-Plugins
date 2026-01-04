@@ -1,7 +1,7 @@
 /*
  * DISTRHO SoulForce, a DPF'ied SoulForce.
  * Copyright (C) 2006 Niall Moody
- * Copyright (C) 2015 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,8 +27,6 @@
 
 #include "DistrhoUI.hpp"
 #include "ImageWidgets.hpp"
-
-#include "DistrhoArtworkSoulForce.hpp"
 
 START_NAMESPACE_DISTRHO
 

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -270,29 +270,31 @@ void Window::setSize(uint width, uint height)
 {
     DISTRHO_SAFE_ASSERT_UINT2_RETURN(width > 1 && height > 1, width, height,);
 
+    const double scaleFactor = pData->scaleFactor;
+
     if (pData->isEmbed)
     {
-        const double scaleFactor = pData->scaleFactor;
-        uint minWidth = pData->minWidth;
-        uint minHeight = pData->minHeight;
+        PuglArea area = puglGetSizeHint(pData->view, PUGL_FIXED_ASPECT);
 
         if (pData->autoScaling && d_isNotEqual(scaleFactor, 1.0))
         {
-            minWidth = d_roundToUnsignedInt(minWidth * scaleFactor);
-            minHeight = d_roundToUnsignedInt(minHeight * scaleFactor);
+            area.width = d_roundToUnsignedInt(area.width * scaleFactor);
+            area.height = d_roundToUnsignedInt(area.height * scaleFactor);
+            width = d_roundToUnsignedInt(width * scaleFactor);
+            height = d_roundToUnsignedInt(height * scaleFactor);
         }
 
         // handle geometry constraints here
-        if (width < minWidth)
-            width = minWidth;
+        if (width < area.width)
+            width = area.width;
 
-        if (height < minHeight)
-            height = minHeight;
+        if (height < area.height)
+            height = area.height;
 
-        if (pData->keepAspectRatio)
+        if (area.width != 0 && area.height != 0)
         {
-            const double ratio = static_cast<double>(pData->minWidth)
-                               / static_cast<double>(pData->minHeight);
+            const double ratio = static_cast<double>(area.width)
+                               / static_cast<double>(area.height);
             const double reqRatio = static_cast<double>(width)
                                   / static_cast<double>(height);
 
@@ -305,6 +307,14 @@ void Window::setSize(uint width, uint height)
                 else
                     height = d_roundToUnsignedInt(static_cast<double>(width) / ratio);
             }
+        }
+    }
+    else
+    {
+        if (pData->autoScaling && d_isNotEqual(scaleFactor, 1.0))
+        {
+            width = d_roundToUnsignedInt(width * scaleFactor);
+            height = d_roundToUnsignedInt(height * scaleFactor);
         }
     }
 
@@ -412,6 +422,34 @@ double Window::getScaleFactor() const noexcept
     return pData->scaleFactor;
 }
 
+void Window::enableInternalScalingWithSize(uint baseWidth, uint baseHeight, const bool keepAspectRatio)
+{
+    DISTRHO_SAFE_ASSERT_RETURN(baseWidth > 0,);
+    DISTRHO_SAFE_ASSERT_RETURN(baseHeight > 0,);
+
+    const Size<uint> size(getSize());
+    const double scaleHorizontal = size.getWidth() / static_cast<double>(baseWidth);
+    const double scaleVertical = size.getHeight() / static_cast<double>(baseHeight);
+
+    pData->baseWidth = baseWidth;
+    pData->baseHeight = baseHeight;
+    pData->autoScaling = true;
+    pData->autoScaleFactor = scaleHorizontal < scaleVertical ? scaleHorizontal : scaleVertical;
+
+    if (pData->view == nullptr)
+        return;
+
+    const double scaleFactor = pData->scaleFactor;
+
+    if (d_isNotEqual(scaleFactor, 1.0))
+    {
+        baseWidth = d_roundToUnsignedInt(baseWidth * scaleFactor);
+        baseHeight = d_roundToUnsignedInt(baseHeight * scaleFactor);
+    }
+
+    puglSetGeometryConstraints(pData->view, baseWidth, baseHeight, keepAspectRatio);
+}
+
 void Window::focus()
 {
     pData->focus();
@@ -487,10 +525,21 @@ void Window::runAsModal(bool blockWait)
 
 Size<uint> Window::getGeometryConstraints(bool& keepAspectRatio)
 {
-    keepAspectRatio = pData->keepAspectRatio;
-    return Size<uint>(pData->minWidth, pData->minHeight);
+    const PuglArea area = puglGetSizeHint(pData->view, PUGL_FIXED_ASPECT);
+    keepAspectRatio = area.width != 0 && area.height != 0;
+    return Size<uint>(area.width, area.height);
 }
 
+void Window::setGeometryConstraints(const uint minimumWidth, const uint minimumHeight, const bool keepAspectRatio)
+{
+    DISTRHO_SAFE_ASSERT_RETURN(minimumWidth > 0,);
+    DISTRHO_SAFE_ASSERT_RETURN(minimumHeight > 0,);
+
+    if (pData->view != nullptr)
+        puglSetGeometryConstraints(pData->view, minimumWidth, minimumHeight, keepAspectRatio);
+}
+
+#if DGL_ALLOW_DEPRECATED_METHODS
 void Window::setGeometryConstraints(uint minimumWidth,
                                     uint minimumHeight,
                                     const bool keepAspectRatio,
@@ -504,10 +553,18 @@ void Window::setGeometryConstraints(uint minimumWidth,
     if (resizeNowIfAutoScaling && automaticallyScale && pData->autoScaling == automaticallyScale)
         resizeNowIfAutoScaling = false;
 
-    pData->minWidth = minimumWidth;
-    pData->minHeight = minimumHeight;
-    pData->autoScaling = automaticallyScale;
-    pData->keepAspectRatio = keepAspectRatio;
+    if (automaticallyScale)
+    {
+        pData->autoScaling = true;
+        pData->baseWidth = minimumWidth;
+        pData->baseHeight = minimumHeight;
+    }
+    else
+    {
+        pData->autoScaling = false;
+        pData->baseWidth = 0;
+        pData->baseHeight = 0;
+    }
 
     if (pData->view == nullptr)
         return;
@@ -530,6 +587,7 @@ void Window::setGeometryConstraints(uint minimumWidth,
                 d_roundToUnsignedInt(size.getHeight() * scaleFactor));
     }
 }
+#endif
 
 void Window::setTransientParent(const uintptr_t transientParentWindowHandle)
 {

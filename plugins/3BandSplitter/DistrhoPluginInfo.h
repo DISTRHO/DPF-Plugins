@@ -1,6 +1,6 @@
 /*
  * DISTRHO 3BandSplitter Plugin, based on 3BandSplitter by Michael Gruhn
- * Copyright (C) 2012-2024 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,6 +16,8 @@
 
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
+
+#include "DistrhoArtwork3BandSplitter.hpp"
 
 #define DISTRHO_PLUGIN_BRAND   "DISTRHO"
 #define DISTRHO_PLUGIN_NAME    "3 Band Splitter"
@@ -34,6 +36,9 @@
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "equalizer", "stereo"
 #define DISTRHO_PLUGIN_LV2_CATEGORY    "lv2:EQPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|EQ"
+
+#define DISTRHO_UI_DEFAULT_WIDTH DistrhoArtwork3BandSplitter::backgroundWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT DistrhoArtwork3BandSplitter::backgroundHeight
 
 #define DPF_VST3_DONT_USE_BRAND_ID
 

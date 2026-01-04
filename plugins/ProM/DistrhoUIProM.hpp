@@ -42,7 +42,6 @@ protected:
     // UI Callbacks
 
     void uiIdle() override;
-    void uiReshape(uint width, uint height) override;
 
     // -------------------------------------------------------------------
     // Widget Callbacks
@@ -50,10 +49,12 @@ protected:
     void onDisplay() override;
     bool onKeyboard(const KeyboardEvent&) override;
     bool onMouse(const MouseEvent& ev) override;
+    void onResize(const ResizeEvent& ev) override;
 
 private:
     ScopedPointer<projectM> fPM;
     ResizeHandle fResizeHandle;
+    bool fResized = true;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistrhoUIProM)
 };

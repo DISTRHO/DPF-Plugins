@@ -3,7 +3,7 @@
  * Copyright (C) 1998-2000  Peter Alm, Mikael Alm, Olle Hallnas, Thomas Nilsson and 4Front Technologies
  * Copyright (C) 2000 Christian Zander <phoenix@minion.de>
  * Copyright (C) 2015 Nedko Arnaudov
- * Copyright (C) 2016-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2016-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -34,6 +34,9 @@
 #define DISTRHO_PLUGIN_LV2_CATEGORY       "lv2:AnalyserPlugin"
 #define DISTRHO_PLUGIN_VST3_CATEGORIES    "Fx|Analyzer"
 #define DISTRHO_UI_USER_RESIZABLE         1
+
+#define DISTRHO_UI_DEFAULT_WIDTH 512
+#define DISTRHO_UI_DEFAULT_HEIGHT 512
 
 enum Parameters {
     kParameterScale = 0,

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -538,7 +538,12 @@ void Window::PrivateData::startContext()
     glViewport(0, 0, static_cast<GLsizei>(size.width), static_cast<GLsizei>(size.height));
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0.0, static_cast<GLdouble>(size.width), static_cast<GLdouble>(size.height), 0.0, 0.0, 1.0);
+    glOrtho(0.0,
+            static_cast<GLdouble>(size.width) / autoScaleFactor,
+            static_cast<GLdouble>(size.height) / autoScaleFactor,
+            0.0,
+            0.0,
+            1.0);
     glViewport(0, 0, static_cast<GLsizei>(size.width), static_cast<GLsizei>(size.height));
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();

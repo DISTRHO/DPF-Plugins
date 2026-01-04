@@ -162,6 +162,7 @@ BASE_FLAGS += -IprojectM/msvc
 endif # WINDOWS
 
 # silence projectM warnings
+BASE_FLAGS += -Wno-deprecated-declarations
 BASE_FLAGS += -Wno-ignored-qualifiers
 BASE_FLAGS += -Wno-implicit-fallthrough
 BASE_FLAGS += -Wno-overflow
@@ -184,13 +185,13 @@ else
 BASE_FLAGS += -Wno-unused-function
 endif # WINDOWS
 
-# openmp (optional)
-ifeq ($(DISABLE_OPENMP),)
-ifneq ($(MACOS),true)
-CUSTOM_BUILD_FLAGS += -D_OPENMP -fopenmp
-CUSTOM_LINK_FLAGS  += -fopenmp
-endif # MACOS
-endif # DISABLE_OPENMP
+# # openmp (optional)
+# ifeq ($(DISABLE_OPENMP),)
+# ifneq ($(MACOS),true)
+# CUSTOM_BUILD_FLAGS += -D_OPENMP -fopenmp
+# CUSTOM_LINK_FLAGS  += -fopenmp
+# endif # MACOS
+# endif # DISABLE_OPENMP
 
 # extra linker flags
 ifneq ($(HAIKU_OR_MACOS_OR_WINDOWS),true)
@@ -199,6 +200,7 @@ endif
 ifeq ($(WINDOWS),true)
 LINK_FLAGS += -lpsapi
 endif
+
 
 endif # HAVE_PROJECTM
 

@@ -1,6 +1,6 @@
 /*
  * DISTRHO ProM Plugin
- * Copyright (C) 2015-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2015-2026 Filipe Coelho <falktx@falktx.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,6 +26,9 @@
 #define DISTRHO_PLUGIN_NUM_INPUTS    2
 #define DISTRHO_PLUGIN_NUM_OUTPUTS   2
 #define DISTRHO_UI_USER_RESIZABLE    1
+
+#define DISTRHO_UI_DEFAULT_WIDTH 512
+#define DISTRHO_UI_DEFAULT_HEIGHT 512
 
 // required by projectM
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1

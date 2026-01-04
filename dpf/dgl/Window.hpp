@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2026 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -394,6 +394,16 @@ public:
     double getScaleFactor() const noexcept;
 
    /**
+      Enable automatic internal scaling based on a custom width and height.
+      This will internally scale up drawing and scale down user events coordinates and sizes,
+      but the result is likely blurry.
+
+      This can be used as an early step for high-dpi support,
+      that scales up the window contents in a blurry but usable way.
+    */
+    void enableInternalScalingWithSize(uint baseWidth, uint baseHeight, bool keepAspectRatio = false);
+
+   /**
       Grab the keyboard input focus.
     */
     void focus();
@@ -463,13 +473,23 @@ public:
     Size<uint> getGeometryConstraints(bool& keepAspectRatio);
 
    /**
-      Set geometry constraints for the Window when resized by the user, and optionally scale contents automatically.
+      Set geometry constraints for the Window when resized by the user.
+      Also whether to keep aspect ratio based on this size.
     */
+    void setGeometryConstraints(uint minimumWidth, uint minimumHeight, bool keepAspectRatio = false);
+
+   #if DGL_ALLOW_DEPRECATED_METHODS
+   /** DEPRECATED DO NOT USE.
+    * The old deprecated function allowed for optional `bool automaticallyScale` and `bool resizeNowIfAutoScaling`.
+    * This turned out to be not be a good idea; now the scaling on constraints is never done automatically.
+    */
+    DISTRHO_DEPRECATED_BY("setGeometryConstraints(uint, uint, bool)")
     void setGeometryConstraints(uint minimumWidth,
                                 uint minimumHeight,
-                                bool keepAspectRatio = false,
-                                bool automaticallyScale = false,
-                                bool resizeNowIfAutoScaling = true);
+                                bool keepAspectRatio,
+                                bool automaticallyScale,
+                                bool resizeNowIfAutoScaling);
+   #endif
 
    /**
       Set the transient parent of the window.

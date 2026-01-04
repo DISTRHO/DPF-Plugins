@@ -42,7 +42,7 @@ nekobee_voice_new()
 {
     nekobee_voice_t *voice;
 
-    voice = (nekobee_voice_t *)calloc(sizeof(nekobee_voice_t), 1);
+    voice = (nekobee_voice_t *)calloc(1, sizeof(nekobee_voice_t));
     if (voice) {
         voice->status = XSYNTH_VOICE_OFF;
     }
